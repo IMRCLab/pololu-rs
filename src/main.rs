@@ -11,7 +11,7 @@ use panic_halt as _;
 
 use embassy_executor::Spawner;
 use embassy_rp::gpio;
-use embassy_rp::pwm::{Config, Pwm, SetDutyCycle};
+use embassy_rp::pwm::{Config, Pwm};
 use embassy_time::Timer;
 use gpio::{Level, Output};
 
@@ -28,14 +28,23 @@ async fn main(_spawner: Spawner) {
     let mut direction_right = Output::new(p.PIN_10, Level::Low);
     let mut direction_left = Output::new(p.PIN_11, Level::Low);
 
-    let mut channel_right = Pwm::new_output_a(p.PWM_SLICE7, p.PIN_14, c.clone());
+    // let mut channel_right = Pwm::new_output_a(p.PWM_SLICE7, p.PIN_14, c.clone());
+    // let mut channel_left = Pwm::new_output_b(p.PWM_SLICE7, p.PIN_15, c.clone());
 
-    channel_right.set_duty_cycle(3000).unwrap();
-    direction_right.set_high();
+
+    // channel_right.set_duty_cycle(3000).unwrap();
+    // direction_right.set_high();
 
     // let mut channel_left = Pwm::new_output_b(p.PWM_SLICE7, p.PIN_15, c.clone());
 
-    // let channel = Pwm::new_output_ab(p.PWM_SLICE7, p.PIN_14, p.PIN_15, c.clone());
+    let mut channel = Pwm::new_output_ab(p.PWM_SLICE7, p.PIN_14, p.PIN_15, c.clone());
+
+    // c.compare_a = 500; //right
+    // c.compare_b = 250; // left
+    // channel.set_config(&c);
+    direction_right.set_high();
+    direction_left.set_low();
+
     // let (channel_left, channel_right) = channel.split();
 
     // channel_right.unwrap().set_duty_cycle(3000).unwrap();
@@ -46,9 +55,19 @@ async fn main(_spawner: Spawner) {
 
     loop {
         led.set_high();
+
+        c.compare_a = 2000; //right
+        c.compare_b = 2000; // left
+        channel.set_config(&c);
+
         Timer::after_secs(1).await;
 
         led.set_low();
+
+        c.compare_a = 0; //right
+        c.compare_b = 0; // left
+        channel.set_config(&c);
+
         Timer::after_secs(1).await;
     }
 }
