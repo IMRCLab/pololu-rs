@@ -10,14 +10,30 @@
 use panic_halt as _;
 
 use embassy_executor::Spawner;
+use embassy_rp::bind_interrupts;
+use embassy_rp::peripherals::USB;
+use embassy_rp::usb::{Driver, InterruptHandler};
 use embassy_rp::gpio;
 use embassy_rp::pwm::{Config, Pwm};
 use embassy_time::Timer;
 use gpio::{Level, Output};
 
+bind_interrupts!(struct Irqs {
+    USBCTRL_IRQ => InterruptHandler<USB>;
+});
+
+#[embassy_executor::task]
+async fn logger_task(driver: Driver<'static, USB>) {
+    embassy_usb_logger::run!(1024, log::LevelFilter::Info, driver);
+}
+
 #[embassy_executor::main]
-async fn main(_spawner: Spawner) {
+async fn main(spawner: Spawner) {
     let p = embassy_rp::init(Default::default());
+
+    let driver = Driver::new(p.USB, Irqs);
+    spawner.spawn(logger_task(driver)).unwrap();
+
     let mut led = Output::new(p.PIN_25, Level::Low);
 
     let mut c = Config::default();
@@ -54,6 +70,8 @@ async fn main(_spawner: Spawner) {
     // direction_left.set_low();
 
     loop {
+        log::info!("High");
+
         led.set_high();
 
         c.compare_a = 2000; //right
@@ -61,6 +79,8 @@ async fn main(_spawner: Spawner) {
         channel.set_config(&c);
 
         Timer::after_secs(1).await;
+
+        log::info!("Low");
 
         led.set_low();
 

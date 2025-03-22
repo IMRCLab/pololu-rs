@@ -76,3 +76,12 @@ There are two major frameworks: [embedded-hal](https://github.com/rp-rs/rp-hal-b
 
 * Press "B" + Reset
 * `cargo run --release` will flash and run the firmware
+
+## USB Logging
+
+```
+sudo apt install tio
+tio /dev/ttyACM0
+```
+
+(use ctrl+t q to exit)
