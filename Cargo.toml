@@ -22,7 +22,7 @@ embedded-storage = "0.3.1"
 
 
 
-embassy-executor = { version = "0.7", features = ["task-arena-size-2048", "arch-cortex-m", "executor-thread", "executor-interrupt"] }
+embassy-executor = { version = "0.7", features = ["task-arena-size-4096", "arch-cortex-m", "executor-thread", "executor-interrupt"] }
 embassy-sync = { version = "0.6" }
 embassy-time = { version = "0.4", features = [] }
 embassy-rp = { version = "0.4", features = ["unstable-pac", "time-driver", "critical-section-impl", "rp2040"] }

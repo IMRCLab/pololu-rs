@@ -12,19 +12,50 @@ use panic_halt as _;
 use embassy_executor::Spawner;
 use embassy_rp::bind_interrupts;
 use embassy_rp::peripherals::USB;
-use embassy_rp::usb::{Driver, InterruptHandler};
+use embassy_rp::usb::{Driver};
+
+use embassy_rp::peripherals::PIO0;
+use embassy_rp::pio::{Pio};
+use embassy_rp::pio_programs::rotary_encoder::{Direction, PioEncoder, PioEncoderProgram};
+
+
 use embassy_rp::gpio;
 use embassy_rp::pwm::{Config, Pwm};
 use embassy_time::Timer;
 use gpio::{Level, Output};
 
 bind_interrupts!(struct Irqs {
-    USBCTRL_IRQ => InterruptHandler<USB>;
+    USBCTRL_IRQ => embassy_rp::usb::InterruptHandler<USB>;
+    PIO0_IRQ_0 => embassy_rp::pio::InterruptHandler<PIO0>;
 });
 
 #[embassy_executor::task]
 async fn logger_task(driver: Driver<'static, USB>) {
     embassy_usb_logger::run!(1024, log::LevelFilter::Info, driver);
+}
+
+#[embassy_executor::task]
+async fn encoder_0(mut encoder: PioEncoder<'static, PIO0, 0>) {
+    let mut count = 0;
+    loop {
+        log::info!("Count r: {}", count);
+        count += match encoder.read().await {
+            Direction::Clockwise => 1,
+            Direction::CounterClockwise => -1,
+        };
+    }
+}
+
+#[embassy_executor::task]
+async fn encoder_1(mut encoder: PioEncoder<'static, PIO0, 1>) {
+    let mut count = 0;
+    loop {
+        log::info!("Count l: {}", count);
+        count += match encoder.read().await {
+            Direction::Clockwise => 1,
+            Direction::CounterClockwise => -1,
+        };
+    }
 }
 
 #[embassy_executor::main]
@@ -33,6 +64,18 @@ async fn main(spawner: Spawner) {
 
     let driver = Driver::new(p.USB, Irqs);
     spawner.spawn(logger_task(driver)).unwrap();
+
+    let Pio {
+        mut common, sm0, sm1, ..
+    } = Pio::new(p.PIO0, Irqs);
+
+    let prg = PioEncoderProgram::new(&mut common);
+    let encoder0 = PioEncoder::new(&mut common, sm0, p.PIN_8, p.PIN_9, &prg);//right
+    let encoder1 = PioEncoder::new(&mut common, sm1, p.PIN_12, p.PIN_13, &prg);//left
+
+    spawner.must_spawn(encoder_0(encoder0));
+    spawner.must_spawn(encoder_1(encoder1));
+
 
     let mut led = Output::new(p.PIN_25, Level::Low);
 
