@@ -19,7 +19,8 @@ use embedded_hal::digital::OutputPin;
 
 // Ensure we halt the program on panic (if we don't mention this crate it won't
 // be linked)
-use panic_halt as _;
+// use panic_halt as _;
+use panic_probe as _;
 
 // Pull in any important traits
 use rp_pico::hal::prelude::*;
@@ -30,6 +31,8 @@ use rp_pico::hal::pac;
 
 // A shorter alias for the Hardware Abstraction Layer, which provides
 // higher-level drivers.
+use defmt::*;
+use defmt_rtt as _;
 use rp_pico::hal;
 
 /// Entry point to our bare-metal application.
@@ -41,6 +44,7 @@ use rp_pico::hal;
 /// infinite loop.
 #[entry]
 fn main() -> ! {
+    info!("Pololu Start!!!");
     // Grab our singleton objects
     let mut pac = pac::Peripherals::take().unwrap();
     let core = pac::CorePeripherals::take().unwrap();
@@ -94,7 +98,7 @@ fn main() -> ! {
 
     // See https://github.com/pololu/pololu-3pi-2040-robot/blob/master/c/pololu_3pi_2040_robot/motors.c
     // See https://github.com/rp-rs/rp-hal-boards/blob/main/boards/rp-pico/examples/pico_pwm_servo.rs
-    // 
+    //
 
     // Init PWMs
     let mut pwm_slices = hal::pwm::Slices::new(pac.PWM, &mut pac.RESETS);
@@ -107,8 +111,12 @@ fn main() -> ! {
     pwm.set_top(/*MOTORS_MAX_SPEED - 1 */ 6000 - 1);
     pwm.enable();
 
-    let mut direction_right = pins.gpio10.into_push_pull_output_in_state(hal::gpio::PinState::Low); // direction right
-    let mut direction_left = pins.gpio11.into_push_pull_output_in_state(hal::gpio::PinState::Low); // direction left
+    let mut direction_right = pins
+        .gpio10
+        .into_push_pull_output_in_state(hal::gpio::PinState::Low); // direction right
+    let mut direction_left = pins
+        .gpio11
+        .into_push_pull_output_in_state(hal::gpio::PinState::Low); // direction left
 
     let channel_right = &mut pwm.channel_a;
     channel_right.output_to(pins.gpio14);
@@ -116,7 +124,10 @@ fn main() -> ! {
     let channel_left = &mut pwm.channel_b;
     channel_left.output_to(pins.gpio15);
 
+    let value = 42;
+
     loop {
+        info!("Pololu is Running!!!! The test value is {}", value);
         channel_right.set_duty_cycle(3000).unwrap();
         direction_right.set_high().unwrap();
 
@@ -128,7 +139,6 @@ fn main() -> ! {
         led_pin.set_low().unwrap();
         delay.delay_ms(500);
     }
-
 }
 
 // End of file
