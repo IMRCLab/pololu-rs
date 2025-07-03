@@ -76,3 +76,35 @@ There are two major frameworks: [embedded-hal](https://github.com/rp-rs/rp-hal-b
 
 * Press "B" + Reset
 * `cargo run --release` will flash and run the firmware
+
+
+## Logging with Raspberry Pi Debug Probe
+The logging is mainly based on [probe-rs](https://probe.rs/docs/getting-started/installation/), [defmt](https://docs.rs/defmt/latest/defmt/) and [defmt-rtt](https://docs.rs/defmt-rtt/latest/defmt_rtt/).
+There is also a useful [blog](https://murraytodd.medium.com/our-first-rust-blinky-program-on-raspberry-pi-pico-w-376211f1074d) to learn how to use them very quickly.
+
+* Notice: The installation command on the home page of [probe-rs](https://probe.rs/) doesn't work for me due to some package conflicts. If so you could try following the [instructions](https://probe.rs/docs/getting-started/installation/) and install it from source.
+
+### Debug Setup
+* You will need a Raspberry Pi Debug Probe(for debugging) and a USB-C Cabel(for flashing).
+* connect the probe properly to the Pololu. If the official probe is used, the connection should be:
+```
+Yellow(SWDIO) -> SWDIO
+Green(SWCLK)  -> SWCLK
+Black(GND)    -> GND 
+``` 
+Then connect the Pololu with the USB-C cabel to your PC, and the debug probe as well.
+* Press "B" + Reset to set the Pololu into bootloader mode.
+* If you would like to directly observed the debug information in the terminal, run:
+```
+cargo run --release
+```
+* If you would like to save the logging information into a csv file, run:
+```
+cargo run --release > file_name.csv
+```
+
+### Print New Debug Information 
+The code only print a test value(constant). When new debug information is needed, use:
+```
+info!("New Sensor Data: {}", value);
+```
