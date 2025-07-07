@@ -138,7 +138,7 @@ The function `try_read_packet()` can identify the packet type by checking the he
 
 ### Notice
 * Here we use [rp2040-hal](https://docs.rs/rp2040-hal/latest/rp2040_hal/) rather than [rp-pico](https://docs.rs/rp-pico/) since `gpio29` is occupied(read battery voltage) in `rp-pico` library.
-* The code is written by using `rp-2040-hal="0.10.0"`, if `rp-2040-hal="0.11.0"`, the code needs to be modified a lot.
+* The code is written by using `rp-2040-hal="0.10.0"`, if we would like to use `rp-2040-hal="0.11.0"` then the code needs to be modified.
 
 ### TODO:
 * define sending funtion
