@@ -78,6 +78,18 @@ There are two major frameworks: [embedded-hal](https://github.com/rp-rs/rp-hal-b
 * `cargo run --release` will flash and run the firmware
 
 
+## Project Structure
+rp2040-uart-irq/
+├── Cargo.toml 
+├── src/
+│ ├── main.rs # 程序入口，初始化硬件与调用 uart_irq 模块
+│ ├── uart_irq.rs # 封装 UART 接收中断初始化和处理逻辑
+│ └── lib.rs # 公共模块（如存在），可存放共享逻辑
+├── memory.x # 链接脚本，定义 RP2040 的内存布局
+├── .cargo/
+│ └── config.toml # 编译器配置，如目标平台设置
+└── README.md # 项目简介和结构说明
+
 ## Logging with Raspberry Pi Debug Probe
 The logging is mainly based on [probe-rs](https://probe.rs/docs/getting-started/installation/), [defmt](https://docs.rs/defmt/latest/defmt/) and [defmt-rtt](https://docs.rs/defmt-rtt/latest/defmt_rtt/).
 There is also a useful [blog](https://murraytodd.medium.com/our-first-rust-blinky-program-on-raspberry-pi-pico-w-376211f1074d) to learn how to use them very quickly.
@@ -108,3 +120,6 @@ The code only print a test value(constant). When new debug information is needed
 ```
 info!("New Sensor Data: {}", value);
 ```
+
+
+## Uart
