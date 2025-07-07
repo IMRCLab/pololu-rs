@@ -136,6 +136,10 @@ The function `try_read_packet()` can identify the packet type by checking the he
 
 * Notice: Even though the header defined in the Crazyflie-link sending example is `0xFF`, the `set_Channel((uint8_t) 0x00)` and `set_Port((uint8_t)0x03)` will change the header to `0x3C`.
 
+### Notice
+* Here we use [rp2040-hal](https://docs.rs/rp2040-hal/latest/rp2040_hal/) rather than [rp-pico](https://docs.rs/rp-pico/) since `gpio29` is occupied(read battery voltage) in `rp-pico` library.
+* The code is written by using `rp-2040-hal="0.10.0"`, if `rp-2040-hal="0.11.0"`, the code needs to be modified a lot.
+
 ### TODO:
 * define sending funtion
 * The packet sent by the crazyflie-link code always contains an extra byte(0x09) at the beginning, need to find out the reason.
