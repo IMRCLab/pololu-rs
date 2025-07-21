@@ -8,7 +8,12 @@ use embassy_rp::init;
 
 use embassy_time::Timer;
 
-use pololu3pi2040_rs::{init::init_all, motor::motor::set_speed, uart::uart_receive_task};
+use pololu3pi2040_rs::{
+    encoder::{encoder_left_task, encoder_right_task, EncoderPair},
+    init::init_all,
+    motor::motor::set_speed,
+    uart::uart_receive_task,
+};
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
@@ -22,6 +27,14 @@ async fn main(spawner: Spawner) {
     // === Buzzer Initialization ===
     let mut buzzer = devices.buzzer;
     buzzer.buzzer_warn(1000, 2).await;
+
+    // === Encoder Task ===
+    let EncoderPair {
+        encoder_left,
+        encoder_right,
+    } = devices.encoders;
+    spawner.spawn(encoder_left_task(encoder_left)).unwrap();
+    spawner.spawn(encoder_right_task(encoder_right)).unwrap();
 
     // === UART Task ===
     let uart_rec = devices.uart;

@@ -83,5 +83,77 @@ There are two major frameworks: [embedded-hal](https://github.com/rp-rs/rp-hal-b
 sudo apt install tio
 tio /dev/ttyACM0
 ```
-
 (use ctrl+t q to exit)
+
+## Project Structure
+- `src/`: Source code
+  - `main.rs`: The entry point of the project.
+  - `uart_irq.rs`: Encapsulates the UART receive interrupt logic.
+  - `uart_nrf52_pk_rec.rs`: Defines the packet according to [Crazyflie_Packet](https://github.com/IMRCLab/crazyflie-link-cpp/blob/startTraj_example/examples/PacketUtils.hpp).
+  - `pwm_motor.rs`: Initialize pwm pins and direction pins for both motors.
+- `memory.x`: Defines the memory layout of RP2040 (SRAM and Flash).
+- `.cargo/config.toml`: Specifies the target platform as `thumbv6m-none-eabi` for RP2040.
+- `Cargo.toml`: Declares project metadata, Rust edition, and dependencies.
+- `build.rs`: A custom build script to ensure the `memory.x` linker script is properly included during compilation.
+
+
+## Logging with Raspberry Pi Debug Probe
+The logging is mainly based on [probe-rs](https://probe.rs/docs/getting-started/installation/), [defmt](https://docs.rs/defmt/latest/defmt/) and [defmt-rtt](https://docs.rs/defmt-rtt/latest/defmt_rtt/).
+There is also a useful [blog](https://murraytodd.medium.com/our-first-rust-blinky-program-on-raspberry-pi-pico-w-376211f1074d) to learn how to use them very quickly.
+
+* Notice: The installation command on the home page of [probe-rs](https://probe.rs/) doesn't work for me due to some package conflicts. If so you could try following the [instructions](https://probe.rs/docs/getting-started/installation/) and install it from source.
+
+### Debug Setup
+* You will need a Raspberry Pi Debug Probe(for debugging) and a USB-C Cabel(for flashing).
+* connect the probe properly to the Pololu. If the official probe is used, the connection should be:
+```
+Yellow(SWDIO) -> SWDIO
+Green(SWCLK)  -> SWCLK
+Black(GND)    -> GND 
+``` 
+Then connect the Pololu with the USB-C cabel to your PC, and the debug probe as well.
+* Press "B" + Reset to set the Pololu into bootloader mode.(not necessary if you set up correctly)
+* If you would like to directly observed the debug information in the terminal, run:
+```
+cargo run --release
+```
+* If you would like to save the logging information into a csv file, run:
+```
+cargo run --release > file_name.csv
+```
+
+### Print New Debug Information 
+The code only print a test value(constant). When new debug information is needed, use:
+```
+info!("New Sensor Data: {}", value);
+```
+
+## Uart
+The original example uses `uart0.read_full_blocking(...)`, which always block the program until the buffer is full. This is not suitable for our task since we might need to implement other logics in the main loop. Therefore, UART now works in a interrupt mode and would only be triggered when new byte comes into the buffer.
+
+### Packet Type
+3 different packet types are defined in `uart_nrf52_pk_rec.rs`:
+- `CmdLegacyPacketU16`: including 4 U16 values.
+- `CmdLegacyPacketF32`: including 4 F32 values.
+- `CmdLegacyPacketMix`: including 2 U16 values adn 2 F32 values.
+
+### Read Packet
+The function `try_read_packet()` can identify the packet type by checking the header of the bag(can be modified according to any protocol). Call this function in the main loop and it will automatically unpack the message in the buffer.
+
+* Notice: Even though the header defined in the Crazyflie-link sending example is `0xFF`, the `set_Channel((uint8_t) 0x00)` and `set_Port((uint8_t)0x03)` will change the header to `0x3C`.
+
+### Notice
+* Here we use [rp2040-hal](https://docs.rs/rp2040-hal/latest/rp2040_hal/) rather than [rp-pico](https://docs.rs/rp-pico/) since `gpio29` is occupied(read battery voltage) in `rp-pico` library.
+* The code is written by using `rp-2040-hal="0.10.0"`, if we would like to use `rp-2040-hal="0.11.0"` then the code needs to be modified.
+
+### TODO:
+* define sending funtion
+* The packet sent by the crazyflie-link code always contains an extra byte(0x09) at the beginning, need to find out the reason.
+
+
+## Motor
+provide with `set_speed` function to set direction and speed for both motors.
+
+
+## Encoder
+Use Pio Module to build the encoder driver. Provide the user with position reading function and rotation speed (RPM) reading function. A asynchronous reading task is implemented in `encoder/encoder.rs`.

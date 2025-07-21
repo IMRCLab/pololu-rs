@@ -2,6 +2,7 @@
 use static_cell::StaticCell;
 
 use crate::buzzer::Buzzer;
+use crate::encoder::{init_encoder_counts, EncoderPair};
 use crate::led::led::Led;
 use crate::motor::motor::init_motor;
 use crate::uart::SharedUart;
@@ -11,6 +12,7 @@ use embassy_rp::{
     bind_interrupts,
     gpio::{Input, Level, Output, Pull},
     peripherals::*,
+    pio::{InterruptHandler as PIO_INT_HDL, Pio},
     pwm::{Config as PWM_config, Pwm},
     uart::Async,
     uart::Config as UART_config,
@@ -21,6 +23,7 @@ use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::mutex::Mutex;
 
 bind_interrupts!(struct Irqs {
+    PIO0_IRQ_0 => PIO_INT_HDL<PIO0>;
     UART0_IRQ => UART_INT_HDL<UART0>;
 });
 
@@ -30,6 +33,7 @@ static UART_CELL: StaticCell<Mutex<ThreadModeRawMutex, Uart<'static, Async>>> = 
 pub struct InitDevices {
     pub led: Led,
     pub buzzer: Buzzer,
+    pub encoders: EncoderPair<'static>,
     pub uart: SharedUart<'static>,
 }
 
@@ -57,6 +61,16 @@ pub fn init_all(p: embassy_rp::Peripherals) -> InitDevices {
 
     init_motor(pwm_left, dir_left, pwm_right, dir_right, config.top);
 
+    // === Encoder Initialization ===
+    let Pio {
+        mut common,
+        sm0,
+        sm1,
+        ..
+    } = Pio::new(p.PIO0, Irqs);
+    let encoders = EncoderPair::new(&mut common, sm0, sm1, p.PIN_12, p.PIN_13, p.PIN_8, p.PIN_9);
+    init_encoder_counts();
+
     // === UART Initialization ===
     let mut config = UART_config::default();
     config.baudrate = 115200;
@@ -65,5 +79,10 @@ pub fn init_all(p: embassy_rp::Peripherals) -> InitDevices {
     );
     let uart = UART_CELL.init(Mutex::new(uart));
 
-    InitDevices { led, buzzer, uart }
+    InitDevices {
+        led,
+        buzzer,
+        encoders,
+        uart,
+    }
 }

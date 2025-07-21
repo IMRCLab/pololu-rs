@@ -1,5 +1,6 @@
 #![no_std]
 pub mod buzzer;
+pub mod encoder;
 pub mod init;
 pub mod led;
 pub mod motor;
