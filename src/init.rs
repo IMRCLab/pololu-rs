@@ -4,16 +4,33 @@ use static_cell::StaticCell;
 use crate::buzzer::Buzzer;
 use crate::led::led::Led;
 use crate::motor::motor::init_motor;
+use crate::uart::SharedUart;
+use embassy_rp::peripherals::UART0;
+use embassy_rp::uart::Uart;
 use embassy_rp::{
+    bind_interrupts,
     gpio::{Input, Level, Output, Pull},
     peripherals::*,
     pwm::{Config as PWM_config, Pwm},
+    uart::Async,
+    uart::Config as UART_config,
+    uart::InterruptHandler as UART_INT_HDL,
 };
+
+use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
+use embassy_sync::mutex::Mutex;
+
+bind_interrupts!(struct Irqs {
+    UART0_IRQ => UART_INT_HDL<UART0>;
+});
+
+static UART_CELL: StaticCell<Mutex<ThreadModeRawMutex, Uart<'static, Async>>> = StaticCell::new();
 
 ///
 pub struct InitDevices {
     pub led: Led,
     pub buzzer: Buzzer,
+    pub uart: SharedUart<'static>,
 }
 
 /// init all used components
@@ -40,5 +57,13 @@ pub fn init_all(p: embassy_rp::Peripherals) -> InitDevices {
 
     init_motor(pwm_left, dir_left, pwm_right, dir_right, config.top);
 
-    InitDevices { led, buzzer }
+    // === UART Initialization ===
+    let mut config = UART_config::default();
+    config.baudrate = 115200;
+    let uart = Uart::new(
+        p.UART0, p.PIN_28, p.PIN_29, Irqs, p.DMA_CH0, p.DMA_CH1, config,
+    );
+    let uart = UART_CELL.init(Mutex::new(uart));
+
+    InitDevices { led, buzzer, uart }
 }
