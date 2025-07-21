@@ -1,136 +1,39 @@
-//! This example test the RP Pico on board LED.
-//!
-//! It does not work with the RP Pico W board. See wifi_blinky.rs.
-
 #![no_std]
 #![no_main]
 
-// Ensure we halt the program on panic (if we don't mention this crate it won't
-// be linked)
-use panic_halt as _;
+use {defmt_rtt as _, panic_probe as _};
 
 use embassy_executor::Spawner;
-use embassy_rp::bind_interrupts;
-use embassy_rp::peripherals::USB;
-use embassy_rp::usb::{Driver};
+use embassy_rp::init;
 
-use embassy_rp::peripherals::PIO0;
-use embassy_rp::pio::{Pio};
-use embassy_rp::pio_programs::rotary_encoder::{Direction, PioEncoder, PioEncoderProgram};
-
-
-use embassy_rp::gpio;
-use embassy_rp::pwm::{Config, Pwm};
 use embassy_time::Timer;
-use gpio::{Level, Output};
 
-bind_interrupts!(struct Irqs {
-    USBCTRL_IRQ => embassy_rp::usb::InterruptHandler<USB>;
-    PIO0_IRQ_0 => embassy_rp::pio::InterruptHandler<PIO0>;
-});
-
-#[embassy_executor::task]
-async fn logger_task(driver: Driver<'static, USB>) {
-    embassy_usb_logger::run!(1024, log::LevelFilter::Info, driver);
-}
-
-#[embassy_executor::task]
-async fn encoder_0(mut encoder: PioEncoder<'static, PIO0, 0>) {
-    let mut count = 0;
-    loop {
-        log::info!("Count r: {}", count);
-        count += match encoder.read().await {
-            Direction::Clockwise => 1,
-            Direction::CounterClockwise => -1,
-        };
-    }
-}
-
-#[embassy_executor::task]
-async fn encoder_1(mut encoder: PioEncoder<'static, PIO0, 1>) {
-    let mut count = 0;
-    loop {
-        log::info!("Count l: {}", count);
-        count += match encoder.read().await {
-            Direction::Clockwise => 1,
-            Direction::CounterClockwise => -1,
-        };
-    }
-}
+use pololu3pi2040_rs::{init::init_all, motor::motor::set_speed};
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
-    let p = embassy_rp::init(Default::default());
+    let p = init(Default::default());
 
-    let driver = Driver::new(p.USB, Irqs);
-    spawner.spawn(logger_task(driver)).unwrap();
+    let devices = init_all(p);
 
-    let Pio {
-        mut common, sm0, sm1, ..
-    } = Pio::new(p.PIO0, Irqs);
+    // === LED Initialization ===
+    let mut led = devices.led;
 
-    let prg = PioEncoderProgram::new(&mut common);
-    let encoder0 = PioEncoder::new(&mut common, sm0, p.PIN_8, p.PIN_9, &prg);//right
-    let encoder1 = PioEncoder::new(&mut common, sm1, p.PIN_12, p.PIN_13, &prg);//left
+    // === Buzzer Initialization ===
+    let mut buzzer = devices.buzzer;
+    buzzer.buzzer_warn(1000, 2).await;
 
-    spawner.must_spawn(encoder_0(encoder0));
-    spawner.must_spawn(encoder_1(encoder1));
-
-
-    let mut led = Output::new(p.PIN_25, Level::Low);
-
-    let mut c = Config::default();
-    c.top = 6000 - 1;
-    c.phase_correct = true;
-    c.divider = 1.into();
-
-    let mut direction_right = Output::new(p.PIN_10, Level::Low);
-    let mut direction_left = Output::new(p.PIN_11, Level::Low);
-
-    // let mut channel_right = Pwm::new_output_a(p.PWM_SLICE7, p.PIN_14, c.clone());
-    // let mut channel_left = Pwm::new_output_b(p.PWM_SLICE7, p.PIN_15, c.clone());
-
-
-    // channel_right.set_duty_cycle(3000).unwrap();
-    // direction_right.set_high();
-
-    // let mut channel_left = Pwm::new_output_b(p.PWM_SLICE7, p.PIN_15, c.clone());
-
-    let mut channel = Pwm::new_output_ab(p.PWM_SLICE7, p.PIN_14, p.PIN_15, c.clone());
-
-    // c.compare_a = 500; //right
-    // c.compare_b = 250; // left
-    // channel.set_config(&c);
-    direction_right.set_high();
-    direction_left.set_low();
-
-    // let (channel_left, channel_right) = channel.split();
-
-    // channel_right.unwrap().set_duty_cycle(3000).unwrap();
-    // direction_right.set_high();
-
-    // channel_left.unwrap().set_duty_cycle(1000).unwrap();
-    // direction_left.set_low();
-
+    // === Control Logic ===
     loop {
-        log::info!("High");
+        led.blink(100, 3).await;
 
-        led.set_high();
+        set_speed(0.5, 0.5); // forward
+        Timer::after_millis(1000).await;
 
-        c.compare_a = 2000; //right
-        c.compare_b = 2000; // left
-        channel.set_config(&c);
+        set_speed(-0.5, -0.5); // backward
+        Timer::after_millis(1000).await;
 
-        Timer::after_secs(1).await;
-
-        log::info!("Low");
-
-        led.set_low();
-
-        c.compare_a = 0; //right
-        c.compare_b = 0; // left
-        channel.set_config(&c);
-
-        Timer::after_secs(1).await;
+        set_speed(0.0, 0.0); // stop
+        Timer::after_millis(1000).await;
     }
 }
