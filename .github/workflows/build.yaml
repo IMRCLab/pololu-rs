@@ -23,6 +23,7 @@ jobs:
     - name: Install toolchain
       run: |
         rustup target add thumbv6m-none-eabi
+        cargo install flip-link
     - name: Build library
       run: |
         cargo build --release
