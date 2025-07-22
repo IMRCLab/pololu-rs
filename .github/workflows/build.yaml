@@ -1,0 +1,33 @@
+name: Build
+
+on:
+  # # every midnight
+  # schedule:
+  #   - cron:  '0 0 * * *'
+  # manual trigger
+  workflow_dispatch:
+  # push
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: self-hosted
+    container: rust:1.84
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build library
+      run: |
+        cargo build --release
+    - name: Run Linter
+      run: |
+        rustup component add clippy
+        cargo clippy -- -Dwarnings
+    - name: Run Code Formatter
+      run: |
+        rustup component add rustfmt
+        cargo fmt --all --check
