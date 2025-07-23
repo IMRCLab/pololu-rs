@@ -1,6 +1,6 @@
 #![allow(static_mut_refs)]
 
-use embassy_rp::peripherals::{PIN_12, PIN_13, PIN_8, PIN_9, PIO0};
+use embassy_rp::peripherals::{PIN_8, PIN_9, PIN_12, PIN_13, PIO0};
 use embassy_rp::pio::{Common, StateMachine};
 use embassy_rp::pio_programs::rotary_encoder::{Direction, PioEncoder, PioEncoderProgram};
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
