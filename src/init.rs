@@ -3,14 +3,14 @@ use static_cell::StaticCell;
 
 use crate::buzzer::Buzzer;
 use crate::encoder::{init_encoder_counts, EncoderPair};
-use crate::led::led::Led;
-use crate::motor::motor::init_motor;
+use crate::led::Led;
+use crate::motor::init_motor;
 use crate::uart::SharedUart;
 use embassy_rp::peripherals::UART0;
 use embassy_rp::uart::Uart;
 use embassy_rp::{
     bind_interrupts,
-    gpio::{Input, Level, Output, Pull},
+    gpio::{Level, Output},
     peripherals::*,
     pio::{InterruptHandler as PIO_INT_HDL, Pio},
     pwm::{Config as PWM_config, Pwm},
@@ -29,7 +29,6 @@ bind_interrupts!(struct Irqs {
 
 static UART_CELL: StaticCell<Mutex<ThreadModeRawMutex, Uart<'static, Async>>> = StaticCell::new();
 
-///
 pub struct InitDevices {
     pub led: Led,
     pub buzzer: Buzzer,

@@ -3,7 +3,7 @@ use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::mutex::Mutex;
 use heapless::Vec;
 
-use crate::uart::packet::{CmdLegacyPacketF32, CmdLegacyPacketMix, CmdLegacyPacketU16};
+use crate::packet::{CmdLegacyPacketF32, CmdLegacyPacketMix, CmdLegacyPacketU16};
 
 pub type SharedUart<'a> = &'a Mutex<ThreadModeRawMutex, Uart<'a, Async>>;
 
