@@ -26,7 +26,6 @@ target = "thumbv6m-none-eabi"
 # * no-vectorize-loops turns off the loop vectorizer (seeing as the M0+ doesn't
 #   have SIMD)
 
-runner = "probe-rs run --chip RP2040 --protocol swd"
 linker = "flip-link"
 rustflags = [
     "-C", "link-arg=--nmagic",
@@ -34,6 +33,14 @@ rustflags = [
     "-C", "link-arg=-Tdefmt.x",
     "-C", "no-vectorize-loops",
 ]
+
+# This runner will make a UF2 file and then copy it to a mounted RP2040 in USB
+# Bootloader mode:
+# runner = "elf2uf2-rs -d"
+
+# This runner will find a supported SWD debug probe and flash your RP2040 over
+# SWD:
+runner = "probe-rs run --chip RP2040 --protocol swd"
 
 [env]
 DEFMT_LOG = "debug"
