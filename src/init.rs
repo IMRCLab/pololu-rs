@@ -1,6 +1,7 @@
 #![allow(static_mut_refs)]
 use static_cell::StaticCell;
 
+use crate::button::Buttons;
 use crate::buzzer::Buzzer;
 use crate::encoder::{EncoderPair, init_encoder_counts};
 use crate::led::Led;
@@ -10,7 +11,7 @@ use embassy_rp::peripherals::UART0;
 use embassy_rp::uart::Uart;
 use embassy_rp::{
     bind_interrupts,
-    gpio::{Level, Output},
+    gpio::{Input, Level, Output, Pull},
     peripherals::*,
     pio::{InterruptHandler as PIO_INT_HDL, Pio},
     pwm::{Config as PWM_config, Pwm},
@@ -32,6 +33,7 @@ static UART_CELL: StaticCell<Mutex<ThreadModeRawMutex, Uart<'static, Async>>> = 
 pub struct InitDevices {
     pub led: Led,
     pub buzzer: Buzzer,
+    pub buttons: Buttons,
     pub encoders: EncoderPair<'static>,
     pub uart: SharedUart<'static>,
 }
@@ -45,6 +47,11 @@ pub fn init_all(p: embassy_rp::Peripherals) -> InitDevices {
     // === Buzzer Initialization ===
     let buzzer_pin = Output::new(p.PIN_7, Level::High);
     let buzzer = Buzzer::new(buzzer_pin);
+
+    // === Buttons Initialization ===
+    let btn_c = Input::new(p.PIN_0, Pull::Up);
+    let btn_b = Input::new(p.PIN_1, Pull::Up);
+    let buttons = Buttons { btn_c, btn_b };
 
     // === Motor Initialization ===
     let mut config = PWM_config::default();
@@ -81,6 +88,7 @@ pub fn init_all(p: embassy_rp::Peripherals) -> InitDevices {
     InitDevices {
         led,
         buzzer,
+        buttons,
         encoders,
         uart,
     }

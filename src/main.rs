@@ -9,6 +9,7 @@ use embassy_rp::init;
 use embassy_time::Timer;
 
 use pololu3pi2040_rs::{
+    button::{button_task_b, button_task_c},
     encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     init::init_all,
     motor::set_speed,
@@ -27,6 +28,11 @@ async fn main(spawner: Spawner) {
     // === Buzzer Initialization ===
     let mut buzzer = devices.buzzer;
     buzzer.buzzer_warn(1000, 2).await;
+
+    // === Buttons Task ===
+    let buttons = devices.buttons;
+    spawner.spawn(button_task_b(buttons.btn_b)).unwrap();
+    spawner.spawn(button_task_c(buttons.btn_c)).unwrap();
 
     // === Encoder Task ===
     let EncoderPair {
