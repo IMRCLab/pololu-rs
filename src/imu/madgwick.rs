@@ -1,3 +1,4 @@
+use core::f32::consts::PI;
 use libm::{asinf, atan2f, sqrtf};
 
 #[derive(Clone, Copy)]
@@ -29,9 +30,9 @@ impl Madgwick {
 
     pub fn update(&mut self, gyro: [f32; 3], accel: [f32; 3], mag: [f32; 3], dt: f32) {
         let gyro_rps = [
-            gyro[0] * 3.1415 / 180.0,
-            gyro[1] * 3.1415 / 180.0,
-            gyro[2] * 3.1415 / 180.0,
+            gyro[0] * PI / 180.0,
+            gyro[1] * PI / 180.0,
+            gyro[2] * PI / 180.0,
         ];
 
         let [gx, gy, gz] = gyro_rps;
@@ -104,12 +105,12 @@ impl Madgwick {
         let roll = atan2f(
             2.0 * (q.w * q.x + q.y * q.z),
             1.0 - 2.0 * (q.x * q.x + q.y * q.y),
-        ) * (180.0 / 3.1415);
-        let pitch = asinf(2.0 * (q.w * q.y - q.z * q.x)) * (180.0 / 3.1415);
+        ) * (180.0 / PI);
+        let pitch = asinf(2.0 * (q.w * q.y - q.z * q.x)) * (180.0 / PI);
         let yaw = atan2f(
             2.0 * (q.w * q.z + q.x * q.y),
             1.0 - 2.0 * (q.y * q.y + q.z * q.z),
-        ) * (180.0 / 3.1415);
+        ) * (180.0 / PI);
 
         [roll, pitch, yaw]
     }
