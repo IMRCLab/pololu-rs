@@ -1,5 +1,4 @@
 # pololu3pi2040
-
 This is a firmware written in Rust for the [Pololu 3pi+ 2040 robot](https://www.pololu.com/category/300/3pi-plus-2040-robot). It's a differential-drive robot that can move with up to 4 m/s very fast and has a RP2040 (RPI Pico)-based hardware.
 
 ## Hardware
@@ -48,21 +47,57 @@ No C driver
 
 - SH1106 OLED
 - Connected via SPI (data: 0, reset: 1, sck: 2, mosi: 3)
-
-
 [Python driver](https://github.com/pololu/pololu-3pi-2040-robot/blob/master/micropython_demo/pololu_3pi_2040_robot/display.py)
 
+
 ### RGB LEDs
+The 3pi+ 2040 control board also features six individually-addressable RGB LEDs. The RGB LEDs have integrated drivers compatible with the popular APA102 addressable LED, and they are chained together in alphabetical order (labeled A through F) and arranged counterclockwise on the board.
+
+The control board uses SPI0, one of its two hardware SPI modules, on GP3 and GP6 (TX and SCK, respectively) to control the RGB LEDs. The 3pi+ 2040 libraries include functions that make it easier to control the RGB LEDs and use them together with the OLED display, which shares the SPI0 interface with the RGB LEDs. The display and RGB LEDs share a common pin for SPI0 TX (data), but use different pins for SPI0 SCK (clock), allowing them to be controlled separately.
+
+- TX: GP3(SPI0)
+- SCK: GP6(SPI0)
+
+[C driver](https://github.com/pololu/pololu-3pi-2040-robot/blob/master/c/pololu_3pi_2040_robot/rgb_leds.c)
+[Python driver](https://github.com/pololu/pololu-3pi-2040-robot/blob/master/micropython_demo/pololu_3pi_2040_robot/rgb_leds.py)
 
 ### USB-C Interface
 
-### IR sensors
+### Line sensors
+The five line sensors are on the underside of the board along the front edge and can help the 3pi+ distinguish between light and dark surfaces. Each reflectance sensor consists of a down-facing infrared (IR) emitter LED paired with a phototransistor that can detect reflected infrared light from the LED. The reflectance sensors operate on the same principles as our RC-type QTR reflectance sensors: the RP2040 uses an I/O line to drive the sensor output high, and then measures the time for the output voltage to decay.
+- Line sensor emitter control pin(DNE): PIN_26
+- DN1: PIN_22
+- DN2: PIN_21
+- DN3: PIN_20
+- DN4: PIN_19
+- DN5: PIN_18
+
+[C driver](https://github.com/pololu/pololu-3pi-2040-robot/blob/master/c/pololu_3pi_2040_robot/ir_sensors.c)
+[Python driver](https://github.com/pololu/pololu-3pi-2040-robot/blob/master/micropython_demo/pololu_3pi_2040_robot/ir_sensors.py)
 
 ### Bump sensors
+The two bump sensors are also reflectance sensors, but rather than providing simple reflectance readings, these are designed to measure changes in reflected light as the corresponding bump sensor flaps on the front of the 3pi+’s bumper skirt are pressed (deflected). This allows the 3pi+ to detect when it has contacted another object in front of it and determine which side the contact is on.
+- Bump sensors emitter control pin(BE): PIN_23
+- BL: PIN_17
+- BR: PIN_16
+[C driver](https://github.com/pololu/pololu-3pi-2040-robot/blob/master/c/pololu_3pi_2040_robot/ir_sensors.c)
+[Python driver](https://github.com/pololu/pololu-3pi-2040-robot/blob/master/micropython_demo/pololu_3pi_2040_robot/ir_sensors.py)
 
 ### Buzzer
+By default, it is connected to GP7, which can be configured as PWM3 B to produce hardware pulse width modulation.
+- Buzzer: PIN_7
+
+[Python driver](https://github.com/pololu/pololu-3pi-2040-robot/blob/master/micropython_demo/pololu_3pi_2040_robot/buzzer.py)
 
 ### Push Buttons
+Pressing one of the user pushbuttons pulls the associated I/O pin to ground through a resistor.
+- Button A: PIN_25
+- Button B: QSPI_SS_N(PIN_1)
+- Button C: PIN_0
+Notice: Button A is conflict with the LED pin. User should select the function of the pin when initialize it, or change it in need.
+
+[C driver](https://github.com/pololu/pololu-3pi-2040-robot/blob/master/c/pololu_3pi_2040_robot/button.c)
+[Python driver](https://github.com/pololu/pololu-3pi-2040-robot/blob/master/micropython_demo/pololu_3pi_2040_robot/buttons.py)
 
 ### Flash memory
 
@@ -88,9 +123,20 @@ tio /dev/ttyACM0
 ## Project Structure
 - `src/`: Source code
   - `main.rs`: The entry point of the project.
-  - `uart_irq.rs`: Encapsulates the UART receive interrupt logic.
-  - `uart_nrf52_pk_rec.rs`: Defines the packet according to [Crazyflie_Packet](https://github.com/IMRCLab/crazyflie-link-cpp/blob/startTraj_example/examples/PacketUtils.hpp).
-  - `pwm_motor.rs`: Initialize pwm pins and direction pins for both motors.
+  - `init.rs`: Initialization for all devices.
+  - `lib.rs`: Integrated libraries.
+  - `led.rs`: Default LED driver.
+  - `buzzer.rs`: Buzzer driver.
+  - `motor.rs`: Driver of both motors.
+  - `encoder.rs`: Encoder driver for both encoders using PIO.
+  - `uart.rs`: UART0 driver.
+  - `packet.rs`: Defines the packet according to [Crazyflie_Packet](https://github.com/IMRCLab/crazyflie-link-cpp/blob/startTraj_example/examples/PacketUtils.hpp).
+  - `imu/`: IMU library.
+    - `lis3mdl.rs`: Driver for the 3-axis magnetometer.
+    - `lsm6dso.rs`: Driver for the combined 3-axis accelerometer and 3-axis gyrometer.
+    - `shared_i2c.rs`: A shared I2C bus for reusing the same I2C for the combined 3-axis accelerometer and 3-axis gyrometer.
+    - `complementary_filter.rs`: Complementary filter to estimate Roll/Pitch/Yaw.
+    - `madgwick.rs`: Madgwick filter to estimate Roll/Pitch/Yaw (under developing).
 - `memory.x`: Defines the memory layout of RP2040 (SRAM and Flash).
 - `.cargo/config.toml`: Specifies the target platform as `thumbv6m-none-eabi` for RP2040.
 - `Cargo.toml`: Declares project metadata, Rust edition, and dependencies.
@@ -129,31 +175,35 @@ info!("New Sensor Data: {}", value);
 ```
 
 ## Uart
-The original example uses `uart0.read_full_blocking(...)`, which always block the program until the buffer is full. This is not suitable for our task since we might need to implement other logics in the main loop. Therefore, UART now works in a interrupt mode and would only be triggered when new byte comes into the buffer.
-
 ### Packet Type
-3 different packet types are defined in `uart_nrf52_pk_rec.rs`:
+3 different packet types are defined in `packet.rs`:
 - `CmdLegacyPacketU16`: including 4 U16 values.
 - `CmdLegacyPacketF32`: including 4 F32 values.
 - `CmdLegacyPacketMix`: including 2 U16 values adn 2 F32 values.
 
 ### Read Packet
-The function `try_read_packet()` can identify the packet type by checking the header of the bag(can be modified according to any protocol). Call this function in the main loop and it will automatically unpack the message in the buffer.
+Register a function `uart_receive_task` as an asychronous task to asychronously receive the new message.
 
 * Notice: Even though the header defined in the Crazyflie-link sending example is `0xFF`, the `set_Channel((uint8_t) 0x00)` and `set_Port((uint8_t)0x03)` will change the header to `0x3C`.
 
 ### Notice
-* Here we use [rp2040-hal](https://docs.rs/rp2040-hal/latest/rp2040_hal/) rather than [rp-pico](https://docs.rs/rp-pico/) since `gpio29` is occupied(read battery voltage) in `rp-pico` library.
-* The code is written by using `rp-2040-hal="0.10.0"`, if we would like to use `rp-2040-hal="0.11.0"` then the code needs to be modified.
+* The UART task runs now in asychronous mode.
 
 ### TODO:
-* define sending funtion
+* Define sending funtion
 * The packet sent by the crazyflie-link code always contains an extra byte(0x09) at the beginning, need to find out the reason.
 
 
 ## Motor
-provide with `set_speed` function to set direction and speed for both motors.
+Provide with `set_speed` function to set direction and speed for both motors.
 
 
 ## Encoder
 Use Pio Module to build the encoder driver. Provide the user with position reading function and rotation speed (RPM) reading function. A asynchronous reading task is implemented in `encoder/encoder.rs`.
+
+
+## IMU
+Provide `read_imu_task` function to read and estimate the euler angles. The task should be registered in main using spawn.
+
+### TODO:
+ * Yaw is always drifting. Needs to be fixed.

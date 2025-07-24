@@ -12,6 +12,7 @@ use embassy_rp::uart::Uart;
 use embassy_rp::{
     bind_interrupts,
     gpio::{Input, Level, Output, Pull},
+    i2c::{self, I2c, InterruptHandler as I2C_INT_HDL},
     peripherals::*,
     pio::{InterruptHandler as PIO_INT_HDL, Pio},
     pwm::{Config as PWM_config, Pwm},
@@ -20,26 +21,29 @@ use embassy_rp::{
     uart::InterruptHandler as UART_INT_HDL,
 };
 
+use crate::imu::ImuPack;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::mutex::Mutex;
 
 bind_interrupts!(struct Irqs {
     PIO0_IRQ_0 => PIO_INT_HDL<PIO0>;
+    I2C0_IRQ => I2C_INT_HDL<I2C0>;
     UART0_IRQ => UART_INT_HDL<UART0>;
 });
 
 static UART_CELL: StaticCell<Mutex<ThreadModeRawMutex, Uart<'static, Async>>> = StaticCell::new();
 
-pub struct InitDevices {
+pub struct InitDevices<'a> {
     pub led: Led,
     pub buzzer: Buzzer,
     pub buttons: Buttons,
     pub encoders: EncoderPair<'static>,
+    pub imu: ImuPack<'a, I2c<'a, I2C0, i2c::Async>>,
     pub uart: SharedUart<'static>,
 }
 
 /// init all used components
-pub fn init_all(p: embassy_rp::Peripherals) -> InitDevices {
+pub fn init_all(p: embassy_rp::Peripherals) -> InitDevices<'static> {
     // === LED Initialization ===
     let led_pin = Output::new(p.PIN_25, Level::Low);
     let led = Led::new(led_pin);
@@ -77,6 +81,21 @@ pub fn init_all(p: embassy_rp::Peripherals) -> InitDevices {
     let encoders = EncoderPair::new(&mut common, sm0, sm1, p.PIN_12, p.PIN_13, p.PIN_8, p.PIN_9);
     init_encoder_counts();
 
+    // === IMU Initialization ===
+    let i2c = I2c::new_async(
+        p.I2C0,
+        p.PIN_5, // SCL
+        p.PIN_4, // SDA
+        Irqs,
+        i2c::Config::default(),
+    );
+    static mut I2C_MUTEX: Option<Mutex<ThreadModeRawMutex, I2c<'static, I2C0, i2c::Async>>> = None;
+    let i2c = unsafe {
+        I2C_MUTEX = Some(Mutex::new(i2c));
+        I2C_MUTEX.as_ref().unwrap()
+    };
+    let imu = ImuPack::new(i2c);
+
     // === UART Initialization ===
     let mut config = UART_config::default();
     config.baudrate = 115200;
@@ -90,6 +109,7 @@ pub fn init_all(p: embassy_rp::Peripherals) -> InitDevices {
         buzzer,
         buttons,
         encoders,
+        imu,
         uart,
     }
 }
