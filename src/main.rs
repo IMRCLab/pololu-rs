@@ -13,7 +13,6 @@ use pololu3pi2040_rs::{
     encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     imu::read_imu_task,
     init::init_all,
-    motor::set_speed,
     uart::uart_receive_task,
 };
 
@@ -35,13 +34,22 @@ async fn main(spawner: Spawner) {
     spawner.spawn(button_task_b(buttons.btn_b)).unwrap();
     spawner.spawn(button_task_c(buttons.btn_c)).unwrap();
 
+    // === Motor Task ===
+    let motors = devices.motor;
+
     // === Encoder Task ===
     let EncoderPair {
         encoder_left,
         encoder_right,
     } = devices.encoders;
-    spawner.spawn(encoder_left_task(encoder_left)).unwrap();
-    spawner.spawn(encoder_right_task(encoder_right)).unwrap();
+    let encoder_count_left = devices.encoder_counts.left;
+    let encoder_count_right = devices.encoder_counts.right;
+    spawner
+        .spawn(encoder_left_task(encoder_left, encoder_count_left))
+        .unwrap();
+    spawner
+        .spawn(encoder_right_task(encoder_right, encoder_count_right))
+        .unwrap();
 
     // === IMU Task ===
     let imu = devices.imu;
@@ -55,13 +63,13 @@ async fn main(spawner: Spawner) {
     loop {
         led.blink(100, 3).await;
 
-        set_speed(0.5, 0.5); // forward
+        motors.set_speed(0.5, 0.5).await; // forward
         Timer::after_millis(1000).await;
 
-        set_speed(-0.5, -0.5); // backward
+        motors.set_speed(-0.5, -0.5).await; // backward
         Timer::after_millis(1000).await;
 
-        set_speed(0.0, 0.0); // stop
+        motors.set_speed(0.0, 0.0).await; // stop
         Timer::after_millis(1000).await;
     }
 }

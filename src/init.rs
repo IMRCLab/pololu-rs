@@ -3,9 +3,9 @@ use static_cell::StaticCell;
 
 use crate::button::Buttons;
 use crate::buzzer::Buzzer;
-use crate::encoder::{EncoderPair, init_encoder_counts};
+use crate::encoder::{EncoderCounters, EncoderPair, init_encoder_counts};
 use crate::led::Led;
-use crate::motor::init_motor;
+use crate::motor::{MotorController, init_motor};
 use crate::uart::SharedUart;
 use embassy_rp::peripherals::UART0;
 use embassy_rp::uart::Uart;
@@ -32,12 +32,16 @@ bind_interrupts!(struct Irqs {
 });
 
 static UART_CELL: StaticCell<Mutex<ThreadModeRawMutex, Uart<'static, Async>>> = StaticCell::new();
+static I2C_CELL: StaticCell<Mutex<ThreadModeRawMutex, I2c<'static, I2C0, i2c::Async>>> =
+    StaticCell::new();
 
 pub struct InitDevices<'a> {
     pub led: Led,
     pub buzzer: Buzzer,
     pub buttons: Buttons,
+    pub motor: MotorController,
     pub encoders: EncoderPair<'static>,
+    pub encoder_counts: EncoderCounters,
     pub imu: ImuPack<'a, I2c<'a, I2C0, i2c::Async>>,
     pub uart: SharedUart<'static>,
 }
@@ -69,7 +73,7 @@ pub fn init_all(p: embassy_rp::Peripherals) -> InitDevices<'static> {
     let dir_left = Output::new(p.PIN_11, Level::Low);
     let dir_right = Output::new(p.PIN_10, Level::Low);
 
-    init_motor(pwm_left, dir_left, pwm_right, dir_right, config.top);
+    let motor = init_motor(pwm_left, dir_left, pwm_right, dir_right, config.top);
 
     // === Encoder Initialization ===
     let Pio {
@@ -79,21 +83,17 @@ pub fn init_all(p: embassy_rp::Peripherals) -> InitDevices<'static> {
         ..
     } = Pio::new(p.PIO0, Irqs);
     let encoders = EncoderPair::new(&mut common, sm0, sm1, p.PIN_12, p.PIN_13, p.PIN_8, p.PIN_9);
-    init_encoder_counts();
+    let encoder_counts = init_encoder_counts();
 
     // === IMU Initialization ===
-    let i2c = I2c::new_async(
+    let i2c_dev = I2c::new_async(
         p.I2C0,
         p.PIN_5, // SCL
         p.PIN_4, // SDA
         Irqs,
         i2c::Config::default(),
     );
-    static mut I2C_MUTEX: Option<Mutex<ThreadModeRawMutex, I2c<'static, I2C0, i2c::Async>>> = None;
-    let i2c = unsafe {
-        I2C_MUTEX = Some(Mutex::new(i2c));
-        I2C_MUTEX.as_ref().unwrap()
-    };
+    let i2c = I2C_CELL.init(Mutex::new(i2c_dev));
     let imu = ImuPack::new(i2c);
 
     // === UART Initialization ===
@@ -108,7 +108,9 @@ pub fn init_all(p: embassy_rp::Peripherals) -> InitDevices<'static> {
         led,
         buzzer,
         buttons,
+        motor,
         encoders,
+        encoder_counts,
         imu,
         uart,
     }

@@ -1,5 +1,3 @@
-#![allow(static_mut_refs)]
-
 use embassy_rp::peripherals::{PIN_8, PIN_9, PIN_12, PIN_13, PIO0};
 use embassy_rp::pio::{Common, StateMachine};
 use embassy_rp::pio_programs::rotary_encoder::{Direction, PioEncoder, PioEncoderProgram};
@@ -8,16 +6,28 @@ use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Timer};
 use static_cell::StaticCell;
 
+/// Encoder struct for both encoders
 pub struct EncoderPair<'a> {
     pub encoder_left: PioEncoder<'a, PIO0, 0>,
     pub encoder_right: PioEncoder<'a, PIO0, 1>,
 }
 
-// Global Counters
-static LEFT_CELL: StaticCell<Mutex<NoopRawMutex, i32>> = StaticCell::new();
-static RIGHT_CELL: StaticCell<Mutex<NoopRawMutex, i32>> = StaticCell::new();
-static mut ENCODER_LEFT: Option<&'static Mutex<NoopRawMutex, i32>> = None;
-static mut ENCODER_RIGHT: Option<&'static Mutex<NoopRawMutex, i32>> = None;
+/// Pair Encoder Counters
+pub struct EncoderCounters {
+    pub left: &'static Mutex<NoopRawMutex, i32>,
+    pub right: &'static Mutex<NoopRawMutex, i32>,
+}
+
+// Global static cells
+static LEFT_COUNT: StaticCell<Mutex<NoopRawMutex, i32>> = StaticCell::new();
+static RIGHT_COUNT: StaticCell<Mutex<NoopRawMutex, i32>> = StaticCell::new();
+
+/// avoid using global counters
+pub fn init_encoder_counts() -> EncoderCounters {
+    let left = LEFT_COUNT.init(Mutex::new(0));
+    let right = RIGHT_COUNT.init(Mutex::new(0));
+    EncoderCounters { left, right }
+}
 
 impl<'a> EncoderPair<'a> {
     pub fn new(
@@ -39,95 +49,78 @@ impl<'a> EncoderPair<'a> {
     }
 }
 
-// Initialize encoder counters
-pub fn init_encoder_counts() {
-    let left = LEFT_CELL.init(Mutex::new(0));
-    let right = RIGHT_CELL.init(Mutex::new(0));
-    unsafe {
-        ENCODER_LEFT = Some(left);
-        ENCODER_RIGHT = Some(right);
-    }
-}
-
-// Left Encoder Task
 #[embassy_executor::task]
-pub async fn encoder_left_task(mut encoder: PioEncoder<'static, PIO0, 0>) {
+pub async fn encoder_left_task(
+    mut encoder: PioEncoder<'static, PIO0, 0>,
+    counter: &'static Mutex<NoopRawMutex, i32>,
+) {
     loop {
         let dir = encoder.read().await;
         let delta = match dir {
             Direction::Clockwise => 1,
             Direction::CounterClockwise => -1,
         };
-        if let Some(enc) = unsafe { ENCODER_LEFT } {
-            let mut guard = enc.lock().await;
-            *guard += delta;
-        }
+        let mut guard = counter.lock().await;
+        *guard += delta;
+
+        // defmt::info!("Left Encoder Count = {}", *guard);
     }
 }
 
 #[embassy_executor::task]
-pub async fn encoder_right_task(mut encoder: PioEncoder<'static, PIO0, 1>) {
+pub async fn encoder_right_task(
+    mut encoder: PioEncoder<'static, PIO0, 1>,
+    counter: &'static Mutex<NoopRawMutex, i32>,
+) {
     loop {
         let dir = encoder.read().await;
         let delta = match dir {
             Direction::Clockwise => 1,
             Direction::CounterClockwise => -1,
         };
-        if let Some(enc) = unsafe { ENCODER_RIGHT } {
-            let mut guard = enc.lock().await;
-            *guard += delta;
-        }
+        let mut guard = counter.lock().await;
+        *guard += delta;
+
+        // defmt::info!("Right Encoder Count = {}", *guard);
     }
 }
 
-// get RPM of the left motor
-#[allow(unused_assignments)]
-pub async fn get_left_rpm(ppr: u32, interval_ms: u64) -> Option<f32> {
-    let mut last = 0;
+// Asychronously acquiring left RPM
+pub async fn get_left_rpm(
+    counter: &'static Mutex<NoopRawMutex, i32>,
+    ppr: u32,
+    interval_ms: u64,
+) -> f32 {
+    let before = *counter.lock().await;
     Timer::after(Duration::from_millis(interval_ms)).await;
+    let after = *counter.lock().await;
 
-    if let Some(enc) = unsafe { ENCODER_LEFT } {
-        let guard = enc.lock().await;
-        let now = *guard;
-        let delta = now - last;
-        last = now;
-
-        let rps = delta as f32 / (ppr as f32 * 4.0) / (interval_ms as f32 / 1000.0);
-        Some(rps * 60.0)
-    } else {
-        None
-    }
+    let delta = after - before;
+    let rps = delta as f32 / (ppr as f32 * 4.0) / (interval_ms as f32 / 1000.0);
+    rps * 60.0
 }
 
-// get RPM of the right motor
-#[allow(unused_assignments)]
-pub async fn get_right_rpm(ppr: u32, interval_ms: u64) -> Option<f32> {
-    let mut last = 0;
+// Asychronously acquiring right RPM
+pub async fn get_right_rpm(
+    counter: &'static Mutex<NoopRawMutex, i32>,
+    ppr: u32,
+    interval_ms: u64,
+) -> f32 {
+    let before = *counter.lock().await;
     Timer::after(Duration::from_millis(interval_ms)).await;
+    let after = *counter.lock().await;
 
-    if let Some(enc) = unsafe { ENCODER_RIGHT } {
-        let guard = enc.lock().await;
-        let now = *guard;
-        let delta = now - last;
-        last = now;
-
-        let rps = delta as f32 / (ppr as f32 * 4.0) / (interval_ms as f32 / 1000.0);
-        Some(rps * 60.0)
-    } else {
-        None
-    }
+    let delta = after - before;
+    let rps = delta as f32 / (ppr as f32 * 4.0) / (interval_ms as f32 / 1000.0);
+    rps * 60.0
 }
 
-// fast position reading
-pub fn read_left_count() -> i32 {
-    unsafe { ENCODER_LEFT }
-        .and_then(|v| v.try_lock().map(|g| *g).ok())
-        .unwrap_or(0)
+// fast left position reading
+pub fn read_left_count(counter: &'static Mutex<NoopRawMutex, i32>) -> i32 {
+    counter.try_lock().map(|g| *g).unwrap_or(0)
 }
 
-// fast position reading
-pub fn read_right_count() -> i32 {
-    unsafe { ENCODER_RIGHT }
-        .and_then(|v| v.try_lock().map(|g| *g).ok())
-        .unwrap_or(0)
+// fast right position reading
+pub fn read_right_count(counter: &'static Mutex<NoopRawMutex, i32>) -> i32 {
+    counter.try_lock().map(|g| *g).unwrap_or(0)
 }
