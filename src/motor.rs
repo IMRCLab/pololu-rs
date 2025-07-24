@@ -1,8 +1,8 @@
-#![allow(static_mut_refs)]
-#![allow(dead_code)]
-
 use embassy_rp::gpio::Output;
 use embassy_rp::pwm::{PwmOutput, SetDutyCycle};
+use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
+use embassy_sync::mutex::Mutex;
+use static_cell::StaticCell;
 
 pub struct Motor<'a> {
     pwm: PwmOutput<'a>,
@@ -15,7 +15,6 @@ impl<'a> Motor<'a> {
         Self { pwm, dir, top }
     }
 
-    /// Set Speed（-1.0 ~ 1.0）
     pub fn set_speed(&mut self, speed: f32) {
         let clamped = speed.clamp(-1.0, 1.0);
         if clamped >= 0.0 {
@@ -23,37 +22,41 @@ impl<'a> Motor<'a> {
         } else {
             self.dir.set_low();
         }
-
         let duty = (clamped.abs() * self.top as f32) as u16;
         self.pwm.set_duty_cycle(duty).unwrap();
     }
 }
 
-static mut LEFT_MOTOR: Option<Motor> = None;
-static mut RIGHT_MOTOR: Option<Motor> = None;
+type SharedMotor = &'static Mutex<ThreadModeRawMutex, Motor<'static>>;
 
-/// Initialization
+pub struct MotorController {
+    left: SharedMotor,
+    right: SharedMotor,
+}
+
+impl MotorController {
+    pub fn new(left: SharedMotor, right: SharedMotor) -> Self {
+        Self { left, right }
+    }
+
+    pub async fn set_speed(&self, left: f32, right: f32) {
+        self.left.lock().await.set_speed(left);
+        self.right.lock().await.set_speed(right);
+    }
+}
+
+// Static memory storage (no global access)
+static LEFT_CELL: StaticCell<Mutex<ThreadModeRawMutex, Motor<'static>>> = StaticCell::new();
+static RIGHT_CELL: StaticCell<Mutex<ThreadModeRawMutex, Motor<'static>>> = StaticCell::new();
+
 pub fn init_motor(
     pwm_left: PwmOutput<'static>,
     dir_left: Output<'static>,
     pwm_right: PwmOutput<'static>,
     dir_right: Output<'static>,
     top: u16,
-) {
-    unsafe {
-        LEFT_MOTOR = Some(Motor::new(pwm_left, dir_left, top));
-        RIGHT_MOTOR = Some(Motor::new(pwm_right, dir_right, top));
-    }
-}
-
-/// Set Speed for both motors
-pub fn set_speed(left: f32, right: f32) {
-    unsafe {
-        if let Some(m) = LEFT_MOTOR.as_mut() {
-            m.set_speed(left);
-        }
-        if let Some(m) = RIGHT_MOTOR.as_mut() {
-            m.set_speed(right);
-        }
-    }
+) -> MotorController {
+    let left = LEFT_CELL.init(Mutex::new(Motor::new(pwm_left, dir_left, top)));
+    let right = RIGHT_CELL.init(Mutex::new(Motor::new(pwm_right, dir_right, top)));
+    MotorController::new(left, right)
 }
