@@ -17,7 +17,7 @@ on:
 jobs:
   build:
     runs-on: self-hosted
-    container: rust:1.84
+    container: rust:1.88
     steps:
     - uses: actions/checkout@v3
     - name: Install toolchain

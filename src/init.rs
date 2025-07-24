@@ -2,7 +2,7 @@
 use static_cell::StaticCell;
 
 use crate::buzzer::Buzzer;
-use crate::encoder::{init_encoder_counts, EncoderPair};
+use crate::encoder::{EncoderPair, init_encoder_counts};
 use crate::led::Led;
 use crate::motor::init_motor;
 use crate::uart::SharedUart;

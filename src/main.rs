@@ -9,7 +9,7 @@ use embassy_rp::init;
 use embassy_time::Timer;
 
 use pololu3pi2040_rs::{
-    encoder::{encoder_left_task, encoder_right_task, EncoderPair},
+    encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     init::init_all,
     motor::set_speed,
     uart::uart_receive_task,
