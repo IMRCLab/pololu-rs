@@ -13,6 +13,7 @@ use pololu3pi2040_rs::{
     encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     imu::read_imu_task,
     init::init_all,
+    sdlog::*,
     uart::uart_receive_task,
 };
 
@@ -58,6 +59,37 @@ async fn main(spawner: Spawner) {
     // === UART Task ===
     let uart_rec = devices.uart;
     spawner.spawn(uart_receive_task(uart_rec)).unwrap();
+
+    // === SdLogger ===
+    let mut sdlogger = devices.sdlogger;
+    let motion = MotionLog {
+        timestamp_ms: 12345,
+        target_vx: 0.2,
+        target_vy: 0.3,
+        target_vz: 0.4,
+        target_qw: 0.5,
+        target_qx: 0.2,
+        target_qy: 0.6,
+        target_qz: 0.3,
+        actual_vx: 0.18,
+        actual_vy: 0.28,
+        actual_vz: 0.38,
+        actual_qw: 0.18,
+        actual_qx: 0.28,
+        actual_qy: 0.38,
+        actual_qz: 0.48,
+        roll: 1.5,
+        pitch: 0.2,
+        yaw: 90.0,
+        motor_left: 1200,
+        motor_right: 1300,
+    };
+
+    // sdlogger.write_csv_header();
+    defmt::info!("Start Sd card writing test!");
+    sdlogger.log_motion_as_bin(&motion);
+    sdlogger.flush(); // This is super important!!!!!!
+    defmt::info!("Finish Sd card writing test!");
 
     // === Control Logic ===
     loop {

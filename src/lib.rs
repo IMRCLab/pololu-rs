@@ -7,4 +7,5 @@ pub mod init;
 pub mod led;
 pub mod motor;
 pub mod packet;
+pub mod sdlog;
 pub mod uart;
