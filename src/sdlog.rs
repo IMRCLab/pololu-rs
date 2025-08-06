@@ -98,7 +98,7 @@ impl SdLogger {
 }
 
 /// Initialize SD card, Loading File system, open/create log.txt
-pub fn init_sd_logger<'a>(
+pub fn init_sd_logger(
     spi: Peri<'static, SPI0>,
     sck: Peri<'static, PIN_18>,
     mosi: Peri<'static, PIN_19>,
