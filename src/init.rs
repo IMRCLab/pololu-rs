@@ -45,7 +45,7 @@ pub struct InitDevices<'a> {
     pub encoder_counts: EncoderCounters,
     pub imu: ImuPack<'a, I2c<'a, I2C0, i2c::Async>>,
     pub uart: SharedUart<'static>,
-    pub sdlogger: SdLogger,
+    pub sdlogger: Option<SdLogger>,
 }
 
 /// init all used components
@@ -107,7 +107,13 @@ pub fn init_all(p: embassy_rp::Peripherals) -> InitDevices<'static> {
     let uart = UART_CELL.init(Mutex::new(uart));
 
     // === SD Logger ===
-    let sdlogger = sdlog::init_sd_logger(p.SPI0, p.PIN_18, p.PIN_19, p.PIN_20, p.PIN_21);
+    let sdlogger = match sdlog::init_sd_logger(p.SPI0, p.PIN_18, p.PIN_19, p.PIN_20, p.PIN_21) {
+        Ok(l) => Some(l),
+        Err(_e) => {
+            defmt::info!("SD card initilization failed!!");
+            None
+        }
+    };
 
     InitDevices {
         led,

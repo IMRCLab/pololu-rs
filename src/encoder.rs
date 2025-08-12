@@ -115,6 +115,38 @@ pub async fn get_right_rpm(
     rps * 60.0
 }
 
+pub async fn get_rpms(
+    left_counter: &'static Mutex<NoopRawMutex, i32>,
+    right_counter: &'static Mutex<NoopRawMutex, i32>,
+    cpr: f32,
+    interval_ms: u64,
+) -> (f32, f32) {
+    // read start value at the same time
+    let left_before = *left_counter.lock().await;
+    let right_before = *right_counter.lock().await;
+
+    Timer::after(Duration::from_millis(interval_ms)).await;
+
+    // read end value at the same time
+    let left_after = *left_counter.lock().await;
+    let right_after = *right_counter.lock().await;
+
+    // let delta_l = left_after - left_before;
+    // let delta_r = right_after - right_before;
+
+    let delta_l = left_after.wrapping_sub(left_before);
+    let delta_r = right_after.wrapping_sub(right_before);
+
+    // defmt::info!("delta_l, delta_r: {}, {}", delta_l, delta_r);
+    //defmt::info!("left_before, left_after: {}, {}", left_before, left_after);
+
+    // RPS -> RPM
+    let rps_l = delta_l as f32 / cpr / (interval_ms as f32 / 1000.0);
+    let rps_r = delta_r as f32 / cpr / (interval_ms as f32 / 1000.0);
+
+    (rps_l * 60.0, rps_r * 60.0)
+}
+
 // fast left position reading
 pub fn read_left_count(counter: &'static Mutex<NoopRawMutex, i32>) -> i32 {
     counter.try_lock().map(|g| *g).unwrap_or(0)

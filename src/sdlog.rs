@@ -16,9 +16,11 @@ use embedded_sdmmc::{
 use heapless::String;
 use static_cell::StaticCell;
 
-type SpiDev<'a> = ExclusiveDevice<Spi<'a, SPI0, spi::Blocking>, Output<'a>, NoDelay>;
-type Sd<'a> = SdCard<SpiDev<'a>, Delay>;
-type Clock = DummyClock;
+use crate::trajectory_control::{register_trajectory, store_trajectory};
+
+pub type SpiDev<'a> = ExclusiveDevice<Spi<'a, SPI0, spi::Blocking>, Output<'a>, NoDelay>;
+pub type Sd<'a> = SdCard<SpiDev<'a>, Delay>;
+pub type Clock = DummyClock;
 
 const MAX_DIRS: usize = 4;
 const MAX_FILES: usize = 4;
@@ -47,6 +49,7 @@ static VOLUME: StaticCell<Volume<'static, Sd<'static>, Clock, MAX_DIRS, MAX_FILE
     StaticCell::new();
 static DIR: StaticCell<Directory<'static, Sd<'static>, Clock, MAX_DIRS, MAX_FILES, MAX_VOLUMES>> =
     StaticCell::new();
+static SCRATCH_JSON: StaticCell<[u8; 48 * 1024]> = StaticCell::new();
 
 // pub struct SdLogger<'a> {
 //     // volume_mgr: &'a mut VolumeManager<Sd<'static>, DummyClock, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
@@ -97,6 +100,16 @@ impl SdLogger {
     }
 }
 
+#[derive(Debug, defmt::Format)]
+pub enum SdError {
+    NoCardOrInitFail,
+    OpenVolume,
+    OpenRoot,
+    FileCreate,
+    NoFreeSlot,
+    BadShortName,
+}
+
 /// Initialize SD card, Loading File system, open/create log.txt
 pub fn init_sd_logger(
     spi: Peri<'static, SPI0>,
@@ -104,7 +117,7 @@ pub fn init_sd_logger(
     mosi: Peri<'static, PIN_19>,
     miso: Peri<'static, PIN_20>,
     cs: Peri<'static, PIN_21>,
-) -> SdLogger {
+) -> Result<SdLogger, SdError> {
     // SPI clock needs to be running at <= 400kHz during initialization
     let mut slow_cfg = spi::Config::default();
     slow_cfg.frequency = 400_000;
@@ -125,11 +138,72 @@ pub fn init_sd_logger(
     });
 
     // Safely open file
-    let volume = VOLUME.init_with(|| volume_mgr.open_volume(VolumeIdx(0)).unwrap());
-    let dir = DIR.init_with(|| volume.open_root_dir().unwrap());
+    let volume_res = { volume_mgr.open_volume(VolumeIdx(0)) };
+    let volume = match volume_res {
+        Ok(v) => v,
+        Err(_e) => {
+            defmt::warn!("open_volume failed!!");
+            return Err(SdError::NoCardOrInitFail);
+        }
+    };
+    let volume = VOLUME.init(volume); // 现在有了具体值，才能塞进 StaticCell
+
+    let dir_res = volume.open_root_dir();
+    let dir = match dir_res {
+        Ok(d) => d,
+        Err(_e) => {
+            defmt::warn!("open_root_dir failed!!");
+            return Err(SdError::OpenRoot);
+        }
+    };
+    let dir = DIR.init(dir);
+
+    // === Read + Parse Trajectory（File name must be json, file name format must be: TRJ0001.JSN） ===
+    let scratch = SCRATCH_JSON.init([0u8; 48 * 1024]);
+
+    // check length
+    match crate::trajectory_reading::file_len_with_dir::<
+        Sd<'static>,
+        Clock,
+        { MAX_DIRS },
+        { MAX_FILES },
+        { MAX_VOLUMES },
+    >(dir, "TRJ0001.JSN")
+    {
+        Ok(len) => {
+            defmt::info!("Trajectory file len = {} bytes", len);
+            if (len as usize) > scratch.len() {
+                defmt::warn!(
+                    "Trajectory too large for scratch ({} > {}), skip loading",
+                    len,
+                    scratch.len()
+                );
+            } else {
+                match crate::trajectory_reading::load_trajectory_with_dir_count::<
+                    Sd<'static>,
+                    Clock,
+                    { MAX_DIRS },
+                    { MAX_FILES },
+                    { MAX_VOLUMES },
+                >(dir, "TRJ0001.JSN", &mut scratch[..])
+                {
+                    Ok((traj, n_s, n_a)) => {
+                        defmt::info!("Trajectory parsed: states={}, actions={}", n_s, n_a);
+                        let traj_ref = store_trajectory(traj);
+                        register_trajectory(traj_ref);
+                    }
+                    Err(e) => {
+                        defmt::warn!("Trajectory load/parse failed: {}", e);
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            defmt::warn!("Trajectory file not found or open failed: {}", e);
+        }
+    }
 
     let mut file = None;
-
     for i in 0..100 {
         // File name will be TR00....TR99, binary file
         let tens = b'0' + (i / 10) as u8;
@@ -159,7 +233,7 @@ pub fn init_sd_logger(
     let file = file.expect("No available log file slot");
     info!("SD logger initialized.");
 
-    SdLogger { file }
+    Ok(SdLogger { file })
 }
 
 #[repr(C)]

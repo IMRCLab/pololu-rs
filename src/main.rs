@@ -21,7 +21,7 @@ use pololu3pi2040_rs::{
 async fn main(spawner: Spawner) {
     let p = init(Default::default());
 
-    let devices = init_all(p);
+    let mut devices = init_all(p);
 
     // === LED Initialization ===
     let mut led = devices.led;
@@ -61,7 +61,6 @@ async fn main(spawner: Spawner) {
     spawner.spawn(uart_receive_task(uart_rec)).unwrap();
 
     // === SdLogger ===
-    let mut sdlogger = devices.sdlogger;
     let motion = MotionLog {
         timestamp_ms: 12345,
         target_vx: 0.2,
@@ -85,11 +84,15 @@ async fn main(spawner: Spawner) {
         motor_right: 1300,
     };
 
-    // sdlogger.write_csv_header();
-    defmt::info!("Start Sd card writing test!");
-    sdlogger.log_motion_as_bin(&motion);
-    sdlogger.flush(); // This is super important!!!!!!
-    defmt::info!("Finish Sd card writing test!");
+    if let Some(sd) = devices.sdlogger.as_mut() {
+        sd.write_csv_header();
+        defmt::info!("Start Sd card writing test!");
+        sd.log_motion_as_bin(&motion);
+        sd.flush(); // This is super important!!!!!!
+        defmt::info!("Finish Sd card writing test!");
+    } else {
+        defmt::warn!("No SD card / SdLogger disabled, skip logging");
+    }
 
     // === Control Logic ===
     loop {

@@ -75,7 +75,7 @@ pub async fn read_imu_task(mut imu: ImuPack<'static, I2c<'static, I2C0, Async>>)
                 */
                 let mut lock = imu.complementary.lock().await;
                 lock.update(gyro, accel, mag, 0.01);
-                let (pitch, roll, yaw) = lock.get_angles_deg();
+                let (_pitch, _roll, _yaw) = lock.get_angles_deg();
                 /*
                 defmt::info!(
                     "Accel: x={} y={} z={} | Gyro: x={} y={} z={} | Mag: x={} y={} z={}",
@@ -89,7 +89,7 @@ pub async fn read_imu_task(mut imu: ImuPack<'static, I2c<'static, I2C0, Async>>)
                     mag[1],
                     mag[2]
                 );*/
-                defmt::info!("Roll: {}, Pitch: {}, Yaw: {}", roll, pitch, yaw);
+                // defmt::info!("Roll: {}, Pitch: {}, Yaw: {}", roll, pitch, yaw);
             }
             Err(_e) => defmt::warn!("IMU read error!"),
         }
