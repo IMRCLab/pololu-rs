@@ -1,3 +1,4 @@
+use defmt::info;
 use embassy_futures::select::{Either, select};
 use embassy_sync::blocking_mutex::raw::{NoopRawMutex, ThreadModeRawMutex};
 use embassy_sync::mutex::Mutex;
@@ -5,17 +6,20 @@ use embassy_time::{Duration, Timer};
 
 use crate::encoder::get_rpms;
 use crate::motor::MotorController;
-use crate::packet::{CmdLegacyPacketF32, CmdLegacyPacketTeleop};
+use crate::packet::{CmdLegacyPacketMix, CmdLegacyPacketF32, CmdTeleopPacketMix};
 use crate::uart::SharedUart;
 
 use heapless::Vec;
 
 /// const values
+const PI: f32 = core::f32::consts::PI;
 const GEAR_RATIO: f32 = 29.86;
 const ENCODER_CPR: f32 = GEAR_RATIO * 12.0; // = 358.32
 const SAMPLE_MS: u64 = 20; // Sample Period = 20 ms
 const WHEEL_BASE: f32 = 0.0842; // distance between 2 wheels
 const WHEEL_RADIUS: f32 = 0.016; // wheel radius
+//zumo const values
+
 
 #[derive(Copy, Clone, Debug)]
 pub struct ControlCommand {
@@ -76,8 +80,8 @@ pub async fn motor_control_task(
 
     loop {
         let cmd = CONTROL_CMD_UNICYCLE.lock().await.clone();
-        let v = cmd.v;
-        let omega = cmd.omega;
+        let v = cmd.v;          // m/s
+        let omega = cmd.omega; //rad/s
 
         let v_left = v - omega * WHEEL_BASE / 2.0;
         let v_right = v + omega * WHEEL_BASE / 2.0;
@@ -99,23 +103,25 @@ pub async fn motor_control_task(
         let duty_left = ((kp * error_left + ki * error_sum_left) / 10000.0).clamp(-1.0, 1.0);
         let duty_right = ((kp * error_right + ki * error_sum_right) / 10000.0).clamp(-1.0, 1.0);
 
-        // info!("Set Speed: {}, {}", duty_left, duty_right);
-        // info!(
-        //     "rpm_left_target: {}, rpm_left_now: {}",
-        //     rpm_left_target, rpm_left_now
-        // );
-        // info!(
-        //     "rpm_right_target: {}, rpm_right_now: {}",
-        //     rpm_right_target, rpm_right_now
-        // );
+        info!("Set Speed: {}, {}", duty_left, duty_right);
+        info!(
+            "rpm_left_target: {}, rpm_left_now: {}",
+            rpm_left_target, rpm_left_now
+        );
+        info!(
+            "rpm_right_target: {}, rpm_right_now: {}",
+            rpm_right_target, rpm_right_now
+        );
 
         if v == 0.0 {
-            motor.set_speed(0.0, 0.0).await;
+            //motor.set_speed(0.0, 0.0).await; in case that the robot is stopped, reset the error sum
             error_sum_left = 0.0;
             error_sum_right = 0.0;
-        } else {
-            motor.set_speed(duty_left, duty_right).await;
         }
+        // } else {
+        //     motor.set_speed(duty_left, duty_right).await;
+        // }
+        motor.set_speed(duty_left, duty_right).await;
 
         Timer::after(Duration::from_millis(SAMPLE_MS)).await;
     }
@@ -189,7 +195,7 @@ pub async fn robot_command_task(uart: SharedUart<'static>) {
         }
     }
 }
-
+/*
 #[embassy_executor::task]
 pub async fn robot_command_control_task(uart: SharedUart<'static>) {
     let mut buffer: Vec<u8, 32> = Vec::new();
@@ -232,10 +238,99 @@ pub async fn robot_command_control_task(uart: SharedUart<'static>) {
 
                 let expected_len = buffer[0] as usize + 1;
                 if buffer.len() == expected_len {
-                    if let Some(pkt) = CmdLegacyPacketTeleop::from_bytes(&buffer) {
+                    if let Some(pkt) = CmdLegacyPacketMix::from_bytes(&buffer) {
+                        let v = pkt.right_direction as f32;
+                        let omega = pkt.left_direction;
+                        
+                        //scale v in CmdLegacyPacketMix with 0.00001 and omega with PI / (180.0 * 0.5)
                         let cmd = ControlCommandUnicycle {
-                            v: pkt.linear_vel as f32,
-                            omega: pkt.angular_vel,
+                            v: v * 0.00001, // scale 0 - 20000 "thrust" to 0 - 0.2 m/s
+                            omega: omega * PI / (180.0 * 0.5), // turn about the steering angle within half a second
+                        };
+
+                        {
+                            let mut lock = CONTROL_CMD_UNICYCLE.lock().await;
+                            *lock = cmd;
+                        }
+                        // defmt::info!(
+                        //     "Whole command: field1={}, field2={}, v={}, omega={}",
+                        //     pkt.left_pwm_duty, pkt.right_pwm_duty, cmd.v, cmd.omega
+                        // );
+                        defmt::info!("Updated Control: {}, {}", cmd.v, cmd.omega);
+                    }
+                    buffer.clear();
+                }
+            }
+
+            Either::Second(None) => {
+                continue;
+            }
+        }
+    }
+}
+*/
+
+
+#[embassy_executor::task]
+pub async fn robot_command_control_task(uart: SharedUart<'static>) {
+    let mut buffer: Vec<u8, 32> = Vec::new();
+
+    loop {
+        // Set Timer
+        let timeout = Timer::after(Duration::from_millis(1000));
+        let byte_future = async {
+            let mut uart = uart.lock().await;
+            let mut b = [0u8; 1];
+            match uart.read(&mut b).await {
+                Ok(_) => Some(b[0]),
+                Err(_) => None,
+            }
+        };
+
+        match select(timeout, byte_future).await {
+            Either::First(_) => {
+                // Timeout, Stop Pololu
+                {
+                    let mut lock = CONTROL_CMD_UNICYCLE.lock().await;
+                    *lock = ControlCommandUnicycle { v: 0.0, omega: 0.0 };
+                    defmt::warn!("UART timeout, stop motors");
+                }
+                buffer.clear();
+                continue;
+            }
+
+            Either::Second(Some(byte)) => {
+                if buffer.is_empty() && !(byte == 2 || byte == 8 || byte == 9) { 
+                    continue;
+                }
+
+                buffer.push(byte).ok();
+
+                if buffer.len() == 2 && buffer[1] != 0x3C {
+                    buffer.clear();
+                    continue;
+                }
+
+                let expected_len = buffer[0] as usize + 1;
+                if buffer.len() == expected_len {
+                    if let Some(pkt) = CmdTeleopPacketMix::from_bytes(&buffer) {
+                        let v = {
+                            let raw = pkt.linear_velocity as f32;
+                            let sign = if raw >= 0.0 { 1.0 } else { -1.0 };
+                            let abs_raw = raw.abs();
+                            
+                            if abs_raw < 1000.0 {
+                                0.0  // Dead zone
+                            } else {
+                                let normalized = ((abs_raw - 1000.0) / 19000.0).clamp(0.0, 1.0);
+                                let speed = 0.1 * (libm::expf(2.0 * normalized) - 1.0) / (libm::expf(2.0) - 1.0);
+                                sign * speed  // Apply original sign for forward/reverse
+                            }
+                        };
+                        let cmd = ControlCommandUnicycle {
+                            v: v, // scale 0 - 20000 "thrust" to 0 - 0.2 m/s //f32
+                            //i prefer a nonlinear scaling for better haptic feedback
+                            omega: pkt.steering_angle * PI / (180.0 * 0.5 ), // scale 0 - 20000 "steering" to 0 - 0.2 rad/s should turn by the desired angle within half a second
                         };
 
                         {
