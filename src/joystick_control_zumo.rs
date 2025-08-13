@@ -11,24 +11,13 @@ use crate::uart::SharedUart;
 
 use heapless::Vec;
 
-/// const values
-/*
+/// Zumo const values
 const PI: f32 = core::f32::consts::PI;
-const GEAR_RATIO: f32 = 29.86;
-const ENCODER_CPR: f32 = GEAR_RATIO * 12.0; // = 358.32
-const SAMPLE_MS: u64 = 20; // Sample Period = 20 ms
-const WHEEL_BASE: f32 = 0.0842; // distance between 2 wheels
-const WHEEL_RADIUS: f32 = 0.016; // wheel radius
-*/
-//zumo const values
-// const values
-const PI: f32 = core::f32::consts::PI;
-const ENCODER_CPR: f32 = GEAR_RATIO * 12.0; // = 358.32
+const GEAR_RATIO: f32 = 75.81; // Gear Ratio of Zumo
+const ENCODER_CPR: f32 = GEAR_RATIO * 12.0; // = 909.72
 const SAMPLE_MS: u64 = 20; // Sample Period = 20 ms
 const WHEEL_RADIUS: f32 = 0.02;
 const WHEEL_BASE: f32 = 0.099;
-
-const GEAR_RATIO: f32 = 75.81; // Gear Ratio of Zumo
 
 
 #[derive(Copy, Clone, Debug)]
@@ -128,13 +117,9 @@ pub async fn motor_control_task(
             error_sum_left = 0.0;
             error_sum_right = 0.0;
         }
-        // } else {
-        //     motor.set_speed(duty_left, duty_right).await;
-        // }
 
         //Pololu Zumo has reversed motor directions
         motor.set_speed(-duty_left, -duty_right).await;
-        //motor.set_speed(duty_left, duty_right).await;
 
         Timer::after(Duration::from_millis(SAMPLE_MS)).await;
     }
@@ -208,81 +193,6 @@ pub async fn robot_command_task(uart: SharedUart<'static>) {
         }
     }
 }
-/*
-#[embassy_executor::task]
-pub async fn robot_command_control_task(uart: SharedUart<'static>) {
-    let mut buffer: Vec<u8, 32> = Vec::new();
-
-    loop {
-        // Set Timer
-        let timeout = Timer::after(Duration::from_millis(500));
-        let byte_future = async {
-            let mut uart = uart.lock().await;
-            let mut b = [0u8; 1];
-            match uart.read(&mut b).await {
-                Ok(_) => Some(b[0]),
-                Err(_) => None,
-            }
-        };
-
-        match select(timeout, byte_future).await {
-            Either::First(_) => {
-                // Timeout, Stop Pololu
-                {
-                    let mut lock = CONTROL_CMD_UNICYCLE.lock().await;
-                    *lock = ControlCommandUnicycle { v: 0.0, omega: 0.0 };
-                    defmt::warn!("UART timeout, stop motors");
-                }
-                buffer.clear();
-                continue;
-            }
-
-            Either::Second(Some(byte)) => {
-                if buffer.is_empty() && !(byte == 9 || byte == 15 || byte == 17) {
-                    continue;
-                }
-
-                buffer.push(byte).ok();
-
-                if buffer.len() == 2 && buffer[1] != 0x3C {
-                    buffer.clear();
-                    continue;
-                }
-
-                let expected_len = buffer[0] as usize + 1;
-                if buffer.len() == expected_len {
-                    if let Some(pkt) = CmdLegacyPacketMix::from_bytes(&buffer) {
-                        let v = pkt.right_direction as f32;
-                        let omega = pkt.left_direction;
-                        
-                        //scale v in CmdLegacyPacketMix with 0.00001 and omega with PI / (180.0 * 0.5)
-                        let cmd = ControlCommandUnicycle {
-                            v: v * 0.00001, // scale 0 - 20000 "thrust" to 0 - 0.2 m/s
-                            omega: omega * PI / (180.0 * 0.5), // turn about the steering angle within half a second
-                        };
-
-                        {
-                            let mut lock = CONTROL_CMD_UNICYCLE.lock().await;
-                            *lock = cmd;
-                        }
-                        // defmt::info!(
-                        //     "Whole command: field1={}, field2={}, v={}, omega={}",
-                        //     pkt.left_pwm_duty, pkt.right_pwm_duty, cmd.v, cmd.omega
-                        // );
-                        defmt::info!("Updated Control: {}, {}", cmd.v, cmd.omega);
-                    }
-                    buffer.clear();
-                }
-            }
-
-            Either::Second(None) => {
-                continue;
-            }
-        }
-    }
-}
-*/
-
 
 #[embassy_executor::task]
 pub async fn robot_command_control_task(uart: SharedUart<'static>) {

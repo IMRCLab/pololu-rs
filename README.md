@@ -118,8 +118,73 @@ There are two major frameworks: [embedded-hal](https://github.com/rp-rs/rp-hal-b
 
 ## Flash
 
+### Using the `./run` Script (Recommended)
+
+The project includes a convenient `./run` script for building and flashing different robot configurations:
+
+```bash
+# Make executable (first time only)
+chmod +x run
+
+# Examples:
+./run                    # Default config, main binary
+./run zumo              # Zumo config, main binary
+./run zumo teleop       # Zumo config, teleop_control binary
+./run 3pi trajectory    # 3Pi config, trajectory_following binary
+```
+
+### Manual Cargo Commands
+
 * Press "B" + Reset
-* `cargo run --release` will flash and run the firmware
+* `cargo run --release` will flash and run the firmware with default configuration
+* `cargo run --release --features zumo` for Zumo robot
+* `cargo run --release --features 3pi` for 3Pi robot
+
+See [README_BUILD_SYSTEM.md](README_BUILD_SYSTEM.md) for complete documentation.
+
+## Multi-Robot Support
+
+This firmware supports both **Zumo** and **3Pi** robots with different physical parameters and configurations:
+
+### Robot Configurations
+
+#### Zumo Robot (`--features zumo`)
+- **Joystick Control Module**: `joystick_control_zumo.rs`
+- **Gear Ratio**: 75.81
+- **Wheel Radius**: 0.02m
+- **Wheel Base**: 0.099m
+- **Motor Direction**: Reversed (`-duty_left`, `-duty_right`)
+- **Encoder CPR**: 909.72 (75.81 × 12.0)
+
+#### 3Pi Robot (`--features 3pi`)
+- **Joystick Control Module**: `joystick_control_3pi.rs`
+- **Gear Ratio**: 29.86
+- **Wheel Radius**: 0.016m
+- **Wheel Base**: 0.0842m
+- **Motor Direction**: Normal (`duty_left`, `duty_right`)
+- **Encoder CPR**: 358.32 (29.86 × 12.0)
+
+#### Default/Testing (no features)
+- **Joystick Control Module**: `joystick_control.rs`
+- **Configuration**: Currently set to Zumo parameters for testing
+- **Use Case**: Development and testing without robot-specific compilation
+
+### Parameter Comparison Table
+
+| Parameter | Zumo Robot | 3Pi Robot | Default/Testing |
+|-----------|------------|-----------|-----------------|
+| Gear Ratio | 75.81 | 29.86 | 75.81 |
+| Wheel Radius | 0.02m | 0.016m | 0.02m |
+| Wheel Base | 0.099m | 0.0842m | 0.099m |
+| Motor Direction | Reversed | Normal | Reversed |
+| Encoder CPR | 909.72 | 358.32 | 909.72 |
+
+### Quick Start Examples:
+```bash
+./run zumo teleop       # Flash teleop control to Zumo
+./run 3pi trajectory    # Flash trajectory following to 3Pi  
+./run                   # Use default config for testing
+```
 
 ## USB Logging
 
@@ -133,13 +198,20 @@ tio /dev/ttyACM0
 - `src/`: Source code
   - `main.rs`: The entry point of the project.
   - `init.rs`: Initialization for all devices.
-  - `lib.rs`: Integrated libraries.
+  - `lib.rs`: Integrated libraries with feature-based module selection.
   - `led.rs`: Default LED driver.
   - `buzzer.rs`: Buzzer driver.
   - `motor.rs`: Driver of both motors.
   - `encoder.rs`: Encoder driver for both encoders using PIO.
   - `uart.rs`: UART0 driver.
   - `packet.rs`: Defines the packet according to [Crazyflie_Packet](https://github.com/IMRCLab/crazyflie-link-cpp/blob/startTraj_example/examples/PacketUtils.hpp).
+  - **Robot-specific joystick control modules:**
+    - `joystick_control.rs`: Default/testing configuration (currently Zumo parameters)
+    - `joystick_control_zumo.rs`: Zumo robot-specific configuration (gear ratio: 75.81, reversed motors)
+    - `joystick_control_3pi.rs`: 3Pi robot-specific configuration (gear ratio: 29.86, normal motors)
+  - `bin/`: Binary targets
+    - `teleop_control.rs`: Teleop control application
+    - `trajectory_following.rs`: Trajectory following application
   - `imu/`: IMU library.
     - `lis3mdl.rs`: Driver for the 3-axis magnetometer.
     - `lsm6dso.rs`: Driver for the combined 3-axis accelerometer and 3-axis gyrometer.
@@ -148,6 +220,10 @@ tio /dev/ttyACM0
     - `madgwick.rs`: Madgwick filter to estimate Roll/Pitch/Yaw (under developing).
 - `memory.x`: Defines the memory layout of RP2040 (SRAM and Flash).
 - `.cargo/config.toml`: Specifies the target platform as `thumbv6m-none-eabi` for RP2040.
+- `Cargo.toml`: Declares project metadata, Rust edition, dependencies, and feature flags for robot selection.
+- `build.rs`: A custom build script to ensure the `memory.x` linker script is properly included during compilation.
+- `run`: Build script for easy robot and binary selection (see [README_BUILD_SYSTEM.md](README_BUILD_SYSTEM.md)).
+- `README_BUILD_SYSTEM.md`: Comprehensive documentation for the build system and robot configurations. `thumbv6m-none-eabi` for RP2040.
 - `Cargo.toml`: Declares project metadata, Rust edition, and dependencies.
 - `build.rs`: A custom build script to ensure the `memory.x` linker script is properly included during compilation.
 
