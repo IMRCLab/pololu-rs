@@ -11,24 +11,55 @@ use crate::uart::SharedUart;
 
 use heapless::Vec;
 
-/// const values
-/*
+/// Robot-specific constants - conditionally compiled
 const PI: f32 = core::f32::consts::PI;
-const GEAR_RATIO: f32 = 29.86;
-const ENCODER_CPR: f32 = GEAR_RATIO * 12.0; // = 358.32
 const SAMPLE_MS: u64 = 20; // Sample Period = 20 ms
-const WHEEL_BASE: f32 = 0.0842; // distance between 2 wheels
-const WHEEL_RADIUS: f32 = 0.016; // wheel radius
-*/
-//zumo const values
-// const values
-const PI: f32 = core::f32::consts::PI;
-const ENCODER_CPR: f32 = GEAR_RATIO * 12.0; // = 358.32
-const SAMPLE_MS: u64 = 20; // Sample Period = 20 ms
-const WHEEL_RADIUS: f32 = 0.02;
-const WHEEL_BASE: f32 = 0.099;
 
-const GEAR_RATIO: f32 = 75.81; // Gear Ratio of Zumo
+// Zumo robot constants
+#[cfg(feature = "zumo")]
+mod robot_constants {
+    pub const GEAR_RATIO: f32 = 75.81;
+    pub const ENCODER_CPR: f32 = GEAR_RATIO * 12.0; // = 909.72
+    pub const WHEEL_BASE: f32 = 0.099;
+    pub const WHEEL_RADIUS: f32 = 0.02;
+    pub const MOTOR_DIRECTION_LEFT: f32 = -1.0;  // Zumo has reversed motors
+    pub const MOTOR_DIRECTION_RIGHT: f32 = -1.0;
+}
+
+// 3Pi robot constants
+#[cfg(feature = "three-pi")]
+mod robot_constants {
+    pub const GEAR_RATIO: f32 = 29.86;
+    pub const ENCODER_CPR: f32 = GEAR_RATIO * 12.0; // = 358.32
+    pub const WHEEL_BASE: f32 = 0.0842;
+    pub const WHEEL_RADIUS: f32 = 0.016;
+    pub const MOTOR_DIRECTION_LEFT: f32 = 1.0;   // 3Pi has normal motor directions
+    pub const MOTOR_DIRECTION_RIGHT: f32 = 1.0;
+}
+
+// Default values for testing when no features are active
+#[cfg(not(any(feature = "zumo", feature = "three-pi")))]
+mod robot_constants {
+    pub const GEAR_RATIO: f32 = 75.81; // Default to Zumo values for testing
+    pub const ENCODER_CPR: f32 = GEAR_RATIO * 12.0;
+    pub const WHEEL_BASE: f32 = 0.099;
+    pub const WHEEL_RADIUS: f32 = 0.02;
+    pub const MOTOR_DIRECTION_LEFT: f32 = -1.0;  // Default to Zumo behavior
+    pub const MOTOR_DIRECTION_RIGHT: f32 = -1.0;
+}
+
+// Import the selected constants into the module scope
+use robot_constants::*;
+
+/// Get the gear ratio for runtime identification
+pub fn get_gear_ratio() -> f32 {
+    GEAR_RATIO
+}
+
+/// Get motor direction multipliers for runtime identification
+pub fn get_motor_directions() -> (f32, f32) {
+    (MOTOR_DIRECTION_LEFT, MOTOR_DIRECTION_RIGHT)
+}
 
 
 #[derive(Copy, Clone, Debug)]
@@ -132,9 +163,11 @@ pub async fn motor_control_task(
         //     motor.set_speed(duty_left, duty_right).await;
         // }
 
-        //Pololu Zumo has reversed motor directions
-        motor.set_speed(-duty_left, -duty_right).await;
-        //motor.set_speed(duty_left, duty_right).await;
+        // Apply robot-specific motor direction corrections
+        motor.set_speed(
+            duty_left * MOTOR_DIRECTION_LEFT, 
+            duty_right * MOTOR_DIRECTION_RIGHT
+        ).await;
 
         Timer::after(Duration::from_millis(SAMPLE_MS)).await;
     }

@@ -21,7 +21,13 @@ else
         exit 1
     fi
     echo "Building for robot: $ROBOT_TYPE"
-    FEATURES="--features $ROBOT_TYPE"
+    
+    # Map robot type to feature name
+    if [[ "$ROBOT_TYPE" == "3pi" ]]; then
+        FEATURES="--features three-pi"
+    else
+        FEATURES="--features $ROBOT_TYPE"
+    fi
     ROBOT_DESC="$ROBOT_TYPE"
 fi
 

@@ -98,10 +98,10 @@ async fn main(spawner: Spawner) {
     loop {
         led.blink(100, 3).await;
 
-        motors.set_speed(0.5, 0.5).await; // forward
+        motors.set_speed(0.1, 0.1).await; // forward
         Timer::after_millis(1000).await;
 
-        motors.set_speed(-0.5, -0.5).await; // backward
+        motors.set_speed(-0.1, -0.1).await; // backward
         Timer::after_millis(1000).await;
 
         motors.set_speed(0.0, 0.0).await; // stop

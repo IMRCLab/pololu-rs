@@ -65,4 +65,4 @@ opt-level = "z"
 [features]
 default = []
 zumo = []
-3pi = []
+three-pi = []
