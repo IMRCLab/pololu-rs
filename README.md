@@ -196,91 +196,22 @@ tio /dev/ttyACM0
 ```
 (use ctrl+t q to exit)
 
-## Advanced Motor Control System
-
-### PI Controller Implementation
-
-The firmware features an advanced **PI (Proportional-Integral) controller** for precise RPM-based motor control:
-
-#### Key Features:
-- **Physical Unit Control**: Direct RPM control instead of arbitrary PWM values
-- **Robot-Specific Tuning**: Optimized gains for different robot configurations
-- **Anti-Windup Protection**: Prevents integrator saturation using back-calculation method
-- **Complementary Filtering**: Noise reduction with configurable α = 0.3 for RPM feedback
-- **Separate Integrator States**: Proper anti-windup implementation with independent left/right integrators
-
-#### Controller Parameters:
-
-| Robot Type | kp (Proportional) | ki (Integral) | Kaw (Anti-windup) | Sample Rate |
-|------------|-------------------|---------------|-------------------|-------------|
-| **3Pi Robot** | 60.0 | 1.0 | 0.1 | 20ms |
-| **Zumo/Default** | 10.0 | 1.0 | 0.1 | 20ms |
-
-#### Control Algorithm:
-```rust
-// PI Controller with anti-windup
-P_inc = kp * (e_k - e_k1)                                    // Proportional increment
-I_inc = ki * Ts * e_k + Kaw * (u_sat_prev - u_k_prev)      // Integral with anti-windup
-u_k = u_k_prev + P_inc + I_inc                             // Control output
-```
-
-### Control Command Interface
-
-The system supports multiple control interfaces through UART communication:
-
-#### 1. **Legacy PWM Control** (`ControlCommand`)
-- Direct left/right motor PWM control
-- Range: ±10000 (normalized to ±1.0)
-- Packet: `CmdLegacyPacketF32`
-
-#### 2. **Unicycle Model Control** (`ControlCommandUnicycle`) 
-- **Linear velocity** (`v`): Forward/backward speed [m/s]
-- **Angular velocity** (`omega`): Rotation rate [rad/s]
-- Automatic differential drive conversion
-- Nonlinear exponential scaling for intuitive control feel
-
-#### 3. **Advanced Teleop Control** (`CmdTeleopPacketMix`)
-- **Linear Velocity**: ±20000 range with exponential scaling to 0.2 m/s max
-- **Steering Angle**: Direct angle input with configurable turn time
-- **Nonlinear Scaling**: Exponential curves for both linear and angular commands
-- **Dead Zone Handling**: Managed by ROS node (1000-20000 active range)
-
-### Nonlinear Control Scaling
-
-Both linear and angular commands use exponential scaling for better control feel:
-
-```rust
-// Exponential scaling function
-scaled_output = max_value * (exp(normalized_input) - 1.0) / (exp(1.0) - 1.0)
-```
-
-**Benefits:**
-- Fine control at low speeds
-- Smooth acceleration curves
-- Intuitive joystick response
-- Maximum performance when needed
-
 ## Project Structure
 - `src/`: Source code
   - `main.rs`: The entry point of the project.
-  - `init.rs`: Initialization for all devices (PWM frequency fixed to 10kHz for silent operation).
+  - `init.rs`: Initialization for all devices.
   - `lib.rs`: Integrated libraries with feature-based module selection.
   - `led.rs`: Default LED driver.
   - `buzzer.rs`: Buzzer driver.
   - `motor.rs`: Driver of both motors.
   - `encoder.rs`: Encoder driver for both encoders using PIO.
   - `uart.rs`: UART0 driver.
-  - `packet.rs`: Extended packet definitions including `CmdTeleopPacketMix` for advanced control.
+  - `packet.rs`: Defines the packet according to [Crazyflie_Packet](https://github.com/IMRCLab/crazyflie-link-cpp/blob/startTraj_example/examples/PacketUtils.hpp).
 
-  **Advanced Motor Control System**
-  - `joystick_control.rs`: 
-    - **PI Controller**: RPM-based control with anti-windup protection
-    - **Multiple Control Modes**: PWM, Unicycle, and Teleop interfaces
-    - **Robot-Specific Parameters**: Conditional compilation for Zumo/3Pi configurations  
-    - **Nonlinear Scaling**: Exponential curves for intuitive control response
-    - **Complementary Filtering**: RPM noise reduction (α=0.3)
+  **Robot-specific adaptions in joystick_control.rs**
+  - `joystick_control.rs`: Default/testing configuration (currently Zumo parameters)
   - `bin/`: Binary targets
-    - `teleop_control.rs`: Teleop control application with advanced PI controller
+    - `teleop_control.rs`: Teleop control application
     - `trajectory_following.rs`: Trajectory following application
   - `imu/`: IMU library.
     - `lis3mdl.rs`: Driver for the 3-axis magnetometer.
@@ -352,119 +283,54 @@ When the sd card deck initialization function is called but no sd card is insert
 
 
 ## Uart
-
-### Control Command Protocols
-
-The UART interface supports multiple communication protocols for different control requirements:
-
-#### 1. **Legacy Packet Types** (`packet.rs`)
-- **`CmdLegacyPacketU16`**: 4 × U16 values for basic integer commands
-- **`CmdLegacyPacketF32`**: 4 × F32 values for direct PWM control with floating-point precision  
-- **`CmdLegacyPacketMix`**: 2 × U16 + 2 × F32 values for mixed-type commands
-
-#### 2. **Advanced Teleop Protocol** (`CmdTeleopPacketMix`)
-- **Packet Size**: 10 bytes (header + 2 × F32 values)
-- **Linear Velocity**: F32 range ±20000 with exponential scaling to ±0.2 m/s
-- **Steering Angle**: F32 steering angle in degrees for intuitive control
-- **Nonlinear Scaling**: Both commands use exponential curves for smooth control response
-- **Dead Zone**: 1000-20000 active range (handled by ROS node)
-
-#### 3. **Control Command Types**
-
-**Direct Motor Control:**
-```rust
-ControlCommand {
-    left_speed: f32,   // ±10000 range, normalized to ±1.0 PWM
-    right_speed: f32,  // ±10000 range, normalized to ±1.0 PWM  
-}
-```
-
-**Unicycle Model Control:**
-```rust
-ControlCommandUnicycle {
-    v: f32,      // Linear velocity [m/s]
-    omega: f32,  // Angular velocity [rad/s]
-}
-```
-
-### Communication Features
-- **Asynchronous Reception**: Non-blocking UART message processing
-- **Timeout Protection**: 1000ms timeout with automatic motor stop
-- **Packet Validation**: Header verification and length checking
-- **Multiple Start Bytes**: Supports different packet types (0x02, 0x08, 0x09)
-- **Buffer Management**: 32-byte circular buffer with automatic clearing
-
-### Protocol Headers
-- **Legacy Packets**: Header `0x3C` (modified from `0xFF` by channel/port settings)
-- **Teleop Packets**: Header `0x3C` with specific start bytes for packet identification
-- **Channel Configuration**: Channel 0x00, Port 0x03 (modifies header automatically)
-
-### Real-Time Control Loop
-- **Sample Rate**: 20ms (50Hz) for consistent control timing
-- **PI Controller Integration**: Direct RPM feedback control
-- **Motor Safety**: Automatic timeout stop prevents runaway conditions
-- **Debug Logging**: Comprehensive telemetry via defmt logging
-
 ### Packet Type
-### Legacy Packet Support
-3 different legacy packet types remain supported in `packet.rs`:
+3 different packet types are defined in `packet.rs`:
 - `CmdLegacyPacketU16`: including 4 U16 values.
-- `CmdLegacyPacketF32`: including 4 F32 values.  
-- `CmdLegacyPacketMix`: including 2 U16 values and 2 F32 values.
+- `CmdLegacyPacketF32`: including 4 F32 values.
+- `CmdLegacyPacketMix`: including 2 U16 values adn 2 F32 values.
 
 ### Read Packet
-Multiple asynchronous tasks handle different control protocols:
+Register a function `uart_receive_task` as an asychronous task to asychronously receive the new message.
 
-- **`robot_command_task`**: Processes legacy F32 packets for direct PWM control
-- **`robot_command_control_task`**: Handles advanced teleop packets with PI controller integration  
-- **Asynchronous Reception**: Non-blocking message processing with timeout protection
-- **Automatic Failsafe**: 1000ms timeout triggers motor stop for safety
+* Notice: Even though the header defined in the Crazyflie-link sending example is `0xFF`, the `set_Channel((uint8_t) 0x00)` and `set_Port((uint8_t)0x03)` will change the header to `0x3C`.
 
-### Communication Protocol Details
-- **Header Verification**: All packets validated against expected `0x3C` header
-- **Length Checking**: Dynamic packet length validation based on first byte
-- **Buffer Management**: 32-byte ring buffer with automatic overflow handling
-- **Start Byte Filtering**: Multiple valid start bytes (0x02, 0x08, 0x09) for packet type identification
+### Notice
+* The UART task runs now in asychronous mode.
 
-**Important Notes:**
-- Header `0xFF` in Crazyflie-link examples becomes `0x3C` due to `set_Channel(0x00)` and `set_Port(0x03)` 
-- Extra start bytes (0x09, etc.) are part of the Crazyflie-link protocol implementation
-- All UART tasks operate in fully asynchronous mode for optimal performance
+### TODO:
+* Define sending funtion
+* The packet sent by the crazyflie-link code always contains an extra byte(0x09) at the beginning, need to find out the reason.
 
-## Motor Control System
 
-### Basic Motor Interface
-The `motor.rs` module provides the fundamental `set_speed` function for direct PWM control:
-```rust
-motor.set_speed(left_duty: f32, right_duty: f32)  // Range: ±1.0
-```
-
-### Advanced PI Controller Integration  
-The motor control system now features sophisticated closed-loop control:
-
-#### **RPM-Based Control**
-- Direct RPM target setting instead of open-loop PWM
-- Real-time encoder feedback for precise speed control
-- Robot-specific calibration for optimal performance
-
-#### **Anti-Windup Protection**
-- Prevents integrator saturation during motor saturation
-- Back-calculation method: `I_inc = ki*Ts*error + Kaw*(u_sat_prev - u_k_prev)`
-- Separate integrator states for left and right motors
-
-#### **Complementary Filtering**
-- RPM noise reduction with α=0.3 filter coefficient
-- Improved control stability and reduced jitter
-- Real-time filtering: `filtered_rpm = α*raw_rpm + (1-α)*filtered_rpm_prev`
-
-#### **Robot-Specific Motor Direction Handling**
-- **Zumo**: Reversed motor directions (`MOTOR_DIRECTION_LEFT/RIGHT = -1.0`)
-- **3Pi**: Normal motor directions (`MOTOR_DIRECTION_LEFT/RIGHT = 1.0`)
-- Automatic compensation in control loop for consistent behavior
+## Motor
+Provide with `set_speed` function to set direction and speed for both motors.
 
 
 ## Encoder
 Use Pio Module to build the encoder driver. Provide the user with position reading function and rotation speed (RPM) reading function. A asynchronous reading task is implemented in `encoder/encoder.rs`.
+
+### Known Issues:
+* **Poor Encoder Readings**: Bad encoder readings are not good enough for reliable closed loop control
+  - Encoder noise affects PI controller stability
+  - May require hardware improvements or better filtering algorithms
+  - Currently mitigated with complementary filtering but impacts response time
+
+
+## Motor Control Issues
+
+### Closed-Loop Control Challenges:
+* **Complementary Filter Trade-off**: Need low alpha values in complementary filter to reduce encoder noise
+  - Low alpha values (currently α=0.3) required for stable control
+  - This leads to slow response time for command changes
+
+* **Zero Command Drift Problem**: Robot sometimes receives non-zero target RPM when control commands are zero
+  - Zero angular and linear velocity inputs should result in zero RPM targets
+
+### considerable TODO:
+* Consider hardware encoder improvements (better resolution, shielding)
+* Implement advanced filtering (Kalman filter, moving average)
+* Investigate encoder mounting and mechanical coupling issues
+* Add dead-zone handling for very small velocity commands to prevent drift (bad hotfix solution, better look for actual issue)
 
 
 ## IMU
