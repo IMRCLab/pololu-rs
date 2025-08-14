@@ -126,6 +126,11 @@ The project includes a convenient `./run` script for building and flashing diffe
 # Make executable (first time only)
 chmod +x run
 
+```
+Then: 
+* Press "B" + Reset on the Robot
+
+```bash
 # Examples:
 ./run                    # Default config, main binary
 ./run zumo              # Zumo config, main binary
@@ -135,7 +140,7 @@ chmod +x run
 
 ### Manual Cargo Commands
 
-* Press "B" + Reset
+* Press "B" + Reset on the Robot
 * `cargo run --release` will flash and run the firmware with default configuration
 * `cargo run --release --features zumo` for Zumo robot
 * `cargo run --release --features 3pi` for 3Pi robot
@@ -149,7 +154,6 @@ This firmware supports both **Zumo** and **3Pi** robots with different physical 
 ### Robot Configurations
 
 #### Zumo Robot (`--features zumo`)
-- **Joystick Control Module**: `joystick_control_zumo.rs`
 - **Gear Ratio**: 75.81
 - **Wheel Radius**: 0.02m
 - **Wheel Base**: 0.099m
@@ -157,7 +161,6 @@ This firmware supports both **Zumo** and **3Pi** robots with different physical 
 - **Encoder CPR**: 909.72 (75.81 × 12.0)
 
 #### 3Pi Robot (`--features 3pi`)
-- **Joystick Control Module**: `joystick_control_3pi.rs`
 - **Gear Ratio**: 29.86
 - **Wheel Radius**: 0.016m
 - **Wheel Base**: 0.0842m
@@ -165,7 +168,6 @@ This firmware supports both **Zumo** and **3Pi** robots with different physical 
 - **Encoder CPR**: 358.32 (29.86 × 12.0)
 
 #### Default/Testing (no features)
-- **Joystick Control Module**: `joystick_control.rs`
 - **Configuration**: Currently set to Zumo parameters for testing
 - **Use Case**: Development and testing without robot-specific compilation
 
@@ -194,23 +196,91 @@ tio /dev/ttyACM0
 ```
 (use ctrl+t q to exit)
 
+## Advanced Motor Control System
+
+### PI Controller Implementation
+
+The firmware features an advanced **PI (Proportional-Integral) controller** for precise RPM-based motor control:
+
+#### Key Features:
+- **Physical Unit Control**: Direct RPM control instead of arbitrary PWM values
+- **Robot-Specific Tuning**: Optimized gains for different robot configurations
+- **Anti-Windup Protection**: Prevents integrator saturation using back-calculation method
+- **Complementary Filtering**: Noise reduction with configurable α = 0.3 for RPM feedback
+- **Separate Integrator States**: Proper anti-windup implementation with independent left/right integrators
+
+#### Controller Parameters:
+
+| Robot Type | kp (Proportional) | ki (Integral) | Kaw (Anti-windup) | Sample Rate |
+|------------|-------------------|---------------|-------------------|-------------|
+| **3Pi Robot** | 60.0 | 1.0 | 0.1 | 20ms |
+| **Zumo/Default** | 10.0 | 1.0 | 0.1 | 20ms |
+
+#### Control Algorithm:
+```rust
+// PI Controller with anti-windup
+P_inc = kp * (e_k - e_k1)                                    // Proportional increment
+I_inc = ki * Ts * e_k + Kaw * (u_sat_prev - u_k_prev)      // Integral with anti-windup
+u_k = u_k_prev + P_inc + I_inc                             // Control output
+```
+
+### Control Command Interface
+
+The system supports multiple control interfaces through UART communication:
+
+#### 1. **Legacy PWM Control** (`ControlCommand`)
+- Direct left/right motor PWM control
+- Range: ±10000 (normalized to ±1.0)
+- Packet: `CmdLegacyPacketF32`
+
+#### 2. **Unicycle Model Control** (`ControlCommandUnicycle`) 
+- **Linear velocity** (`v`): Forward/backward speed [m/s]
+- **Angular velocity** (`omega`): Rotation rate [rad/s]
+- Automatic differential drive conversion
+- Nonlinear exponential scaling for intuitive control feel
+
+#### 3. **Advanced Teleop Control** (`CmdTeleopPacketMix`)
+- **Linear Velocity**: ±20000 range with exponential scaling to 0.2 m/s max
+- **Steering Angle**: Direct angle input with configurable turn time
+- **Nonlinear Scaling**: Exponential curves for both linear and angular commands
+- **Dead Zone Handling**: Managed by ROS node (1000-20000 active range)
+
+### Nonlinear Control Scaling
+
+Both linear and angular commands use exponential scaling for better control feel:
+
+```rust
+// Exponential scaling function
+scaled_output = max_value * (exp(normalized_input) - 1.0) / (exp(1.0) - 1.0)
+```
+
+**Benefits:**
+- Fine control at low speeds
+- Smooth acceleration curves
+- Intuitive joystick response
+- Maximum performance when needed
+
 ## Project Structure
 - `src/`: Source code
   - `main.rs`: The entry point of the project.
-  - `init.rs`: Initialization for all devices.
+  - `init.rs`: Initialization for all devices (PWM frequency fixed to 10kHz for silent operation).
   - `lib.rs`: Integrated libraries with feature-based module selection.
   - `led.rs`: Default LED driver.
   - `buzzer.rs`: Buzzer driver.
   - `motor.rs`: Driver of both motors.
   - `encoder.rs`: Encoder driver for both encoders using PIO.
   - `uart.rs`: UART0 driver.
-  - `packet.rs`: Defines the packet according to [Crazyflie_Packet](https://github.com/IMRCLab/crazyflie-link-cpp/blob/startTraj_example/examples/PacketUtils.hpp).
-  - **Robot-specific joystick control modules:**
-    - `joystick_control.rs`: Default/testing configuration (currently Zumo parameters)
-    - `joystick_control_zumo.rs`: Zumo robot-specific configuration (gear ratio: 75.81, reversed motors)
-    - `joystick_control_3pi.rs`: 3Pi robot-specific configuration (gear ratio: 29.86, normal motors)
+  - `packet.rs`: Extended packet definitions including `CmdTeleopPacketMix` for advanced control.
+
+  **Advanced Motor Control System**
+  - `joystick_control.rs`: 
+    - **PI Controller**: RPM-based control with anti-windup protection
+    - **Multiple Control Modes**: PWM, Unicycle, and Teleop interfaces
+    - **Robot-Specific Parameters**: Conditional compilation for Zumo/3Pi configurations  
+    - **Nonlinear Scaling**: Exponential curves for intuitive control response
+    - **Complementary Filtering**: RPM noise reduction (α=0.3)
   - `bin/`: Binary targets
-    - `teleop_control.rs`: Teleop control application
+    - `teleop_control.rs`: Teleop control application with advanced PI controller
     - `trajectory_following.rs`: Trajectory following application
   - `imu/`: IMU library.
     - `lis3mdl.rs`: Driver for the 3-axis magnetometer.
@@ -242,8 +312,10 @@ Yellow(SWDIO) -> SWDIO
 Green(SWCLK)  -> SWCLK
 Black(GND)    -> GND 
 ``` 
-Then connect the Pololu with the USB-C cabel to your PC, and the debug probe as well.
-* Press "B" + Reset to set the Pololu into bootloader mode.(not necessary if you set up correctly)
+Then connect the Pololu with the USB-C cabel to your PC, and the debug probe as well and uncomment in config.toml
+
+```runner = "probe-rs run --chip RP2040 --protocol swd" ```
+
 * If you would like to directly observed the debug information in the terminal, run:
 ```
 cargo run --release
@@ -252,6 +324,19 @@ cargo run --release
 ```
 cargo run --release > file_name.csv
 ```
+
+**OR** 
+
+flash in bootloader mode and without debug information in the terminal by uncommenting 
+
+```runner = "elf2uf2-rs -d"```
+
+in config.toml and then press "B" and "Reset" on the robot
+and flash with
+```
+cargo run --release
+```
+or use the recommended [build system](README_BUILD_SYSTEM.md)
 
 ### Print New Debug Information 
 The code only print a test value(constant). When new debug information is needed, use:
@@ -267,27 +352,115 @@ When the sd card deck initialization function is called but no sd card is insert
 
 
 ## Uart
+
+### Control Command Protocols
+
+The UART interface supports multiple communication protocols for different control requirements:
+
+#### 1. **Legacy Packet Types** (`packet.rs`)
+- **`CmdLegacyPacketU16`**: 4 × U16 values for basic integer commands
+- **`CmdLegacyPacketF32`**: 4 × F32 values for direct PWM control with floating-point precision  
+- **`CmdLegacyPacketMix`**: 2 × U16 + 2 × F32 values for mixed-type commands
+
+#### 2. **Advanced Teleop Protocol** (`CmdTeleopPacketMix`)
+- **Packet Size**: 10 bytes (header + 2 × F32 values)
+- **Linear Velocity**: F32 range ±20000 with exponential scaling to ±0.2 m/s
+- **Steering Angle**: F32 steering angle in degrees for intuitive control
+- **Nonlinear Scaling**: Both commands use exponential curves for smooth control response
+- **Dead Zone**: 1000-20000 active range (handled by ROS node)
+
+#### 3. **Control Command Types**
+
+**Direct Motor Control:**
+```rust
+ControlCommand {
+    left_speed: f32,   // ±10000 range, normalized to ±1.0 PWM
+    right_speed: f32,  // ±10000 range, normalized to ±1.0 PWM  
+}
+```
+
+**Unicycle Model Control:**
+```rust
+ControlCommandUnicycle {
+    v: f32,      // Linear velocity [m/s]
+    omega: f32,  // Angular velocity [rad/s]
+}
+```
+
+### Communication Features
+- **Asynchronous Reception**: Non-blocking UART message processing
+- **Timeout Protection**: 1000ms timeout with automatic motor stop
+- **Packet Validation**: Header verification and length checking
+- **Multiple Start Bytes**: Supports different packet types (0x02, 0x08, 0x09)
+- **Buffer Management**: 32-byte circular buffer with automatic clearing
+
+### Protocol Headers
+- **Legacy Packets**: Header `0x3C` (modified from `0xFF` by channel/port settings)
+- **Teleop Packets**: Header `0x3C` with specific start bytes for packet identification
+- **Channel Configuration**: Channel 0x00, Port 0x03 (modifies header automatically)
+
+### Real-Time Control Loop
+- **Sample Rate**: 20ms (50Hz) for consistent control timing
+- **PI Controller Integration**: Direct RPM feedback control
+- **Motor Safety**: Automatic timeout stop prevents runaway conditions
+- **Debug Logging**: Comprehensive telemetry via defmt logging
+
 ### Packet Type
-3 different packet types are defined in `packet.rs`:
+### Legacy Packet Support
+3 different legacy packet types remain supported in `packet.rs`:
 - `CmdLegacyPacketU16`: including 4 U16 values.
-- `CmdLegacyPacketF32`: including 4 F32 values.
-- `CmdLegacyPacketMix`: including 2 U16 values adn 2 F32 values.
+- `CmdLegacyPacketF32`: including 4 F32 values.  
+- `CmdLegacyPacketMix`: including 2 U16 values and 2 F32 values.
 
 ### Read Packet
-Register a function `uart_receive_task` as an asychronous task to asychronously receive the new message.
+Multiple asynchronous tasks handle different control protocols:
 
-* Notice: Even though the header defined in the Crazyflie-link sending example is `0xFF`, the `set_Channel((uint8_t) 0x00)` and `set_Port((uint8_t)0x03)` will change the header to `0x3C`.
+- **`robot_command_task`**: Processes legacy F32 packets for direct PWM control
+- **`robot_command_control_task`**: Handles advanced teleop packets with PI controller integration  
+- **Asynchronous Reception**: Non-blocking message processing with timeout protection
+- **Automatic Failsafe**: 1000ms timeout triggers motor stop for safety
 
-### Notice
-* The UART task runs now in asychronous mode.
+### Communication Protocol Details
+- **Header Verification**: All packets validated against expected `0x3C` header
+- **Length Checking**: Dynamic packet length validation based on first byte
+- **Buffer Management**: 32-byte ring buffer with automatic overflow handling
+- **Start Byte Filtering**: Multiple valid start bytes (0x02, 0x08, 0x09) for packet type identification
 
-### TODO:
-* Define sending funtion
-* The packet sent by the crazyflie-link code always contains an extra byte(0x09) at the beginning, need to find out the reason.
+**Important Notes:**
+- Header `0xFF` in Crazyflie-link examples becomes `0x3C` due to `set_Channel(0x00)` and `set_Port(0x03)` 
+- Extra start bytes (0x09, etc.) are part of the Crazyflie-link protocol implementation
+- All UART tasks operate in fully asynchronous mode for optimal performance
 
+## Motor Control System
 
-## Motor
-Provide with `set_speed` function to set direction and speed for both motors.
+### Basic Motor Interface
+The `motor.rs` module provides the fundamental `set_speed` function for direct PWM control:
+```rust
+motor.set_speed(left_duty: f32, right_duty: f32)  // Range: ±1.0
+```
+
+### Advanced PI Controller Integration  
+The motor control system now features sophisticated closed-loop control:
+
+#### **RPM-Based Control**
+- Direct RPM target setting instead of open-loop PWM
+- Real-time encoder feedback for precise speed control
+- Robot-specific calibration for optimal performance
+
+#### **Anti-Windup Protection**
+- Prevents integrator saturation during motor saturation
+- Back-calculation method: `I_inc = ki*Ts*error + Kaw*(u_sat_prev - u_k_prev)`
+- Separate integrator states for left and right motors
+
+#### **Complementary Filtering**
+- RPM noise reduction with α=0.3 filter coefficient
+- Improved control stability and reduced jitter
+- Real-time filtering: `filtered_rpm = α*raw_rpm + (1-α)*filtered_rpm_prev`
+
+#### **Robot-Specific Motor Direction Handling**
+- **Zumo**: Reversed motor directions (`MOTOR_DIRECTION_LEFT/RIGHT = -1.0`)
+- **3Pi**: Normal motor directions (`MOTOR_DIRECTION_LEFT/RIGHT = 1.0`)
+- Automatic compensation in control loop for consistent behavior
 
 
 ## Encoder
