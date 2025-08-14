@@ -1,4 +1,4 @@
-use defmt::info;
+use defmt::{info, warn};
 use embassy_futures::select::{Either, select};
 use embassy_sync::blocking_mutex::raw::{NoopRawMutex, ThreadModeRawMutex};
 use embassy_sync::mutex::Mutex;
@@ -8,6 +8,8 @@ use crate::encoder::get_rpms;
 use crate::motor::MotorController;
 use crate::packet::{CmdLegacyPacketMix, CmdLegacyPacketF32, CmdTeleopPacketMix};
 use crate::uart::SharedUart;
+// Import the global verbosity macros
+use crate::{debug_v1, debug_v2, debug_warn, debug_error};
 
 use heapless::Vec;
 
@@ -140,6 +142,10 @@ pub async fn motor_control_task(
     left_counter: &'static Mutex<NoopRawMutex, i32>,
     right_counter: &'static Mutex<NoopRawMutex, i32>,
 ) {
+    // Verbosity level demonstration at startup
+    debug_warn!("Motor control task starting - this message always appears");
+    debug_v1!("Verbosity level 1 enabled - basic control info will be shown");
+    debug_v2!("Verbosity level 2 enabled - detailed debug info will be shown");
 
     //errors
     let mut e_k_left = 0.0; // Error at k
@@ -160,18 +166,31 @@ pub async fn motor_control_task(
     let mut I_right = 0.0;
 
     //complementary filter
-    let alpha = 0.3; // Increased from 0.1 for better responsiveness
+    let alpha = 0.2; // Increased from 0.1 for better responsiveness
     let mut filtered_rpm_left = 0.0;
     let mut filtered_rpm_right = 0.0;
 
     loop {
         //calc target rpm
         let cmd = CONTROL_CMD_UNICYCLE.lock().await.clone(); //v [m/s] , omega [rad/s]
-        let v_left = cmd.v - cmd.omega * WHEEL_BASE / 2.0; // [m/s]
-        let v_right = cmd.v + cmd.omega * WHEEL_BASE / 2.0; //[m/s]
+        
+        // Robust zero value recognition with dead-zone handling
+        const VELOCITY_DEADZONE: f32 = 1e-6; // 0.000001 m/s threshold
+        const OMEGA_DEADZONE: f32 = 1e-4;    // 0.0001 rad/s threshold
+        
+        let v_filtered = if cmd.v.abs() < VELOCITY_DEADZONE { 0.0 } else { cmd.v };
+        let omega_filtered = if cmd.omega.abs() < OMEGA_DEADZONE { 0.0 } else { cmd.omega };
+        
+        let v_left = v_filtered - omega_filtered * WHEEL_BASE / 2.0; // [m/s]
+        let v_right = v_filtered + omega_filtered * WHEEL_BASE / 2.0; //[m/s]
 
-        let rpm_left_target = v_left / (2.0 * PI * WHEEL_RADIUS) * 60.0; //conversion to rpm
-        let rpm_right_target = v_right /(2.0 * PI * WHEEL_RADIUS) * 60.0;
+        let mut rpm_left_target = v_left / (2.0 * PI * WHEEL_RADIUS) * 60.0; //conversion to rpm
+        let mut rpm_right_target = v_right /(2.0 * PI * WHEEL_RADIUS) * 60.0;
+        
+        // Additional RPM-level zero detection to prevent tiny drift values
+        const RPM_DEADZONE: f32 = 0.5; // should be unnotable movement.
+        if rpm_left_target.abs() < RPM_DEADZONE { rpm_left_target = 0.0; }
+        if rpm_right_target.abs() < RPM_DEADZONE { rpm_right_target = 0.0; }
 
         //control loop
         let (rpm_left_now, rpm_right_now) = 
@@ -185,35 +204,50 @@ pub async fn motor_control_task(
         e_k_left  = rpm_left_target - filtered_rpm_left; //k error
         e_k_right = rpm_right_target - filtered_rpm_right; //k error
 
-        //print out errors
-        info!("Left RPM - Raw: {}, Filtered: {}, Target: {}, Error: {}", rpm_left_now, filtered_rpm_left, rpm_left_target, e_k_left);
-        info!("Right RPM - Raw: {}, Filtered: {}, Target: {}, Error: {}", rpm_right_now, filtered_rpm_right, rpm_right_target, e_k_right);
+        // Debug logging for zero detection - Level 2
+        if (cmd.v.abs() < VELOCITY_DEADZONE && cmd.v != 0.0) || (cmd.omega.abs() < OMEGA_DEADZONE && cmd.omega != 0.0) {
+            debug_v2!("Zero detection: cmd.v={}, cmd.omega={} -> filtered v={}, omega={}", 
+                      cmd.v, cmd.omega, v_filtered, omega_filtered);
+        }
 
-        // PI Controller with proper anti-windup (following your pseudocode)
+        // RPM values and targets - Level 1
+        debug_v1!("Left RPM - Raw: {}, Filtered: {}, Target: {}, Error: {}", rpm_left_now, filtered_rpm_left, rpm_left_target, e_k_left);
+        debug_v1!("Right RPM - Raw: {}, Filtered: {}, Target: {}, Error: {}", rpm_right_now, filtered_rpm_right, rpm_right_target, e_k_right);
+
+        // PI Controller + awr
         // Left wheel
         let P_inc_left = kp * (e_k_left - e_k1_left);
         let I_inc_left = ki * Ts * e_k_left + Kaw * (u_sat_left - u_k1_left); // Anti-windup uses previous u_sat
         I_left += I_inc_left; // Accumulate integrator
-        u_k_left = u_k1_left + P_inc_left + I_inc_left; // Only add the INCREMENT
+        u_k_left = u_k1_left + P_inc_left + I_inc_left;
 
         // Right wheel  
         let P_inc_right = kp * (e_k_right - e_k1_right);
         let I_inc_right = ki * Ts * e_k_right + Kaw * (u_sat_right - u_k1_right); // Anti-windup uses previous u_sat
         I_right += I_inc_right; // Accumulate integrator
-        u_k_right = u_k1_right + P_inc_right + I_inc_right; // Only add the INCREMENT
+        u_k_right = u_k1_right + P_inc_right + I_inc_right;
+
+        //enforce robustness for zero targets
+        if rpm_left_target == 0.0 && rpm_right_target == 0.0 {
+            I_left = 0.0;  
+            I_right = 0.0;
+            u_k_left = 0.0;
+            u_k_right = 0.0;
+            debug_v2!("Zero target detected - resetting integrators");
+        }
 
         // Update previous errors
         e_k1_left = e_k_left; //k-1 error left
         e_k1_right = e_k_right; //k-1 error right
 
-        //print out control values with more detail
-        info!("Left - P_inc: {}, I_total: {}, I_inc: {}, u_k: {}", P_inc_left, I_left, I_inc_left, u_k_left);
-        info!("Right - P_inc: {}, I_total: {}, I_inc: {}, u_k: {}", P_inc_right, I_right, I_inc_right, u_k_right);
+        // Controller internals - Level 2
+        debug_v2!("Left - P_inc: {}, I_total: {}, I_inc: {}, u_k: {}", P_inc_left, I_left, I_inc_left, u_k_left);
+        debug_v2!("Right - P_inc: {}, I_total: {}, I_inc: {}, u_k: {}", P_inc_right, I_right, I_inc_right, u_k_right);
         //Anti-Windup
         #[cfg(feature = "three-pi")]
         {
-            u_sat_left = u_k_left.clamp(MIN_RPM, MAX_RPM);
-            u_sat_right = u_k_right.clamp(MIN_RPM, MAX_RPM);
+            u_sat_left = (u_k_left/MAX_RPM).clamp(MIN_RPM / 2.0, MAX_RPM / 2.0); //actual max values are experimental
+            u_sat_right = (u_k_right/MAX_RPM).clamp(MIN_RPM / 2.0, MAX_RPM / 2.0);
         }
         #[cfg(not(feature = "three-pi"))]
         {
@@ -222,8 +256,8 @@ pub async fn motor_control_task(
             u_sat_right = (u_k_right / 10000.0).clamp(-1.0, 1.0);
         }
 
-        //print out u_sat
-        info!("Saturated Control Values: u_sat_left: {}, u_sat_right: {}", u_sat_left, u_sat_right);
+        // Saturated control values - Level 2
+        debug_v2!("Saturated Control Values: u_sat_left: {}, u_sat_right: {}", u_sat_left, u_sat_right);
         // Update the previous control values
         u_k1_left = u_k_left;
         u_k1_right = u_k_right;
@@ -233,11 +267,11 @@ pub async fn motor_control_task(
         // For other robots, use the already normalized value in u_sat_left/u_sat_right.
         #[cfg(feature = "three-pi")]
         //let duty_left = (u_sat_left / MAX_RPM).clamp(-1.0, 1.0);
-        let duty_left = (u_sat_left / 10000.0).clamp(-1.0, 1.0);  //scale to pwm top
+        let duty_left = (u_sat_left).clamp(-1.0, 1.0);  //scale to pwm top
 
         #[cfg(feature = "three-pi")]
         //let duty_right = (u_sat_right / MAX_RPM).clamp(-1.0, 1.0);
-        let duty_right = (u_sat_right / 10000.0).clamp(-1.0, 1.0); // scale to pwm top
+        let duty_right = (u_sat_right).clamp(-1.0, 1.0); // scale to pwm top
 
 
         #[cfg(not(feature = "three-pi"))]
@@ -245,12 +279,20 @@ pub async fn motor_control_task(
         #[cfg(not(feature = "three-pi"))]
         let duty_right = u_sat_right; 
 
-        // Apply robot-specific motor direction corrections
-        //print out duty values
-        info!("Duty Cycle: Left {}, Right {}", duty_left, duty_right);
+        // Override duty cycle to zero if zero targets detected
+        let (final_duty_left, final_duty_right) = if rpm_left_target == 0.0 && rpm_right_target == 0.0 {
+            debug_v2!("Zero targets detected - forcing duty cycle to zero");
+            (0.0, 0.0)
+        } else {
+            (duty_left, duty_right)
+        };
+
+        // Final duty cycle values - Level 2
+        debug_v2!("Duty Cycle: Left {}, Right {}", final_duty_left, final_duty_right);
+        
         motor.set_speed(
-            duty_left * MOTOR_DIRECTION_LEFT, 
-            duty_right * MOTOR_DIRECTION_RIGHT
+            final_duty_left * MOTOR_DIRECTION_LEFT, 
+            final_duty_right * MOTOR_DIRECTION_RIGHT
         ).await;
 
         Timer::after(Duration::from_millis(SAMPLE_MS)).await;
@@ -282,7 +324,7 @@ pub async fn robot_command_task(uart: SharedUart<'static>) {
                         left_speed: 0.0,
                         right_speed: 0.0,
                     };
-                    defmt::warn!("UART timeout, stop motors");
+                    debug_warn!("UART timeout, stop motors");
                 }
                 buffer.clear();
                 continue;
@@ -313,7 +355,7 @@ pub async fn robot_command_task(uart: SharedUart<'static>) {
                             *lock = cmd;
                         }
 
-                        defmt::info!("Updated Control: {}, {}", cmd.left_speed, cmd.right_speed);
+                        info!("Updated Control: {}, {}", cmd.left_speed, cmd.right_speed);
                     }
                     buffer.clear();
                 }
@@ -423,7 +465,7 @@ pub async fn robot_command_control_task(uart: SharedUart<'static>) {
                 {
                     let mut lock = CONTROL_CMD_UNICYCLE.lock().await;
                     *lock = ControlCommandUnicycle { v: 0.0, omega: 0.0 };
-                    defmt::warn!("UART timeout, stop motors");
+                    debug_warn!("UART timeout, stop motors");
                 }
                 buffer.clear();
                 continue;
@@ -475,7 +517,7 @@ pub async fn robot_command_control_task(uart: SharedUart<'static>) {
                             *lock = cmd;
                         }
 
-                        defmt::info!("Updated Control: {}, {}", cmd.v, cmd.omega);
+                        debug_warn!("Updated Control: {}, {}", cmd.v, cmd.omega);
                     }
                     buffer.clear();
                 }

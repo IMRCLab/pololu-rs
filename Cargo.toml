@@ -4,7 +4,6 @@ name = "pololu3pi2040-rs"
 version = "0.1.0"
 authors = ["Wolfgang Hoenig <hoenig@tu-berlin.de>"]
 resolver = "2"
-default-run = "pololu3pi2040-rs"
 
 [[bin]]
 name = "teleop_control"
@@ -63,6 +62,9 @@ lto = true
 opt-level = "z"
 
 [features]
-default = []
+default = ["v0"]
 zumo = []
 three-pi = []
+v0 = []  # Silent mode
+v1 = []  # Basic control info (RPM, targets, control inputs)
+v2 = []  # Full debug mode for everything you might want to print
