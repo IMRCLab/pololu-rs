@@ -34,6 +34,15 @@ mod robot_constants {
     pub const WHEEL_RADIUS: f32 = 0.02;
     pub const MOTOR_DIRECTION_LEFT: f32 = -1.0;  // Zumo has reversed motors
     pub const MOTOR_DIRECTION_RIGHT: f32 = -1.0;
+    pub const MIN_RPM: f32 = -2388.0; // Minimum RPM value from assumption 4m/s max speed, wheel radius 0.016m -> rmp_max = 2388
+    pub const MAX_RPM: f32 = 2388.0;  // Maximum RPM value
+    //---- Constants for RPM control ----
+    pub const Ts : f32 = SAMPLE_MS as f32 / 1000.0; // Sample time in seconds
+    pub const kp: f32 = 60.0; // PWM per rpm
+    pub const ki: f32 = 1.0; // PWM per (rpm*s)
+    pub const Kaw: f32 = 0.1; // anti windup gain
+    pub const Kpwm: f32 = 0.1; // feed forward slow PWM/rpm
+    pub const u_0: f32 = 0.0; // static friction Vorsteuerung not used yet
 }
 
 // 3Pi robot constants
@@ -171,70 +180,57 @@ pub async fn motor_control_task(
     let mut filtered_rpm_right = 0.0;
 
     loop {
+        //TODO: encoder reading can get faster than 20 ms?
+        //TODO: get function of duty cycle to rpm for some slope of duties
+        
+        
         //calc target rpm
         let cmd = CONTROL_CMD_UNICYCLE.lock().await.clone(); //v [m/s] , omega [rad/s]
         
+        // Debug: Show raw command values
+        debug_v1!("Raw commands: v={}, omega={}", cmd.v, cmd.omega);
+        
         // Robust zero value recognition with dead-zone handling
-        const VELOCITY_DEADZONE: f32 = 1e-6; // 0.000001 m/s threshold
-        const OMEGA_DEADZONE: f32 = 1e-4;    // 0.0001 rad/s threshold
+        // Use raw command values directly
+        let v = cmd.v;
+        let omega = cmd.omega;
         
-        let v_filtered = if cmd.v.abs() < VELOCITY_DEADZONE { 0.0 } else { cmd.v };
-        let omega_filtered = if cmd.omega.abs() < OMEGA_DEADZONE { 0.0 } else { cmd.omega };
-        
-        let v_left = v_filtered - omega_filtered * WHEEL_BASE / 2.0; // [m/s]
-        let v_right = v_filtered + omega_filtered * WHEEL_BASE / 2.0; //[m/s]
+        let v_left = v - omega * WHEEL_BASE / 2.0; // [m/s]
+        let v_right = v + omega * WHEEL_BASE / 2.0; //[m/s]
 
-        let mut rpm_left_target = v_left / (2.0 * PI * WHEEL_RADIUS) * 60.0; //conversion to rpm
-        let mut rpm_right_target = v_right /(2.0 * PI * WHEEL_RADIUS) * 60.0;
+        let rpm_left_target = v_left / (2.0 * PI * WHEEL_RADIUS) * 60.0; //conversion to rpm
+        let rpm_right_target = v_right /(2.0 * PI * WHEEL_RADIUS) * 60.0;
         
-        // Additional RPM-level zero detection to prevent tiny drift values
-        const RPM_DEADZONE: f32 = 0.5; // should be unnotable movement.
-        if rpm_left_target.abs() < RPM_DEADZONE { rpm_left_target = 0.0; }
-        if rpm_right_target.abs() < RPM_DEADZONE { rpm_right_target = 0.0; }
 
-        //control loop
+        //------control loop--------
+        // Get the current RPM values from the encoders
         let (rpm_left_now, rpm_right_now) = 
             get_rpms(left_counter, right_counter, ENCODER_CPR, SAMPLE_MS).await;
 
         // Filter the RPM values with complementary filter for noise reduction
-        filtered_rpm_left = alpha * rpm_left_now + (1.0 - alpha) * filtered_rpm_left;
+        filtered_rpm_left = alpha * rpm_left_now + (1.0 - alpha) * filtered_rpm_left; //update values with filter
         filtered_rpm_right = alpha * rpm_right_now + (1.0 - alpha) * filtered_rpm_right;
 
         // Calculate error using filtered RPM values
         e_k_left  = rpm_left_target - filtered_rpm_left; //k error
         e_k_right = rpm_right_target - filtered_rpm_right; //k error
 
-        // Debug logging for zero detection - Level 2
-        if (cmd.v.abs() < VELOCITY_DEADZONE && cmd.v != 0.0) || (cmd.omega.abs() < OMEGA_DEADZONE && cmd.omega != 0.0) {
-            debug_v2!("Zero detection: cmd.v={}, cmd.omega={} -> filtered v={}, omega={}", 
-                      cmd.v, cmd.omega, v_filtered, omega_filtered);
-        }
-
         // RPM values and targets - Level 1
-        debug_v1!("Left RPM - Raw: {}, Filtered: {}, Target: {}, Error: {}", rpm_left_now, filtered_rpm_left, rpm_left_target, e_k_left);
-        debug_v1!("Right RPM - Raw: {}, Filtered: {}, Target: {}, Error: {}", rpm_right_now, filtered_rpm_right, rpm_right_target, e_k_right);
+        debug_v2!("Left RPM - Raw: {}, Filtered: {}, Target: {}, Error: {}", rpm_left_now, filtered_rpm_left, rpm_left_target, e_k_left);
+        debug_v2!("Right RPM - Raw: {}, Filtered: {}, Target: {}, Error: {}", rpm_right_now, filtered_rpm_right, rpm_right_target, e_k_right);
 
         // PI Controller + awr
         // Left wheel
         let P_inc_left = kp * (e_k_left - e_k1_left);
-        let I_inc_left = ki * Ts * e_k_left + Kaw * (u_sat_left - u_k1_left); // Anti-windup uses previous u_sat
+        let I_inc_left = ki * Ts * e_k_left;// + Kaw * (u_sat_left - u_k1_left); // Anti-windup uses previous u_sat
         I_left += I_inc_left; // Accumulate integrator
         u_k_left = u_k1_left + P_inc_left + I_inc_left;
 
         // Right wheel  
         let P_inc_right = kp * (e_k_right - e_k1_right);
-        let I_inc_right = ki * Ts * e_k_right + Kaw * (u_sat_right - u_k1_right); // Anti-windup uses previous u_sat
+        let I_inc_right = ki * Ts * e_k_right; //+ Kaw * (u_sat_right - u_k1_right); // Anti-windup uses previous u_sat
         I_right += I_inc_right; // Accumulate integrator
         u_k_right = u_k1_right + P_inc_right + I_inc_right;
-
-        //enforce robustness for zero targets
-        if rpm_left_target == 0.0 && rpm_right_target == 0.0 {
-            I_left = 0.0;  
-            I_right = 0.0;
-            u_k_left = 0.0;
-            u_k_right = 0.0;
-            debug_v2!("Zero target detected - resetting integrators");
-        }
 
         // Update previous errors
         e_k1_left = e_k_left; //k-1 error left
@@ -252,50 +248,37 @@ pub async fn motor_control_task(
         #[cfg(not(feature = "three-pi"))]
         {
             //Why 10000? was default value in the original code
-            u_sat_left = (u_k_left / 10000.0).clamp(-1.0, 1.0);
-            u_sat_right = (u_k_right / 10000.0).clamp(-1.0, 1.0);
+            u_sat_left = (u_k_left / 10000.0).clamp(-1.0f32, 1.0f32); 
+            u_sat_right = (u_k_right / 10000.0).clamp(-1.0f32, 1.0f32);
         }
 
         // Saturated control values - Level 2
-        debug_v2!("Saturated Control Values: u_sat_left: {}, u_sat_right: {}", u_sat_left, u_sat_right);
+        //debug_v2!("Saturated Control Values: u_sat_left: {}, u_sat_right: {}", u_sat_left, u_sat_right);
         // Update the previous control values
         u_k1_left = u_k_left;
         u_k1_right = u_k_right;
 
         // Calculate the duty cycle for the motors:
-        // For "three-pi", scale by dividing the saturated control by MAX_RPM to get a value in [-1.0, 1.0].
-        // For other robots, use the already normalized value in u_sat_left/u_sat_right.
         #[cfg(feature = "three-pi")]
-        //let duty_left = (u_sat_left / MAX_RPM).clamp(-1.0, 1.0);
         let duty_left = (u_sat_left).clamp(-1.0, 1.0);  //scale to pwm top
 
         #[cfg(feature = "three-pi")]
-        //let duty_right = (u_sat_right / MAX_RPM).clamp(-1.0, 1.0);
         let duty_right = (u_sat_right).clamp(-1.0, 1.0); // scale to pwm top
-
 
         #[cfg(not(feature = "three-pi"))]
         let duty_left = u_sat_left;
         #[cfg(not(feature = "three-pi"))]
         let duty_right = u_sat_right; 
 
-        // Override duty cycle to zero if zero targets detected
-        let (final_duty_left, final_duty_right) = if rpm_left_target == 0.0 && rpm_right_target == 0.0 {
-            debug_v2!("Zero targets detected - forcing duty cycle to zero");
-            (0.0, 0.0)
-        } else {
-            (duty_left, duty_right)
-        };
-
         // Final duty cycle values - Level 2
-        debug_v2!("Duty Cycle: Left {}, Right {}", final_duty_left, final_duty_right);
+        debug_v2!("Duty Cycle: Left {}, Right {}", duty_left, duty_right);
         
         motor.set_speed(
-            final_duty_left * MOTOR_DIRECTION_LEFT, 
-            final_duty_right * MOTOR_DIRECTION_RIGHT
+            duty_left * MOTOR_DIRECTION_LEFT, 
+            duty_right * MOTOR_DIRECTION_RIGHT
         ).await;
 
-        Timer::after(Duration::from_millis(SAMPLE_MS)).await;
+        Timer::after(Duration::from_millis(SAMPLE_MS)).await; //is this waiting 20 ms as of now, or running the control loop in the meanwhile?
     }
 }
 
@@ -493,7 +476,7 @@ pub async fn robot_command_control_task(uart: SharedUart<'static>) {
                             
                             //deadzone is handled in ROS node
                             let normalized = ((abs_raw - 1000.0) / 19000.0).clamp(0.0, 1.0);
-                            let speed = 0.2 * (libm::expf(2.0 * normalized) - 1.0) / (libm::expf(2.0) - 1.0); //set max speed to 0.1
+                            let speed = 0.05 * (libm::expf(2.0 * normalized) - 1.0) / (libm::expf(2.0) - 1.0); //set max speed to 0.1
                             sign * speed  // Apply original sign for forward/reverse
                     
                         };

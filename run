@@ -38,8 +38,8 @@ case $TARGET in
     "")
         # No target specified - use main binary
         echo "Target: main binary"
-        echo "Running: cargo run --release $FEATURES"
-        $CARGO_CMD run --release $FEATURES
+        echo "Running: cargo run --release --bin pololu3pi2040-rs $FEATURES"
+        $CARGO_CMD run --release --bin pololu3pi2040-rs $FEATURES
         ;;
     "teleop")
         echo "Target: teleop_control binary"

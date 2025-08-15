@@ -325,6 +325,7 @@ Use Pio Module to build the encoder driver. Provide the user with position readi
 
 * **Zero Command Drift Problem**: Robot sometimes receives non-zero target RPM when control commands are zero
   - Zero angular and linear velocity inputs should result in zero RPM targets
+  - Robot will fade to zero target rpm ... no idea why yet. Try commenting out I control part
 
 ### considerable TODO:
 * Consider hardware encoder improvements (better resolution, shielding)
