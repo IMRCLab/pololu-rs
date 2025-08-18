@@ -1,0 +1,9 @@
+setup.py
+motion_capture_tracking_interfaces/__init__.py
+motion_capture_tracking_interfaces.egg-info/PKG-INFO
+motion_capture_tracking_interfaces.egg-info/SOURCES.txt
+motion_capture_tracking_interfaces.egg-info/dependency_links.txt
+motion_capture_tracking_interfaces.egg-info/top_level.txt
+motion_capture_tracking_interfaces/msg/__init__.py
+motion_capture_tracking_interfaces/msg/_named_pose.py
+motion_capture_tracking_interfaces/msg/_named_pose_array.py

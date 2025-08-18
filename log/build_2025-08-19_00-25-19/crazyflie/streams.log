@@ -1,0 +1,71 @@
+[0.159s] Invoking command in '/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie': AMENT_PREFIX_PATH=/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces:/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_interfaces:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces:/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_interfaces:/opt/ros/humble LD_LIBRARY_PATH=/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/lib:/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_interfaces/lib:${LD_LIBRARY_PATH} PYTHONPATH=/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages:/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_interfaces/local/lib/python3.10/dist-packages:${PYTHONPATH} /home/vincent/cmake/bin/cmake --build /home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie -- -j18 -l18
+[0.186s] [  5%] Built target teleop
+[0.188s] [ 27%] Built target crazyflieLinkCpp
+[0.199s] [ 35%] Built target crazyflie_cpp
+[0.215s] [ 40%] Built target scan
+[0.215s] [ 50%] Built target version
+[0.215s] [ 50%] Built target listMemories
+[0.215s] [ 55%] Built target reboot
+[0.216s] [ 60%] Built target crazyflie_server
+[0.217s] [ 67%] Built target listParams
+[0.217s] [ 70%] Built target log
+[0.217s] [ 75%] Built target comCheck
+[0.218s] [ 82%] Built target console
+[0.218s] [ 85%] Built target battery
+[0.218s] [ 90%] Built target listLogVariables
+[0.220s] [ 95%] Built target downloadUSDLogfile
+[0.220s] [100%] Built target setParam
+[0.224s] Invoked command in '/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie' returned '0': AMENT_PREFIX_PATH=/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces:/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_interfaces:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces:/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_interfaces:/opt/ros/humble LD_LIBRARY_PATH=/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/lib:/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_interfaces/lib:${LD_LIBRARY_PATH} PYTHONPATH=/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages:/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_interfaces/local/lib/python3.10/dist-packages:${PYTHONPATH} /home/vincent/cmake/bin/cmake --build /home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie -- -j18 -l18
+[0.225s] Invoking command in '/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie': AMENT_PREFIX_PATH=/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces:/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_interfaces:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces:/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_interfaces:/opt/ros/humble LD_LIBRARY_PATH=/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/lib:/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_interfaces/lib:${LD_LIBRARY_PATH} PYTHONPATH=/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages:/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_interfaces/local/lib/python3.10/dist-packages:${PYTHONPATH} /home/vincent/cmake/bin/cmake --install /home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie
+[0.227s] -- Install configuration: ""
+[0.227s] -- Execute custom install script
+[0.228s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/lib/crazyflie/comCheck
+[0.228s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/lib/crazyflie/scan
+[0.228s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/lib/crazyflie/listParams
+[0.228s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/lib/crazyflie/listLogVariables
+[0.228s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/lib/crazyflie/listMemories
+[0.228s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/lib/crazyflie/reboot
+[0.228s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/lib/crazyflie/battery
+[0.228s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/lib/crazyflie/version
+[0.228s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/lib/crazyflie/console
+[0.228s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/lib/crazyflie/log
+[0.228s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/lib/crazyflie/setParam
+[0.228s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/lib/crazyflie/downloadUSDLogfile
+[0.229s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/lib/crazyflie/teleop
+[0.229s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/lib/crazyflie/crazyflie_server
+[0.229s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/lib/crazyflie/crazyflie_server.py
+[0.229s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/lib/crazyflie/chooser.py
+[0.229s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/lib/crazyflie/vel_mux.py
+[0.229s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/lib/crazyflie/cfmult.py
+[0.229s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/lib/crazyflie/simple_mapper_multiranger.py
+[0.229s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/lib/crazyflie/aideck_streamer.py
+[0.229s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/lib/crazyflie/gui.py
+[0.229s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/lib/crazyflie/flash.py
+[0.229s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/share/crazyflie//launch/launch.py
+[0.229s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/share/crazyflie//launch/launch_teleop2.py
+[0.229s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/share/crazyflie//launch/teleop_launch.py
+[0.230s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/share/crazyflie//config/aideck_streamer.yaml
+[0.230s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/share/crazyflie//config/config.rviz
+[0.230s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/share/crazyflie//config/crazyflies.yaml
+[0.230s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/share/crazyflie//config/motion_capture.yaml
+[0.230s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/share/crazyflie//config/server.yaml
+[0.230s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/share/crazyflie//config/teleop.yaml
+[0.230s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/share/crazyflie//urdf/cf2_assembly.stl
+[0.230s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/share/crazyflie//urdf/cf2_assembly_with_props.dae
+[0.230s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/share/crazyflie//urdf/crazyflie_description.urdf
+[0.230s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/share/ament_index/resource_index/package_run_dependencies/crazyflie
+[0.230s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/share/ament_index/resource_index/parent_prefix_path/crazyflie
+[0.230s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/share/crazyflie/environment/ament_prefix_path.sh
+[0.231s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/share/crazyflie/environment/ament_prefix_path.dsv
+[0.231s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/share/crazyflie/environment/path.sh
+[0.231s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/share/crazyflie/environment/path.dsv
+[0.231s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/share/crazyflie/local_setup.bash
+[0.231s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/share/crazyflie/local_setup.sh
+[0.231s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/share/crazyflie/local_setup.zsh
+[0.231s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/share/crazyflie/local_setup.dsv
+[0.231s] -- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/share/crazyflie/package.dsv
+[0.233s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/share/ament_index/resource_index/packages/crazyflie
+[0.233s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/share/crazyflie/cmake/crazyflieConfig.cmake
+[0.233s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/share/crazyflie/cmake/crazyflieConfig-version.cmake
+[0.233s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie/share/crazyflie/package.xml
+[0.235s] Invoked command in '/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie' returned '0': AMENT_PREFIX_PATH=/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces:/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_interfaces:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces:/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_interfaces:/opt/ros/humble LD_LIBRARY_PATH=/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/lib:/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_interfaces/lib:${LD_LIBRARY_PATH} PYTHONPATH=/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages:/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_interfaces/local/lib/python3.10/dist-packages:${PYTHONPATH} /home/vincent/cmake/bin/cmake --install /home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie

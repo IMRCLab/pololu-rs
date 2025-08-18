@@ -1,0 +1,14 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : [],
+		"files" : [],
+		"nodes" : []
+	},
+	"installers" : [],
+	"paths" : 
+	{
+		"build" : "deps/libmotioncapture/deps/pybind11",
+		"source" : "deps/libmotioncapture/deps/pybind11"
+	}
+}

@@ -1,0 +1,144 @@
+{
+	"archive" : {},
+	"artifacts" : 
+	[
+		{
+			"path" : "deps/crazyflie_tools/crazyflie_cpp/libcrazyflie_cpp.a"
+		}
+	],
+	"backtrace" : 1,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_library",
+			"target_link_libraries",
+			"add_compile_options",
+			"target_include_directories"
+		],
+		"files" : 
+		[
+			"deps/crazyflie_tools/crazyflie_cpp/CMakeLists.txt",
+			"deps/crazyflie_tools/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 17,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 29,
+				"parent" : 0
+			},
+			{
+				"file" : 1
+			},
+			{
+				"command" : 2,
+				"file" : 1,
+				"line" : 10,
+				"parent" : 3
+			},
+			{
+				"command" : 3,
+				"file" : 0,
+				"line" : 22,
+				"parent" : 0
+			}
+		]
+	},
+	"compileGroups" : 
+	[
+		{
+			"compileCommandFragments" : 
+			[
+				{
+					"fragment" : "-std=c++14"
+				},
+				{
+					"backtrace" : 4,
+					"fragment" : "-Wall"
+				},
+				{
+					"backtrace" : 4,
+					"fragment" : "-Wextra"
+				}
+			],
+			"includes" : 
+			[
+				{
+					"backtrace" : 5,
+					"path" : "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie/deps/crazyflie_tools/crazyflie_cpp/include/crazyflie_cpp"
+				},
+				{
+					"backtrace" : 5,
+					"path" : "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie/deps/crazyflie_tools/crazyflie_cpp/crazyflie-link-cpp/include"
+				}
+			],
+			"language" : "CXX",
+			"languageStandard" : 
+			{
+				"backtraces" : 
+				[
+					1
+				],
+				"standard" : "14"
+			},
+			"sourceIndexes" : 
+			[
+				0,
+				1
+			]
+		}
+	],
+	"dependencies" : 
+	[
+		{
+			"backtrace" : 2,
+			"id" : "crazyflieLinkCpp::@dbd3855cd6d219699178"
+		}
+	],
+	"id" : "crazyflie_cpp::@11907ff27abdad96a82f",
+	"name" : "crazyflie_cpp",
+	"nameOnDisk" : "libcrazyflie_cpp.a",
+	"paths" : 
+	{
+		"build" : "deps/crazyflie_tools/crazyflie_cpp",
+		"source" : "deps/crazyflie_tools/crazyflie_cpp"
+	},
+	"sourceGroups" : 
+	[
+		{
+			"name" : "Source Files",
+			"sourceIndexes" : 
+			[
+				0,
+				1
+			]
+		}
+	],
+	"sources" : 
+	[
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "deps/crazyflie_tools/crazyflie_cpp/src/Crazyflie.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "deps/crazyflie_tools/crazyflie_cpp/src/crtp.cpp",
+			"sourceGroupIndex" : 0
+		}
+	],
+	"type" : "STATIC_LIBRARY"
+}

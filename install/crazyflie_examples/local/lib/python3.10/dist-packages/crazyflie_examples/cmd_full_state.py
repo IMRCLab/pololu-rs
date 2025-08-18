@@ -1,0 +1,1 @@
+/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_examples/crazyflie_examples/cmd_full_state.py

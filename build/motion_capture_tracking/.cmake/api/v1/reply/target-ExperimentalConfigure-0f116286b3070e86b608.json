@@ -1,0 +1,93 @@
+{
+	"backtrace" : 5,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_custom_target",
+			"include"
+		],
+		"files" : 
+		[
+			"/home/vincent/cmake/share/cmake-3.29/Modules/CTestTargets.cmake",
+			"/home/vincent/cmake/share/cmake-3.29/Modules/CTest.cmake",
+			"deps/libmotioncapture/deps/vrpn/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 2
+			},
+			{
+				"command" : 1,
+				"file" : 2,
+				"line" : 20,
+				"parent" : 0
+			},
+			{
+				"file" : 1,
+				"parent" : 1
+			},
+			{
+				"command" : 1,
+				"file" : 1,
+				"line" : 264,
+				"parent" : 2
+			},
+			{
+				"file" : 0,
+				"parent" : 3
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 75,
+				"parent" : 4
+			}
+		]
+	},
+	"folder" : 
+	{
+		"name" : "CTestDashboardTargets"
+	},
+	"id" : "ExperimentalConfigure::@b5f54566f3aaf3e43f1e",
+	"name" : "ExperimentalConfigure",
+	"paths" : 
+	{
+		"build" : "deps/libmotioncapture/deps/vrpn",
+		"source" : "deps/libmotioncapture/deps/vrpn"
+	},
+	"sourceGroups" : 
+	[
+		{
+			"name" : "",
+			"sourceIndexes" : 
+			[
+				0
+			]
+		},
+		{
+			"name" : "CMake Rules",
+			"sourceIndexes" : 
+			[
+				1
+			]
+		}
+	],
+	"sources" : 
+	[
+		{
+			"backtrace" : 5,
+			"isGenerated" : true,
+			"path" : "/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/deps/vrpn/CMakeFiles/ExperimentalConfigure",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 0,
+			"isGenerated" : true,
+			"path" : "/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/deps/vrpn/CMakeFiles/ExperimentalConfigure.rule",
+			"sourceGroupIndex" : 1
+		}
+	],
+	"type" : "UTILITY"
+}

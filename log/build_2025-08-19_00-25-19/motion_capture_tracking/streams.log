@@ -1,0 +1,38 @@
+[0.032s] Invoking command in '/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking': AMENT_PREFIX_PATH=/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces:/opt/ros/humble LD_LIBRARY_PATH=/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/lib:${LD_LIBRARY_PATH} PYTHONPATH=/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages:${PYTHONPATH} /home/vincent/cmake/bin/cmake --build /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking -- -j18 -l18
+[0.057s] [  7%] Built target quat
+[0.060s] [ 15%] Built target qualisys_cpp_sdk
+[0.071s] [ 19%] Built target librigidbodytracker
+[0.076s] [ 65%] Built target vrpn
+[0.095s] [ 82%] Built target ViconDataStreamSDK_CPP
+[0.128s] [ 96%] Built target libmotioncapture
+[0.151s] [100%] Built target motion_capture_tracking_node
+[0.186s] Invoked command in '/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking' returned '0': AMENT_PREFIX_PATH=/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces:/opt/ros/humble LD_LIBRARY_PATH=/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/lib:${LD_LIBRARY_PATH} PYTHONPATH=/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages:${PYTHONPATH} /home/vincent/cmake/bin/cmake --build /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking -- -j18 -l18
+[0.188s] Invoking command in '/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking': AMENT_PREFIX_PATH=/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces:/opt/ros/humble LD_LIBRARY_PATH=/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/lib:${LD_LIBRARY_PATH} PYTHONPATH=/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages:${PYTHONPATH} /home/vincent/cmake/bin/cmake --install /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking
+[0.190s] -- Install configuration: ""
+[0.190s] -- Execute custom install script
+[0.191s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking/include/vicon-datastream-sdk/DataStreamClient.h
+[0.191s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking/include/vicon-datastream-sdk/IDataStreamClientBase.h
+[0.191s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking/lib/cmake/vicon-datastream-sdk/vicon-datastream-sdkConfig.cmake
+[0.191s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking/lib/cmake/vicon-datastream-sdk/vicon-datastream-sdkConfigVersion.cmake
+[0.191s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking/lib/motion_capture_tracking/motion_capture_tracking_node
+[0.191s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking/lib/motion_capture_tracking/libNatNet.so
+[0.191s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking/share/motion_capture_tracking//launch/launch.py
+[0.191s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking/share/motion_capture_tracking//launch/node.launch
+[0.191s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking/share/motion_capture_tracking//config/cfg.yaml
+[0.191s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking/share/motion_capture_tracking//config/rviz.rviz
+[0.192s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking/share/ament_index/resource_index/package_run_dependencies/motion_capture_tracking
+[0.192s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking/share/ament_index/resource_index/parent_prefix_path/motion_capture_tracking
+[0.192s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking/share/motion_capture_tracking/environment/ament_prefix_path.sh
+[0.192s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking/share/motion_capture_tracking/environment/ament_prefix_path.dsv
+[0.192s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking/share/motion_capture_tracking/environment/path.sh
+[0.192s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking/share/motion_capture_tracking/environment/path.dsv
+[0.192s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking/share/motion_capture_tracking/local_setup.bash
+[0.192s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking/share/motion_capture_tracking/local_setup.sh
+[0.192s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking/share/motion_capture_tracking/local_setup.zsh
+[0.192s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking/share/motion_capture_tracking/local_setup.dsv
+[0.192s] -- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking/share/motion_capture_tracking/package.dsv
+[0.194s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking/share/ament_index/resource_index/packages/motion_capture_tracking
+[0.194s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking/share/motion_capture_tracking/cmake/motion_capture_trackingConfig.cmake
+[0.194s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking/share/motion_capture_tracking/cmake/motion_capture_trackingConfig-version.cmake
+[0.194s] -- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking/share/motion_capture_tracking/package.xml
+[0.195s] Invoked command in '/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking' returned '0': AMENT_PREFIX_PATH=/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces:/opt/ros/humble LD_LIBRARY_PATH=/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/lib:${LD_LIBRARY_PATH} PYTHONPATH=/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages:${PYTHONPATH} /home/vincent/cmake/bin/cmake --install /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking

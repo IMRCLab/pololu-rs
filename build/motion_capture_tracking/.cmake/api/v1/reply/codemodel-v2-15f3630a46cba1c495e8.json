@@ -1,0 +1,787 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"childIndexes" : 
+					[
+						1,
+						2
+					],
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-7eac6ab4a1382d00342c.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.12"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						35,
+						36,
+						45
+					]
+				},
+				{
+					"build" : "deps/librigidbodytracker",
+					"jsonFile" : "directory-deps.librigidbodytracker-1fa96d6b484d4dd654da.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.5"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 1,
+					"source" : "deps/librigidbodytracker",
+					"targetIndexes" : 
+					[
+						31,
+						33,
+						40,
+						44
+					]
+				},
+				{
+					"build" : "deps/libmotioncapture",
+					"childIndexes" : 
+					[
+						3,
+						4,
+						5,
+						6,
+						14
+					],
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-deps.libmotioncapture-ca997100bfddbe0dfb6c.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.5"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 2,
+					"source" : "deps/libmotioncapture",
+					"targetIndexes" : 
+					[
+						32,
+						37,
+						38
+					]
+				},
+				{
+					"build" : "deps/libmotioncapture/deps/vicon-datastream-sdk",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-deps.libmotioncapture.deps.vicon-datastream-sdk-3dc7f702b0fb7816720a.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 2,
+					"projectIndex" : 3,
+					"source" : "deps/libmotioncapture/deps/vicon-datastream-sdk",
+					"targetIndexes" : 
+					[
+						28,
+						29
+					]
+				},
+				{
+					"build" : "deps/libmotioncapture/deps/NatNetSDKCrossplatform",
+					"jsonFile" : "directory-deps.libmotioncapture.deps.NatNetSDKCrossplatform-dbc299603b87290e5619.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.5"
+					},
+					"parentIndex" : 2,
+					"projectIndex" : 4,
+					"source" : "deps/libmotioncapture/deps/NatNetSDKCrossplatform",
+					"targetIndexes" : 
+					[
+						34,
+						39,
+						43
+					]
+				},
+				{
+					"build" : "deps/libmotioncapture/deps/qualisys_cpp_sdk",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-deps.libmotioncapture.deps.qualisys_cpp_sdk-09310266a8db423197e4.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.5"
+					},
+					"parentIndex" : 2,
+					"projectIndex" : 5,
+					"source" : "deps/libmotioncapture/deps/qualisys_cpp_sdk",
+					"targetIndexes" : 
+					[
+						41
+					]
+				},
+				{
+					"build" : "deps/libmotioncapture/deps/vrpn",
+					"childIndexes" : 
+					[
+						7,
+						9,
+						10,
+						11,
+						12,
+						13
+					],
+					"jsonFile" : "directory-deps.libmotioncapture.deps.vrpn-861593dd0e11ede743b5.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "2.6.3"
+					},
+					"parentIndex" : 2,
+					"projectIndex" : 6,
+					"source" : "deps/libmotioncapture/deps/vrpn",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6,
+						7,
+						8,
+						9,
+						10,
+						11,
+						12,
+						13,
+						14,
+						15,
+						16,
+						17,
+						18,
+						19,
+						20,
+						21,
+						22,
+						23,
+						24,
+						25,
+						26,
+						27,
+						30,
+						46
+					]
+				},
+				{
+					"build" : "deps/libmotioncapture/deps/vrpn/quat",
+					"childIndexes" : 
+					[
+						8
+					],
+					"jsonFile" : "directory-deps.libmotioncapture.deps.vrpn.quat-9d3b9a56557f141eee1b.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "2.6"
+					},
+					"parentIndex" : 6,
+					"projectIndex" : 7,
+					"source" : "deps/libmotioncapture/deps/vrpn/quat",
+					"targetIndexes" : 
+					[
+						42
+					]
+				},
+				{
+					"build" : "deps/libmotioncapture/deps/vrpn/quat/testapps",
+					"jsonFile" : "directory-deps.libmotioncapture.deps.vrpn.quat.testapps-dc7f9052220f8ef998e5.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "2.6"
+					},
+					"parentIndex" : 7,
+					"projectIndex" : 7,
+					"source" : "deps/libmotioncapture/deps/vrpn/quat/testapps"
+				},
+				{
+					"build" : "deps/libmotioncapture/deps/vrpn/submodules",
+					"jsonFile" : "directory-deps.libmotioncapture.deps.vrpn.submodules-aae6a68e6bde74c8525d.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "2.8.3"
+					},
+					"parentIndex" : 6,
+					"projectIndex" : 6,
+					"source" : "deps/libmotioncapture/deps/vrpn/submodules"
+				},
+				{
+					"build" : "deps/libmotioncapture/deps/vrpn/client_src",
+					"jsonFile" : "directory-deps.libmotioncapture.deps.vrpn.client_src-625616b61c1557dffea0.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "2.6"
+					},
+					"parentIndex" : 6,
+					"projectIndex" : 6,
+					"source" : "deps/libmotioncapture/deps/vrpn/client_src"
+				},
+				{
+					"build" : "deps/libmotioncapture/deps/vrpn/python_vrpn",
+					"jsonFile" : "directory-deps.libmotioncapture.deps.vrpn.python_vrpn-4d3438c34f1c70d4a5ec.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "2.6.3"
+					},
+					"parentIndex" : 6,
+					"projectIndex" : 6,
+					"source" : "deps/libmotioncapture/deps/vrpn/python_vrpn"
+				},
+				{
+					"build" : "deps/libmotioncapture/deps/vrpn/python",
+					"jsonFile" : "directory-deps.libmotioncapture.deps.vrpn.python-4ac863e923454a4baa1c.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "2.6.3"
+					},
+					"parentIndex" : 6,
+					"projectIndex" : 6,
+					"source" : "deps/libmotioncapture/deps/vrpn/python"
+				},
+				{
+					"build" : "deps/libmotioncapture/deps/vrpn/java_vrpn",
+					"jsonFile" : "directory-deps.libmotioncapture.deps.vrpn.java_vrpn-a9f5c2b488d79996e6c6.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "2.6.3"
+					},
+					"parentIndex" : 6,
+					"projectIndex" : 6,
+					"source" : "deps/libmotioncapture/deps/vrpn/java_vrpn"
+				},
+				{
+					"build" : "deps/libmotioncapture/deps/pybind11",
+					"jsonFile" : "directory-deps.libmotioncapture.deps.pybind11-8e8072287ebb18943ae2.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.4"
+					},
+					"parentIndex" : 2,
+					"projectIndex" : 8,
+					"source" : "deps/libmotioncapture/deps/pybind11"
+				}
+			],
+			"name" : "",
+			"projects" : 
+			[
+				{
+					"childIndexes" : 
+					[
+						1,
+						2
+					],
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "motion_capture_tracking",
+					"targetIndexes" : 
+					[
+						35,
+						36,
+						45
+					]
+				},
+				{
+					"directoryIndexes" : 
+					[
+						1
+					],
+					"name" : "librigidbodytracker",
+					"parentIndex" : 0,
+					"targetIndexes" : 
+					[
+						31,
+						33,
+						40,
+						44
+					]
+				},
+				{
+					"childIndexes" : 
+					[
+						3,
+						4,
+						5,
+						6,
+						8
+					],
+					"directoryIndexes" : 
+					[
+						2
+					],
+					"name" : "libmotioncapture",
+					"parentIndex" : 0,
+					"targetIndexes" : 
+					[
+						32,
+						37,
+						38
+					]
+				},
+				{
+					"directoryIndexes" : 
+					[
+						3
+					],
+					"name" : "vicon-datastream-sdk",
+					"parentIndex" : 2,
+					"targetIndexes" : 
+					[
+						28,
+						29
+					]
+				},
+				{
+					"directoryIndexes" : 
+					[
+						4
+					],
+					"name" : "NatNetSDKCrossplatform",
+					"parentIndex" : 2,
+					"targetIndexes" : 
+					[
+						34,
+						39,
+						43
+					]
+				},
+				{
+					"directoryIndexes" : 
+					[
+						5
+					],
+					"name" : "qualisys_cpp_sdk",
+					"parentIndex" : 2,
+					"targetIndexes" : 
+					[
+						41
+					]
+				},
+				{
+					"childIndexes" : 
+					[
+						7
+					],
+					"directoryIndexes" : 
+					[
+						6,
+						9,
+						10,
+						11,
+						12,
+						13
+					],
+					"name" : "VRPN",
+					"parentIndex" : 2,
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6,
+						7,
+						8,
+						9,
+						10,
+						11,
+						12,
+						13,
+						14,
+						15,
+						16,
+						17,
+						18,
+						19,
+						20,
+						21,
+						22,
+						23,
+						24,
+						25,
+						26,
+						27,
+						30,
+						46
+					]
+				},
+				{
+					"directoryIndexes" : 
+					[
+						7,
+						8
+					],
+					"name" : "quatlib",
+					"parentIndex" : 6,
+					"targetIndexes" : 
+					[
+						42
+					]
+				},
+				{
+					"directoryIndexes" : 
+					[
+						14
+					],
+					"name" : "pybind11",
+					"parentIndex" : 2
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 6,
+					"id" : "Continuous::@b5f54566f3aaf3e43f1e",
+					"jsonFile" : "target-Continuous-a6f5944f2e06fc158984.json",
+					"name" : "Continuous",
+					"projectIndex" : 6
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "ContinuousBuild::@b5f54566f3aaf3e43f1e",
+					"jsonFile" : "target-ContinuousBuild-387ed1ff8ff91de8e356.json",
+					"name" : "ContinuousBuild",
+					"projectIndex" : 6
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "ContinuousConfigure::@b5f54566f3aaf3e43f1e",
+					"jsonFile" : "target-ContinuousConfigure-c8106c758db458f34891.json",
+					"name" : "ContinuousConfigure",
+					"projectIndex" : 6
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "ContinuousCoverage::@b5f54566f3aaf3e43f1e",
+					"jsonFile" : "target-ContinuousCoverage-916493b375a3334cff23.json",
+					"name" : "ContinuousCoverage",
+					"projectIndex" : 6
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "ContinuousMemCheck::@b5f54566f3aaf3e43f1e",
+					"jsonFile" : "target-ContinuousMemCheck-822695962d60a8888e8c.json",
+					"name" : "ContinuousMemCheck",
+					"projectIndex" : 6
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "ContinuousStart::@b5f54566f3aaf3e43f1e",
+					"jsonFile" : "target-ContinuousStart-284d3a5f7400c57a72db.json",
+					"name" : "ContinuousStart",
+					"projectIndex" : 6
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "ContinuousSubmit::@b5f54566f3aaf3e43f1e",
+					"jsonFile" : "target-ContinuousSubmit-a2fe21464c54410a8ac2.json",
+					"name" : "ContinuousSubmit",
+					"projectIndex" : 6
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "ContinuousTest::@b5f54566f3aaf3e43f1e",
+					"jsonFile" : "target-ContinuousTest-d77ec9759a0a2146d95f.json",
+					"name" : "ContinuousTest",
+					"projectIndex" : 6
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "ContinuousUpdate::@b5f54566f3aaf3e43f1e",
+					"jsonFile" : "target-ContinuousUpdate-e6833abd2e94fba4bb0a.json",
+					"name" : "ContinuousUpdate",
+					"projectIndex" : 6
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "Experimental::@b5f54566f3aaf3e43f1e",
+					"jsonFile" : "target-Experimental-db0f7e2f5253ba5f5232.json",
+					"name" : "Experimental",
+					"projectIndex" : 6
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "ExperimentalBuild::@b5f54566f3aaf3e43f1e",
+					"jsonFile" : "target-ExperimentalBuild-550422a93bcd04dbc4eb.json",
+					"name" : "ExperimentalBuild",
+					"projectIndex" : 6
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "ExperimentalConfigure::@b5f54566f3aaf3e43f1e",
+					"jsonFile" : "target-ExperimentalConfigure-0f116286b3070e86b608.json",
+					"name" : "ExperimentalConfigure",
+					"projectIndex" : 6
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "ExperimentalCoverage::@b5f54566f3aaf3e43f1e",
+					"jsonFile" : "target-ExperimentalCoverage-d03747f871a300b11fbd.json",
+					"name" : "ExperimentalCoverage",
+					"projectIndex" : 6
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "ExperimentalMemCheck::@b5f54566f3aaf3e43f1e",
+					"jsonFile" : "target-ExperimentalMemCheck-84ea4bcd3bd4473f240c.json",
+					"name" : "ExperimentalMemCheck",
+					"projectIndex" : 6
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "ExperimentalStart::@b5f54566f3aaf3e43f1e",
+					"jsonFile" : "target-ExperimentalStart-6143ae721510a103aff4.json",
+					"name" : "ExperimentalStart",
+					"projectIndex" : 6
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "ExperimentalSubmit::@b5f54566f3aaf3e43f1e",
+					"jsonFile" : "target-ExperimentalSubmit-ad31e066fca9b10cceb7.json",
+					"name" : "ExperimentalSubmit",
+					"projectIndex" : 6
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "ExperimentalTest::@b5f54566f3aaf3e43f1e",
+					"jsonFile" : "target-ExperimentalTest-3a5c338e226d33c3f9ee.json",
+					"name" : "ExperimentalTest",
+					"projectIndex" : 6
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "ExperimentalUpdate::@b5f54566f3aaf3e43f1e",
+					"jsonFile" : "target-ExperimentalUpdate-afc6b2778321dfd8894a.json",
+					"name" : "ExperimentalUpdate",
+					"projectIndex" : 6
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "Nightly::@b5f54566f3aaf3e43f1e",
+					"jsonFile" : "target-Nightly-eacb9c3f9a9510d1bc81.json",
+					"name" : "Nightly",
+					"projectIndex" : 6
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "NightlyBuild::@b5f54566f3aaf3e43f1e",
+					"jsonFile" : "target-NightlyBuild-48365e9936b7b6ddcb2b.json",
+					"name" : "NightlyBuild",
+					"projectIndex" : 6
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "NightlyConfigure::@b5f54566f3aaf3e43f1e",
+					"jsonFile" : "target-NightlyConfigure-4bd0c79b5431054305f7.json",
+					"name" : "NightlyConfigure",
+					"projectIndex" : 6
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "NightlyCoverage::@b5f54566f3aaf3e43f1e",
+					"jsonFile" : "target-NightlyCoverage-c0d852e5c41ea055e8f5.json",
+					"name" : "NightlyCoverage",
+					"projectIndex" : 6
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "NightlyMemCheck::@b5f54566f3aaf3e43f1e",
+					"jsonFile" : "target-NightlyMemCheck-98bc0b343ccfaaa0d5bf.json",
+					"name" : "NightlyMemCheck",
+					"projectIndex" : 6
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "NightlyMemoryCheck::@b5f54566f3aaf3e43f1e",
+					"jsonFile" : "target-NightlyMemoryCheck-e3357b4725a0cbd3345e.json",
+					"name" : "NightlyMemoryCheck",
+					"projectIndex" : 6
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "NightlyStart::@b5f54566f3aaf3e43f1e",
+					"jsonFile" : "target-NightlyStart-82b857d41f9a4d0020b7.json",
+					"name" : "NightlyStart",
+					"projectIndex" : 6
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "NightlySubmit::@b5f54566f3aaf3e43f1e",
+					"jsonFile" : "target-NightlySubmit-fafdb6aa433ccfd48404.json",
+					"name" : "NightlySubmit",
+					"projectIndex" : 6
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "NightlyTest::@b5f54566f3aaf3e43f1e",
+					"jsonFile" : "target-NightlyTest-4312d1dd8d89db303f6f.json",
+					"name" : "NightlyTest",
+					"projectIndex" : 6
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "NightlyUpdate::@b5f54566f3aaf3e43f1e",
+					"jsonFile" : "target-NightlyUpdate-bd916f79c065f74f2bfe.json",
+					"name" : "NightlyUpdate",
+					"projectIndex" : 6
+				},
+				{
+					"directoryIndex" : 3,
+					"id" : "ViconDataStreamSDK_CPP::@276107015065727bad87",
+					"jsonFile" : "target-ViconDataStreamSDK_CPP-48fd63e5eeeb6b81d161.json",
+					"name" : "ViconDataStreamSDK_CPP",
+					"projectIndex" : 3
+				},
+				{
+					"directoryIndex" : 3,
+					"id" : "ViconDataStreamSDK_CPPTest::@276107015065727bad87",
+					"jsonFile" : "target-ViconDataStreamSDK_CPPTest-7c97e8f1bead8d20c7c9.json",
+					"name" : "ViconDataStreamSDK_CPPTest",
+					"projectIndex" : 3
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "all_cppcheck::@b5f54566f3aaf3e43f1e",
+					"jsonFile" : "target-all_cppcheck-4db16eadf161e740eb01.json",
+					"name" : "all_cppcheck",
+					"projectIndex" : 6
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "cbs_group_constraint::@8e3f34b7e19503239433",
+					"jsonFile" : "target-cbs_group_constraint-8d5155c8ffda78910874.json",
+					"name" : "cbs_group_constraint",
+					"projectIndex" : 1
+				},
+				{
+					"directoryIndex" : 2,
+					"id" : "libmotioncapture::@09785d0e4e5fbc268e16",
+					"jsonFile" : "target-libmotioncapture-b7a93e9899fdcc74b081.json",
+					"name" : "libmotioncapture",
+					"projectIndex" : 2
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "librigidbodytracker::@8e3f34b7e19503239433",
+					"jsonFile" : "target-librigidbodytracker-3ff1b322df71d729902b.json",
+					"name" : "librigidbodytracker",
+					"projectIndex" : 1
+				},
+				{
+					"directoryIndex" : 4,
+					"id" : "minimalClient::@0f37b9eec5b4d40b8952",
+					"jsonFile" : "target-minimalClient-4be91627611941e82abd.json",
+					"name" : "minimalClient",
+					"projectIndex" : 4
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "motion_capture_tracking_node::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-motion_capture_tracking_node-a03bd0995aeefaf1bea0.json",
+					"name" : "motion_capture_tracking_node",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "motion_capture_tracking_uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-motion_capture_tracking_uninstall-5456e7db74064ae2276a.json",
+					"name" : "motion_capture_tracking_uninstall",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 2,
+					"id" : "motioncapture::@09785d0e4e5fbc268e16",
+					"jsonFile" : "target-motioncapture-51c26fa6a0ea9ae0bfc4.json",
+					"name" : "motioncapture",
+					"projectIndex" : 2
+				},
+				{
+					"directoryIndex" : 2,
+					"id" : "motioncapture_example::@09785d0e4e5fbc268e16",
+					"jsonFile" : "target-motioncapture_example-789a3886b5ebfc1c0738.json",
+					"name" : "motioncapture_example",
+					"projectIndex" : 2
+				},
+				{
+					"directoryIndex" : 4,
+					"id" : "packetClient::@0f37b9eec5b4d40b8952",
+					"jsonFile" : "target-packetClient-d944e4b7d15f6286bdd9.json",
+					"name" : "packetClient",
+					"projectIndex" : 4
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "playclouds::@8e3f34b7e19503239433",
+					"jsonFile" : "target-playclouds-8936a1a875b64d735670.json",
+					"name" : "playclouds",
+					"projectIndex" : 1
+				},
+				{
+					"directoryIndex" : 5,
+					"id" : "qualisys_cpp_sdk::@5a99e0bc11ee08158fb6",
+					"jsonFile" : "target-qualisys_cpp_sdk-7100da71b0e1d04956f7.json",
+					"name" : "qualisys_cpp_sdk",
+					"projectIndex" : 5
+				},
+				{
+					"directoryIndex" : 7,
+					"id" : "quat::@26b651c3ef0d73d9d3ae",
+					"jsonFile" : "target-quat-e103e5188fc1bf8fe4ac.json",
+					"name" : "quat",
+					"projectIndex" : 7
+				},
+				{
+					"directoryIndex" : 4,
+					"id" : "sampleClient::@0f37b9eec5b4d40b8952",
+					"jsonFile" : "target-sampleClient-a057d4a2c25cda1234bf.json",
+					"name" : "sampleClient",
+					"projectIndex" : 4
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "standalone::@8e3f34b7e19503239433",
+					"jsonFile" : "target-standalone-78308b736913457ccb0e.json",
+					"name" : "standalone",
+					"projectIndex" : 1
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-uninstall-a6260bc88b4e37a09602.json",
+					"name" : "uninstall",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "vrpn::@b5f54566f3aaf3e43f1e",
+					"jsonFile" : "target-vrpn-514b2037558111021399.json",
+					"name" : "vrpn",
+					"projectIndex" : 6
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking",
+		"source" : "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 7
+	}
+}

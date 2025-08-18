@@ -1,0 +1,125 @@
+-- The C compiler identification is GNU 11.4.0
+-- The CXX compiler identification is GNU 11.4.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Found ament_cmake: 1.3.12 (/opt/ros/humble/share/ament_cmake/cmake)
+-- Found Python3: /usr/bin/python3 (found version "3.10.12") found components: Interpreter
+-- Override CMake install command with custom implementation using symlinks instead of copying resources
+-- Found ament_cmake_pytest: 1.3.12 (/opt/ros/humble/share/ament_cmake_pytest/cmake)
+-- Configuring done (1.3s)
+-- Generating done (0.0s)
+-- Build files have been written to: /home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_sim
+Built target ament_cmake_python_symlink_crazyflie_sim_setup
+Built target ament_cmake_python_symlink_crazyflie_sim
+running install_scripts
+running egg_info
+creating crazyflie_sim.egg-info
+writing crazyflie_sim.egg-info/PKG-INFO
+writing dependency_links to crazyflie_sim.egg-info/dependency_links.txt
+writing entry points to crazyflie_sim.egg-info/entry_points.txt
+running egg_info
+writing top-level names to crazyflie_sim.egg-info/top_level.txt
+writing manifest file 'crazyflie_sim.egg-info/SOURCES.txt'
+writing crazyflie_sim.egg-info/PKG-INFO
+writing dependency_links to crazyflie_sim.egg-info/dependency_links.txt
+writing entry points to crazyflie_sim.egg-info/entry_points.txt
+writing top-level names to crazyflie_sim.egg-info/top_level.txt
+reading manifest file 'crazyflie_sim.egg-info/SOURCES.txt'
+writing manifest file 'crazyflie_sim.egg-info/SOURCES.txt'
+reading manifest file 'crazyflie_sim.egg-info/SOURCES.txt'
+writing manifest file 'crazyflie_sim.egg-info/SOURCES.txt'
+Installing crazyflie_server script to scripts
+Built target ament_cmake_python_build_crazyflie_sim_egg
+Built target ament_cmake_python_build_crazyflie_sim_scripts
+-- Install configuration: ""
+-- Execute custom install script
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/share/crazyflie_sim/environment/pythonpath.sh
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/share/crazyflie_sim/environment/pythonpath.dsv
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim-1.0.3-py3.10.egg-info/PKG-INFO
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim-1.0.3-py3.10.egg-info/SOURCES.txt
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim-1.0.3-py3.10.egg-info/dependency_links.txt
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim-1.0.3-py3.10.egg-info/entry_points.txt
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim-1.0.3-py3.10.egg-info/top_level.txt
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/lib/crazyflie_sim//crazyflie_server
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/__init__.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/backend/data/dynobench/crazyflie2.yaml
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/backend/data/neuralswarm2/phi_G.pth
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/backend/data/neuralswarm2/phi_L.pth
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/backend/data/neuralswarm2/phi_S.pth
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/backend/data/neuralswarm2/rho_L.pth
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/backend/data/neuralswarm2/rho_S.pth
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/backend/data/pinocchio/crazyflie2.urdf
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/backend/dynobench.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/backend/neuralswarm.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/backend/none.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/backend/np.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/backend/pinocchio.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/crazyflie_server.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/crazyflie_sil.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/sim_data_types.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/visualization/README.md
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/visualization/blender.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/visualization/data/README.md
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/visualization/data/env/abandoned_greenhouse.jpg
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/visualization/data/env/aerodynamics_workshop.jpg
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/visualization/data/env/aviation_museum.jpg
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/visualization/data/env/crosswalk.jpg
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/visualization/data/env/derelict_overpass.jpg
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/visualization/data/env/env.jpg
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/visualization/data/env/lago_disola.jpg
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/visualization/data/env/lake_pier.jpg
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/visualization/data/env/machine_shop.jpg
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/visualization/data/env/museumplein.jpg
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/visualization/data/env/peppermint_powerplant.jpg
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/visualization/data/env/studio_garden.jpg
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/visualization/data/model/cf.mtl
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/visualization/data/model/cf.obj
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/visualization/pdf.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/visualization/record_states.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/visualization/rviz.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/share/ament_index/resource_index/package_run_dependencies/crazyflie_sim
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/share/ament_index/resource_index/parent_prefix_path/crazyflie_sim
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/share/crazyflie_sim/environment/ament_prefix_path.sh
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/share/crazyflie_sim/environment/ament_prefix_path.dsv
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/share/crazyflie_sim/environment/path.sh
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/share/crazyflie_sim/environment/path.dsv
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/share/crazyflie_sim/local_setup.bash
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/share/crazyflie_sim/local_setup.sh
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/share/crazyflie_sim/local_setup.zsh
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/share/crazyflie_sim/local_setup.dsv
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/share/crazyflie_sim/package.dsv
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/share/ament_index/resource_index/packages/crazyflie_sim
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/share/crazyflie_sim/cmake/crazyflie_simConfig.cmake
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/share/crazyflie_sim/cmake/crazyflie_simConfig-version.cmake
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/share/crazyflie_sim/package.xml
+Listing '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim'...
+Compiling '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/__init__.py'...
+Listing '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/backend'...
+Listing '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/backend/data'...
+Listing '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/backend/data/dynobench'...
+Listing '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/backend/data/neuralswarm2'...
+Listing '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/backend/data/pinocchio'...
+Compiling '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/backend/dynobench.py'...
+Compiling '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/backend/neuralswarm.py'...
+Compiling '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/backend/none.py'...
+Compiling '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/backend/np.py'...
+Compiling '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/backend/pinocchio.py'...
+Compiling '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/crazyflie_server.py'...
+Compiling '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/crazyflie_sil.py'...
+Compiling '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/sim_data_types.py'...
+Listing '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/visualization'...
+Compiling '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/visualization/blender.py'...
+Listing '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/visualization/data'...
+Listing '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/visualization/data/env'...
+Listing '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/visualization/data/model'...
+Compiling '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/visualization/pdf.py'...
+Compiling '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/visualization/record_states.py'...
+Compiling '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_sim/local/lib/python3.10/dist-packages/crazyflie_sim/visualization/rviz.py'...

@@ -1,0 +1,22 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from crazyflie_interfaces/msg/ConnectionStatistics.msg
+// generated code does not contain a copyright notice
+
+
+module crazyflie_interfaces {
+  module msg {
+    struct ConnectionStatistics {
+      string uri;
+
+      uint64 sent_count;
+
+      uint64 sent_ping_count;
+
+      uint64 receive_count;
+
+      uint64 enqueued_count;
+
+      uint64 ack_count;
+    };
+  };
+};

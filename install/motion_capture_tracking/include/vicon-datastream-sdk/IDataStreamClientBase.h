@@ -1,0 +1,1 @@
+/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/deps/vicon-datastream-sdk/Vicon/CrossMarket/DataStream/ViconDataStreamSDK_CPP/IDataStreamClientBase.h

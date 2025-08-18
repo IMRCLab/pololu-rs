@@ -1,0 +1,21 @@
+running develop
+running egg_info
+creating crazyflie_py.egg-info
+writing crazyflie_py.egg-info/PKG-INFO
+writing dependency_links to crazyflie_py.egg-info/dependency_links.txt
+writing entry points to crazyflie_py.egg-info/entry_points.txt
+writing requirements to crazyflie_py.egg-info/requires.txt
+writing top-level names to crazyflie_py.egg-info/top_level.txt
+writing manifest file 'crazyflie_py.egg-info/SOURCES.txt'
+reading manifest file 'crazyflie_py.egg-info/SOURCES.txt'
+writing manifest file 'crazyflie_py.egg-info/SOURCES.txt'
+running build_ext
+Creating /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_py/lib/python3.10/site-packages/crazyflie-py.egg-link (link to .)
+
+Installed /home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_py
+running symlink_data
+creating /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_py/share/ament_index
+creating /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_py/share/ament_index/resource_index
+creating /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_py/share/ament_index/resource_index/packages
+symbolically linking /home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_py/resource/crazyflie_py -> /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_py/share/ament_index/resource_index/packages
+symbolically linking /home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_py/package.xml -> /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_py/share/crazyflie_py

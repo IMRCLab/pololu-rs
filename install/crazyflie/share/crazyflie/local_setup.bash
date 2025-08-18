@@ -1,0 +1,1 @@
+/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie/ament_cmake_environment_hooks/local_setup.bash

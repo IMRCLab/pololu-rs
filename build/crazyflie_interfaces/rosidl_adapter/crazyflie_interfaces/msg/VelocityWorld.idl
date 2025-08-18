@@ -1,0 +1,18 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from crazyflie_interfaces/msg/VelocityWorld.msg
+// generated code does not contain a copyright notice
+
+#include "geometry_msgs/msg/Vector3.idl"
+#include "std_msgs/msg/Header.idl"
+
+module crazyflie_interfaces {
+  module msg {
+    struct VelocityWorld {
+      std_msgs::msg::Header header;
+
+      geometry_msgs::msg::Vector3 vel;
+
+      float yaw_rate;
+    };
+  };
+};

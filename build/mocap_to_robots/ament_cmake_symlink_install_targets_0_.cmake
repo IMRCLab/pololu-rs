@@ -1,0 +1,1 @@
+ament_cmake_symlink_install_targets("TARGET_FILES" "/home/vincent/Ground_Robots/mocap_broadcast_ros/build/mocap_to_robots/mocap_to_robots" "TARGETS" "mocap_to_robots" "DESTINATION" "lib/mocap_to_robots")

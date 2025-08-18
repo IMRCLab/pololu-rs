@@ -1,0 +1,1 @@
+/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_interfaces/ament_cmake_python/crazyflie_interfaces/crazyflie_interfaces.egg-info/top_level.txt

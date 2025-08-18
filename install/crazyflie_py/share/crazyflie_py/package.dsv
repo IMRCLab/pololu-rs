@@ -1,0 +1,9 @@
+source;share/crazyflie_py/hook/pythonpath.ps1
+source;share/crazyflie_py/hook/pythonpath.dsv
+source;share/crazyflie_py/hook/pythonpath.sh
+source;share/crazyflie_py/hook/ament_prefix_path.ps1
+source;share/crazyflie_py/hook/ament_prefix_path.dsv
+source;share/crazyflie_py/hook/ament_prefix_path.sh
+source;../../build/crazyflie_py/share/crazyflie_py/hook/pythonpath_develop.ps1
+source;../../build/crazyflie_py/share/crazyflie_py/hook/pythonpath_develop.dsv
+source;../../build/crazyflie_py/share/crazyflie_py/hook/pythonpath_develop.sh

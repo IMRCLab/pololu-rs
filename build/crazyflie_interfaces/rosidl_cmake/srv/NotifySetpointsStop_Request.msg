@@ -1,0 +1,2 @@
+uint8 group_mask
+uint32 remain_valid_millisecs

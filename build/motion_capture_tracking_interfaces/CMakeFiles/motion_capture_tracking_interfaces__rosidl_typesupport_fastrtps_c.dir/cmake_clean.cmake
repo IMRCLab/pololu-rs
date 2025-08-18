@@ -1,0 +1,17 @@
+file(REMOVE_RECURSE
+  "CMakeFiles/motion_capture_tracking_interfaces__rosidl_typesupport_fastrtps_c.dir/rosidl_typesupport_fastrtps_c/motion_capture_tracking_interfaces/msg/detail/named_pose__type_support_c.cpp.o"
+  "CMakeFiles/motion_capture_tracking_interfaces__rosidl_typesupport_fastrtps_c.dir/rosidl_typesupport_fastrtps_c/motion_capture_tracking_interfaces/msg/detail/named_pose__type_support_c.cpp.o.d"
+  "CMakeFiles/motion_capture_tracking_interfaces__rosidl_typesupport_fastrtps_c.dir/rosidl_typesupport_fastrtps_c/motion_capture_tracking_interfaces/msg/detail/named_pose_array__type_support_c.cpp.o"
+  "CMakeFiles/motion_capture_tracking_interfaces__rosidl_typesupport_fastrtps_c.dir/rosidl_typesupport_fastrtps_c/motion_capture_tracking_interfaces/msg/detail/named_pose_array__type_support_c.cpp.o.d"
+  "libmotion_capture_tracking_interfaces__rosidl_typesupport_fastrtps_c.pdb"
+  "libmotion_capture_tracking_interfaces__rosidl_typesupport_fastrtps_c.so"
+  "rosidl_typesupport_fastrtps_c/motion_capture_tracking_interfaces/msg/detail/named_pose__rosidl_typesupport_fastrtps_c.h"
+  "rosidl_typesupport_fastrtps_c/motion_capture_tracking_interfaces/msg/detail/named_pose__type_support_c.cpp"
+  "rosidl_typesupport_fastrtps_c/motion_capture_tracking_interfaces/msg/detail/named_pose_array__rosidl_typesupport_fastrtps_c.h"
+  "rosidl_typesupport_fastrtps_c/motion_capture_tracking_interfaces/msg/detail/named_pose_array__type_support_c.cpp"
+)
+
+# Per-language clean rules from dependency scanning.
+foreach(lang CXX)
+  include(CMakeFiles/motion_capture_tracking_interfaces__rosidl_typesupport_fastrtps_c.dir/cmake_clean_${lang}.cmake OPTIONAL)
+endforeach()

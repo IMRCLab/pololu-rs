@@ -1,0 +1,3 @@
+uint8 group_mask
+float32 height
+builtin_interfaces/Duration duration

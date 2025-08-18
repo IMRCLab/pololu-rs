@@ -1,0 +1,2 @@
+/usr/bin/ar qc liblibrigidbodytracker.a CMakeFiles/librigidbodytracker.dir/src/rigid_body_tracker.cpp.o
+/usr/bin/ranlib liblibrigidbodytracker.a

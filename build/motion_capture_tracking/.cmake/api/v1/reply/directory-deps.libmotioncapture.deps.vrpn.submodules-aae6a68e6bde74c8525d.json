@@ -1,0 +1,14 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : [],
+		"files" : [],
+		"nodes" : []
+	},
+	"installers" : [],
+	"paths" : 
+	{
+		"build" : "deps/libmotioncapture/deps/vrpn/submodules",
+		"source" : "deps/libmotioncapture/deps/vrpn/submodules"
+	}
+}

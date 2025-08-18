@@ -1,0 +1,2 @@
+/usr/bin/ar qc libcrazyflie_cpp.a CMakeFiles/crazyflie_cpp.dir/src/Crazyflie.cpp.o CMakeFiles/crazyflie_cpp.dir/src/crtp.cpp.o
+/usr/bin/ranlib libcrazyflie_cpp.a

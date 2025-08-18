@@ -1,0 +1,91 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"_install",
+			"ament_cmake_symlink_install_targets",
+			"install"
+		],
+		"files" : 
+		[
+			"/opt/ros/humble/share/ament_cmake_core/cmake/symlink_install/ament_cmake_symlink_install_targets.cmake",
+			"/opt/ros/humble/share/ament_cmake_core/cmake/symlink_install/install.cmake",
+			"deps/libmotioncapture/deps/vicon-datastream-sdk/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 2
+			},
+			{
+				"command" : 2,
+				"file" : 2,
+				"line" : 72,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 1,
+				"line" : 37,
+				"parent" : 1
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 50,
+				"parent" : 2
+			},
+			{
+				"command" : 2,
+				"file" : 2,
+				"line" : 81,
+				"parent" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 1,
+				"line" : 43,
+				"parent" : 4
+			}
+		]
+	},
+	"installers" : 
+	[
+		{
+			"backtrace" : 3,
+			"component" : "Unspecified",
+			"destination" : "lib",
+			"paths" : 
+			[
+				"deps/libmotioncapture/deps/vicon-datastream-sdk/libViconDataStreamSDK_CPP.a"
+			],
+			"targetId" : "ViconDataStreamSDK_CPP::@276107015065727bad87",
+			"targetIndex" : 28,
+			"type" : "target"
+		},
+		{
+			"backtrace" : 5,
+			"component" : "Unspecified",
+			"destination" : "lib/cmake/vicon-datastream-sdk",
+			"exportName" : "vicon-datastream-sdkTargets",
+			"exportTargets" : 
+			[
+				{
+					"id" : "ViconDataStreamSDK_CPP::@276107015065727bad87",
+					"index" : 28
+				}
+			],
+			"paths" : 
+			[
+				"deps/libmotioncapture/deps/vicon-datastream-sdk/CMakeFiles/Export/5428a4105c4ee63c37f975b722639a51/vicon-datastream-sdkTargets.cmake"
+			],
+			"type" : "export"
+		}
+	],
+	"paths" : 
+	{
+		"build" : "deps/libmotioncapture/deps/vicon-datastream-sdk",
+		"source" : "deps/libmotioncapture/deps/vicon-datastream-sdk"
+	}
+}

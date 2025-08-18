@@ -1,0 +1,106 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-56837ff641bbfbc6403b.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.12"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5
+					]
+				}
+			],
+			"name" : "",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "crazyflie_examples",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "ament_cmake_python_build_crazyflie_examples_egg::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ament_cmake_python_build_crazyflie_examples_egg-52076722ab0580dab4f1.json",
+					"name" : "ament_cmake_python_build_crazyflie_examples_egg",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "ament_cmake_python_build_crazyflie_examples_scripts::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ament_cmake_python_build_crazyflie_examples_scripts-02096410119390ff8ed3.json",
+					"name" : "ament_cmake_python_build_crazyflie_examples_scripts",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "ament_cmake_python_symlink_crazyflie_examples::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ament_cmake_python_symlink_crazyflie_examples-905830163af50e8da4b4.json",
+					"name" : "ament_cmake_python_symlink_crazyflie_examples",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "ament_cmake_python_symlink_crazyflie_examples_setup::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ament_cmake_python_symlink_crazyflie_examples_setup-f9224f5e6fa47471aa1f.json",
+					"name" : "ament_cmake_python_symlink_crazyflie_examples_setup",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "crazyflie_examples_uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-crazyflie_examples_uninstall-ef198c2bf6d32023c382.json",
+					"name" : "crazyflie_examples_uninstall",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-uninstall-85f9d4e890f7be41be5a.json",
+					"name" : "uninstall",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_examples",
+		"source" : "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_examples"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 7
+	}
+}

@@ -1,0 +1,20 @@
+// generated from rosidl_adapter/resource/srv.idl.em
+// with input from crazyflie_interfaces/srv/UploadTrajectory.srv
+// generated code does not contain a copyright notice
+
+#include "crazyflie_interfaces/msg/TrajectoryPolynomialPiece.idl"
+
+module crazyflie_interfaces {
+  module srv {
+    struct UploadTrajectory_Request {
+      uint8 trajectory_id;
+
+      uint32 piece_offset;
+
+      sequence<crazyflie_interfaces::msg::TrajectoryPolynomialPiece> pieces;
+    };
+    struct UploadTrajectory_Response {
+      uint8 structure_needs_at_least_one_member;
+    };
+  };
+};

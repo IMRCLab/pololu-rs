@@ -1,0 +1,132 @@
+-- The C compiler identification is GNU 11.4.0
+-- The CXX compiler identification is GNU 11.4.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Found ament_cmake: 1.3.12 (/opt/ros/humble/share/ament_cmake/cmake)
+-- Found Python3: /usr/bin/python3 (found version "3.10.12") found components: Interpreter
+-- Override CMake install command with custom implementation using symlinks instead of copying resources
+-- Found ament_cmake_pytest: 1.3.12 (/opt/ros/humble/share/ament_cmake_pytest/cmake)
+-- Configuring done (1.9s)
+-- Generating done (0.0s)
+[33mCMake Warning:
+  Manually-specified variables were not used by the project:
+
+    CMAKE_EXPORT_COMPILE_COMMANDS
+
+[0m
+-- Build files have been written to: /home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_examples
+Built target ament_cmake_python_symlink_crazyflie_examples
+Built target ament_cmake_python_symlink_crazyflie_examples_setup
+running egg_info
+creating crazyflie_examples.egg-info
+writing crazyflie_examples.egg-info/PKG-INFO
+writing dependency_links to crazyflie_examples.egg-info/dependency_links.txt
+writing entry points to crazyflie_examples.egg-info/entry_points.txt
+writing top-level names to crazyflie_examples.egg-info/top_level.txt
+writing manifest file 'crazyflie_examples.egg-info/SOURCES.txt'
+reading manifest file 'crazyflie_examples.egg-info/SOURCES.txt'
+writing manifest file 'crazyflie_examples.egg-info/SOURCES.txt'
+Built target ament_cmake_python_build_crazyflie_examples_egg
+running install_scripts
+/usr/lib/python3/dist-packages/setuptools/command/install.py:34: SetuptoolsDeprecationWarning: setup.py install is deprecated. Use build and pip and other standards-based tools.
+  warnings.warn(
+running egg_info
+writing crazyflie_examples.egg-info/PKG-INFO
+writing dependency_links to crazyflie_examples.egg-info/dependency_links.txt
+writing entry points to crazyflie_examples.egg-info/entry_points.txt
+writing top-level names to crazyflie_examples.egg-info/top_level.txt
+reading manifest file 'crazyflie_examples.egg-info/SOURCES.txt'
+writing manifest file 'crazyflie_examples.egg-info/SOURCES.txt'
+Installing arming script to scripts
+Installing cmd_full_state script to scripts
+Installing figure8 script to scripts
+Installing group_mask script to scripts
+Installing hello_world script to scripts
+Installing infinite_flight script to scripts
+Installing multi_trajectory script to scripts
+Installing nice_hover script to scripts
+Installing set_param script to scripts
+Installing swap script to scripts
+Built target ament_cmake_python_build_crazyflie_examples_scripts
+-- Install configuration: ""
+-- Execute custom install script
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/share/crazyflie_examples/environment/pythonpath.sh
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/share/crazyflie_examples/environment/pythonpath.dsv
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples-1.0.3-py3.10.egg-info/PKG-INFO
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples-1.0.3-py3.10.egg-info/SOURCES.txt
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples-1.0.3-py3.10.egg-info/dependency_links.txt
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples-1.0.3-py3.10.egg-info/entry_points.txt
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples-1.0.3-py3.10.egg-info/top_level.txt
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/lib/crazyflie_examples//arming
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/lib/crazyflie_examples//cmd_full_state
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/lib/crazyflie_examples//figure8
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/lib/crazyflie_examples//group_mask
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/lib/crazyflie_examples//hello_world
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/lib/crazyflie_examples//infinite_flight
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/lib/crazyflie_examples//multi_trajectory
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/lib/crazyflie_examples//nice_hover
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/lib/crazyflie_examples//set_param
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/lib/crazyflie_examples//swap
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples/__init__.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples/arming.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples/cmd_full_state.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples/data/figure8.csv
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples/data/multi_trajectory/traj0.csv
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples/data/multi_trajectory/traj1.csv
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples/figure8.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples/group_mask.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples/hello_world.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples/infinite_flight.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples/multi_trajectory.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples/nice_hover.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples/set_param.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples/swap.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/share/crazyflie_examples//config/nav2_params.yaml
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/share/crazyflie_examples//config/nav2_view.rviz
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/share/crazyflie_examples//config/slam_params.yaml
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/share/crazyflie_examples//data/map.data
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/share/crazyflie_examples//data/map.pgm
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/share/crazyflie_examples//data/map.posegraph
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/share/crazyflie_examples//data/map.yaml
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/share/crazyflie_examples//launch/keyboard_velmux_launch.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/share/crazyflie_examples//launch/launch.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/share/crazyflie_examples//launch/multiranger_mapping_launch.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/share/crazyflie_examples//launch/multiranger_nav2_launch.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/share/crazyflie_examples//launch/multiranger_simple_mapper_launch.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/share/ament_index/resource_index/package_run_dependencies/crazyflie_examples
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/share/ament_index/resource_index/parent_prefix_path/crazyflie_examples
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/share/crazyflie_examples/environment/ament_prefix_path.sh
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/share/crazyflie_examples/environment/ament_prefix_path.dsv
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/share/crazyflie_examples/environment/path.sh
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/share/crazyflie_examples/environment/path.dsv
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/share/crazyflie_examples/local_setup.bash
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/share/crazyflie_examples/local_setup.sh
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/share/crazyflie_examples/local_setup.zsh
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/share/crazyflie_examples/local_setup.dsv
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/share/crazyflie_examples/package.dsv
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/share/ament_index/resource_index/packages/crazyflie_examples
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/share/crazyflie_examples/cmake/crazyflie_examplesConfig.cmake
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/share/crazyflie_examples/cmake/crazyflie_examplesConfig-version.cmake
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/share/crazyflie_examples/package.xml
+Listing '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples'...
+Compiling '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples/__init__.py'...
+Compiling '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples/arming.py'...
+Compiling '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples/cmd_full_state.py'...
+Listing '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples/data'...
+Listing '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples/data/multi_trajectory'...
+Compiling '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples/figure8.py'...
+Compiling '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples/group_mask.py'...
+Compiling '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples/hello_world.py'...
+Compiling '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples/infinite_flight.py'...
+Compiling '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples/multi_trajectory.py'...
+Compiling '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples/nice_hover.py'...
+Compiling '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples/set_param.py'...
+Compiling '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples/swap.py'...

@@ -1,0 +1,423 @@
+[33mCMake Warning (dev) at /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:146 (find_package):
+  Policy CMP0144 is not set: find_package uses upper-case <PACKAGENAME>_ROOT
+  variables.  Run "cmake --help-policy CMP0144" for policy details.  Use the
+  cmake_policy command to set the policy and suppress this warning.
+
+  CMake variable EIGEN_ROOT is set to:
+
+    /usr/include/eigen3
+
+  For compatibility, find_package is ignoring the variable, but code in a
+  .cmake module might still use it.
+Call Stack (most recent call first):
+  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:299 (find_eigen)
+  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:543 (find_external_library)
+  CMakeLists.txt:19 (find_package)
+This warning is for project developers.  Use -Wno-dev to suppress it.
+[0m
+[33mCMake Warning (dev) at deps/librigidbodytracker/CMakeLists.txt:7 (find_package):
+  Policy CMP0074 is not set: find_package uses <PackageName>_ROOT variables.
+  Run "cmake --help-policy CMP0074" for policy details.  Use the cmake_policy
+  command to set the policy and suppress this warning.
+
+  CMake variable PCL_ROOT is set to:
+
+    /usr
+
+  For compatibility, CMake is ignoring the variable.
+This warning is for project developers.  Use -Wno-dev to suppress it.
+[0m
+[33mCMake Warning (dev) at /usr/lib/x86_64-linux-gnu/cmake/pcl/Modules/FindFLANN.cmake:44 (find_package):
+  Policy CMP0144 is not set: find_package uses upper-case <PACKAGENAME>_ROOT
+  variables.  Run "cmake --help-policy CMP0144" for policy details.  Use the
+  cmake_policy command to set the policy and suppress this warning.
+
+  CMake variable FLANN_ROOT is set to:
+
+    /usr
+
+  For compatibility, find_package is ignoring the variable, but code in a
+  .cmake module might still use it.
+Call Stack (most recent call first):
+  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:256 (find_package)
+  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:301 (find_flann)
+  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:543 (find_external_library)
+  deps/librigidbodytracker/CMakeLists.txt:7 (find_package)
+This warning is for project developers.  Use -Wno-dev to suppress it.
+[0m
+[0m** WARNING ** io features related to pcap will be disabled[0m
+[33mCMake Warning (dev) at /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:146 (find_package):
+  Policy CMP0144 is not set: find_package uses upper-case <PACKAGENAME>_ROOT
+  variables.  Run "cmake --help-policy CMP0144" for policy details.  Use the
+  cmake_policy command to set the policy and suppress this warning.
+
+  CMake variable EIGEN_ROOT is set to:
+
+    /usr/include/eigen3
+
+  For compatibility, find_package is ignoring the variable, but code in a
+  .cmake module might still use it.
+Call Stack (most recent call first):
+  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:299 (find_eigen)
+  /usr/lib/x86_64-linux-gnu/cmake/pcl/PCLConfig.cmake:543 (find_external_library)
+  deps/librigidbodytracker/CMakeLists.txt:7 (find_package)
+This warning is for project developers.  Use -Wno-dev to suppress it.
+[0m
+[33mCMake Warning (dev) at deps/libmotioncapture/CMakeLists.txt:5 (option):
+  Policy CMP0077 is not set: option() honors normal variables.  Run "cmake
+  --help-policy CMP0077" for policy details.  Use the cmake_policy command to
+  set the policy and suppress this warning.
+
+  For compatibility with older versions of CMake, option is clearing the
+  normal variable 'LIBMOTIONCAPTURE_BUILD_PYTHON_BINDINGS'.
+This warning is for project developers.  Use -Wno-dev to suppress it.
+[0m
+[33mCMake Warning (dev) at deps/libmotioncapture/CMakeLists.txt:6 (option):
+  Policy CMP0077 is not set: option() honors normal variables.  Run "cmake
+  --help-policy CMP0077" for policy details.  Use the cmake_policy command to
+  set the policy and suppress this warning.
+
+  For compatibility with older versions of CMake, option is clearing the
+  normal variable 'LIBMOTIONCAPTURE_ENABLE_QUALISYS'.
+This warning is for project developers.  Use -Wno-dev to suppress it.
+[0m
+[33mCMake Warning (dev) at deps/libmotioncapture/CMakeLists.txt:7 (option):
+  Policy CMP0077 is not set: option() honors normal variables.  Run "cmake
+  --help-policy CMP0077" for policy details.  Use the cmake_policy command to
+  set the policy and suppress this warning.
+
+  For compatibility with older versions of CMake, option is clearing the
+  normal variable 'LIBMOTIONCAPTURE_ENABLE_OPTITRACK'.
+This warning is for project developers.  Use -Wno-dev to suppress it.
+[0m
+[33mCMake Warning (dev) at deps/libmotioncapture/CMakeLists.txt:8 (option):
+  Policy CMP0077 is not set: option() honors normal variables.  Run "cmake
+  --help-policy CMP0077" for policy details.  Use the cmake_policy command to
+  set the policy and suppress this warning.
+
+  For compatibility with older versions of CMake, option is clearing the
+  normal variable 'LIBMOTIONCAPTURE_ENABLE_OPTITRACK_CLOSED_SOURCE'.
+This warning is for project developers.  Use -Wno-dev to suppress it.
+[0m
+[33mCMake Warning (dev) at deps/libmotioncapture/CMakeLists.txt:9 (option):
+  Policy CMP0077 is not set: option() honors normal variables.  Run "cmake
+  --help-policy CMP0077" for policy details.  Use the cmake_policy command to
+  set the policy and suppress this warning.
+
+  For compatibility with older versions of CMake, option is clearing the
+  normal variable 'LIBMOTIONCAPTURE_ENABLE_VICON'.
+This warning is for project developers.  Use -Wno-dev to suppress it.
+[0m
+[33mCMake Warning (dev) at deps/libmotioncapture/CMakeLists.txt:10 (option):
+  Policy CMP0077 is not set: option() honors normal variables.  Run "cmake
+  --help-policy CMP0077" for policy details.  Use the cmake_policy command to
+  set the policy and suppress this warning.
+
+  For compatibility with older versions of CMake, option is clearing the
+  normal variable 'LIBMOTIONCAPTURE_ENABLE_NOKOV'.
+This warning is for project developers.  Use -Wno-dev to suppress it.
+[0m
+[33mCMake Warning (dev) at deps/libmotioncapture/CMakeLists.txt:11 (option):
+  Policy CMP0077 is not set: option() honors normal variables.  Run "cmake
+  --help-policy CMP0077" for policy details.  Use the cmake_policy command to
+  set the policy and suppress this warning.
+
+  For compatibility with older versions of CMake, option is clearing the
+  normal variable 'LIBMOTIONCAPTURE_ENABLE_VRPN'.
+This warning is for project developers.  Use -Wno-dev to suppress it.
+[0m
+[33mCMake Warning (dev) at deps/libmotioncapture/CMakeLists.txt:12 (option):
+  Policy CMP0077 is not set: option() honors normal variables.  Run "cmake
+  --help-policy CMP0077" for policy details.  Use the cmake_policy command to
+  set the policy and suppress this warning.
+
+  For compatibility with older versions of CMake, option is clearing the
+  normal variable 'LIBMOTIONCAPTURE_ENABLE_FZMOTION'.
+This warning is for project developers.  Use -Wno-dev to suppress it.
+[0m
+[33mCMake Warning (dev) at deps/libmotioncapture/CMakeLists.txt:13 (option):
+  Policy CMP0077 is not set: option() honors normal variables.  Run "cmake
+  --help-policy CMP0077" for policy details.  Use the cmake_policy command to
+  set the policy and suppress this warning.
+
+  For compatibility with older versions of CMake, option is clearing the
+  normal variable 'LIBMOTIONCAPTURE_ENABLE_MOTIONANALYSIS'.
+This warning is for project developers.  Use -Wno-dev to suppress it.
+[0m
+[33mCMake Warning (dev) at deps/libmotioncapture/CMakeLists.txt:14 (option):
+  Policy CMP0077 is not set: option() honors normal variables.  Run "cmake
+  --help-policy CMP0077" for policy details.  Use the cmake_policy command to
+  set the policy and suppress this warning.
+
+  For compatibility with older versions of CMake, option is clearing the
+  normal variable 'LIBMOTIONCAPTURE_BUILD_EXAMPLE'.
+This warning is for project developers.  Use -Wno-dev to suppress it.
+[0m
+[0mincluding vicon[0m
+[0mincluding optitrack[0m
+[0mIncluding optitrack_closed_source[0m
+[0mincluding qualisys[0m
+[0mincluding vrpn[0m
+[0mCMake Deprecation Warning at deps/libmotioncapture/deps/vrpn/CMakeLists.txt:1 (cmake_minimum_required):
+  Compatibility with CMake < 3.5 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value or use a ...<max> suffix to tell
+  CMake that the project does not need compatibility with older versions.
+
+[0m
+[0mCMake Deprecation Warning at deps/libmotioncapture/deps/vrpn/quat/CMakeLists.txt:1 (cmake_minimum_required):
+  Compatibility with CMake < 3.5 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value or use a ...<max> suffix to tell
+  CMake that the project does not need compatibility with older versions.
+
+[0m
+[33mCMake Warning (dev) at deps/libmotioncapture/deps/vrpn/CMakeLists.txt:304 (find_package):
+  Policy CMP0148 is not set: The FindPythonInterp and FindPythonLibs modules
+  are removed.  Run "cmake --help-policy CMP0148" for policy details.  Use
+  the cmake_policy command to set the policy and suppress this warning.
+
+This warning is for project developers.  Use -Wno-dev to suppress it.
+[0m
+[0mCMake Deprecation Warning at deps/libmotioncapture/deps/vrpn/cmake/FindOpenHaptics.cmake:56 (cmake_minimum_required):
+  Compatibility with CMake < 3.5 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value or use a ...<max> suffix to tell
+  CMake that the project does not need compatibility with older versions.
+Call Stack (most recent call first):
+  deps/libmotioncapture/deps/vrpn/CMakeLists.txt:468 (find_package)
+
+[0m
+[33mCMake Warning (dev) at /home/vincent/cmake/share/cmake-3.29/Modules/FindPackageHandleStandardArgs.cmake:438 (message):
+  The package name passed to `find_package_handle_standard_args` (I2CDEV)
+  does not match the name of the calling package (libi2c-dev).  This can lead
+  to problems in calling code that expects `find_package` result variables
+  (e.g., `_FOUND`) to follow a certain pattern.
+Call Stack (most recent call first):
+  deps/libmotioncapture/deps/vrpn/cmake/Findlibi2c-dev.cmake:43 (find_package_handle_standard_args)
+  deps/libmotioncapture/deps/vrpn/CMakeLists.txt:518 (find_package)
+This warning is for project developers.  Use -Wno-dev to suppress it.
+[0m
+[0mCMake Deprecation Warning at deps/libmotioncapture/deps/vrpn/client_src/CMakeLists.txt:1 (cmake_minimum_required):
+  Compatibility with CMake < 3.5 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value or use a ...<max> suffix to tell
+  CMake that the project does not need compatibility with older versions.
+
+[0m
+[0mincluding fzmotion[0m
+[0mCMake Deprecation Warning at deps/libmotioncapture/deps/pybind11/CMakeLists.txt:8 (cmake_minimum_required):
+  Compatibility with CMake < 3.5 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value or use a ...<max> suffix to tell
+  CMake that the project does not need compatibility with older versions.
+
+[0m
+In file included from [01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/deps/qualisys_cpp_sdk/Markup.cpp:18[m[K:
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/deps/qualisys_cpp_sdk/Markup.h:[m[K In copy constructor ‘[01m[KCMarkup::ElemPos::ElemPos(const CMarkup::ElemPos&)[m[K’:
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/deps/qualisys_cpp_sdk/Markup.h:89:55:[m[K [01;35m[Kwarning: [m[Kimplicitly-declared ‘[01m[Kconstexpr CMarkup::ElemPos& CMarkup::ElemPos::operator=(const CMarkup::ElemPos&)[m[K’ is deprecated [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wdeprecated-copy-Wdeprecated-copy]8;;[m[K]
+   89 |                 ElemPos(const ElemPos& pos) { *this = [01;35m[Kpos[m[K; };
+      |                                                       [01;35m[K^~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/deps/qualisys_cpp_sdk/Markup.h:89:17:[m[K [01;36m[Knote: [m[Kbecause ‘[01m[KCMarkup::ElemPos[m[K’ has user-provided ‘[01m[KCMarkup::ElemPos::ElemPos(const CMarkup::ElemPos&)[m[K’
+   89 |                 [01;36m[KElemPos[m[K(const ElemPos& pos) { *this = pos; };
+      |                 [01;36m[K^~~~~~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/deps/vrpn/vrpn_EndpointContainer.C:[m[K In member function ‘[01m[Kvoid vrpn::EndpointContainer::compact_()[m[K’:
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/deps/vrpn/vrpn_EndpointContainer.C:91:19:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kbefore[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+   91 |         size_type [01;35m[Kbefore[m[K = get_full_container_size();
+      |                   [01;35m[K^~~~~~[m[K
+In file included from [01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/deps/qualisys_cpp_sdk/RTProtocol.cpp:17[m[K:
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/deps/qualisys_cpp_sdk/Markup.h:[m[K In copy constructor ‘[01m[KCMarkup::ElemPos::ElemPos(const CMarkup::ElemPos&)[m[K’:
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/deps/qualisys_cpp_sdk/Markup.h:89:55:[m[K [01;35m[Kwarning: [m[Kimplicitly-declared ‘[01m[Kconstexpr CMarkup::ElemPos& CMarkup::ElemPos::operator=(const CMarkup::ElemPos&)[m[K’ is deprecated [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wdeprecated-copy-Wdeprecated-copy]8;;[m[K]
+   89 |                 ElemPos(const ElemPos& pos) { *this = [01;35m[Kpos[m[K; };
+      |                                                       [01;35m[K^~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/deps/qualisys_cpp_sdk/Markup.h:89:17:[m[K [01;36m[Knote: [m[Kbecause ‘[01m[KCMarkup::ElemPos[m[K’ has user-provided ‘[01m[KCMarkup::ElemPos::ElemPos(const CMarkup::ElemPos&)[m[K’
+   89 |                 [01;36m[KElemPos[m[K(const ElemPos& pos) { *this = pos; };
+      |                 [01;36m[K^~~~~~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/deps/qualisys_cpp_sdk/RTProtocol.cpp:[m[K In member function ‘[01m[Kbool CRTProtocol::GetCapture(const char*, bool)[m[K’:
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/deps/qualisys_cpp_sdk/RTProtocol.cpp:651:66:[m[K [01;35m[Kwarning: [m[K‘[01m[K%s[m[K’ directive writing up to 1023 bytes into a region of size 1004 [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wformat-overflow=-Wformat-overflow=]8;;[m[K]
+  651 |                         sprintf(maErrorStr, "No packet received. [01;35m[K%s[m[K.", maErrorStr);
+      |                                                                  [01;35m[K^~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/deps/qualisys_cpp_sdk/RTProtocol.cpp:651:32:[m[K [01;36m[Knote: [m[K‘[01m[Ksprintf[m[K’ output between 22 and 1045 bytes into a destination of size 1024
+  651 |                         [01;36m[Ksprintf(maErrorStr, "No packet received. %s.", maErrorStr)[m[K;
+      |                         [01;36m[K~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/deps/qualisys_cpp_sdk/RTProtocol.cpp:651:32:[m[K [01;35m[Kwarning: [m[K‘[01m[Ksprintf[m[K’ argument 3 overlaps destination object ‘[01m[Kthis[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wrestrict-Wrestrict]8;;[m[K]
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/deps/qualisys_cpp_sdk/RTProtocol.cpp:580:62:[m[K [01;36m[Knote: [m[Kdestination object referenced by ‘[01m[Krestrict[m[K’-qualified argument 1 was declared here
+  580 | bool CRTProtocol::GetCapture(const char* pFileName, bool bC3D[01;36m[K)[m[K
+      |                                                              [01;36m[K^[m[K
+In file included from [01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/src/rigid_body_tracker.cpp:14[m[K:
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/src/cbs_group_constraint.hpp:[m[K In function ‘[01m[Kvoid createConstraintsFromConflict(const std::map<std::__cxx11::basic_string<char>, std::set<std::__cxx11::basic_string<char> > >&, const string&, std::set<std::set<Constraint> >&)[m[K’:
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/src/cbs_group_constraint.hpp:148:7:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kcount[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  148 |   int [01;35m[Kcount[m[K = 0;
+      |       [01;35m[K^~~~~[m[K
+In file included from [01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/src/rigid_body_tracker.cpp:1[m[K:
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/include/librigidbodytracker/rigid_body_tracker.h:[m[K In constructor ‘[01m[Klibrigidbodytracker::RigidBodyTracker::RigidBodyTracker(const std::vector<librigidbodytracker::DynamicsConfiguration>&, const std::vector<std::shared_ptr<pcl::PointCloud<pcl::PointXYZ> > >&, const std::vector<librigidbodytracker::RigidBody>&)[m[K’:
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/include/librigidbodytracker/rigid_body_tracker.h:126:18:[m[K [01;35m[Kwarning: [m[K‘[01m[Klibrigidbodytracker::RigidBodyTracker::m_trackingMode[m[K’ will be initialized after [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+  126 |     TrackingMode [01;35m[Km_trackingMode[m[K;
+      |                  [01;35m[K^~~~~~~~~~~~~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/include/librigidbodytracker/rigid_body_tracker.h:123:10:[m[K [01;35m[Kwarning: [m[K  ‘[01m[Kbool librigidbodytracker::RigidBodyTracker::m_initialized[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+  123 |     bool [01;35m[Km_initialized[m[K;
+      |          [01;35m[K^~~~~~~~~~~~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/src/rigid_body_tracker.cpp:77:1:[m[K [01;35m[Kwarning: [m[K  when initialized here [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+   77 | [01;35m[KRigidBodyTracker[m[K::RigidBodyTracker(
+      | [01;35m[K^~~~~~~~~~~~~~~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/src/rigid_body_tracker.cpp:[m[K In member function ‘[01m[Kbool librigidbodytracker::RigidBodyTracker::initializePose(pcl::PointCloud<pcl::PointXYZ>::ConstPtr)[m[K’:
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/src/rigid_body_tracker.cpp:167:21:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Kint[m[K’ and ‘[01m[Kconst size_t[m[K’ {aka ‘[01m[Kconst long unsigned int[m[K’} [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wsign-compare-Wsign-compare]8;;[m[K]
+  167 |   for (int i = 0; [01;35m[Ki < numRigidBodies[m[K; ++i) {
+      |                   [01;35m[K~~^~~~~~~~~~~~~~~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/src/rigid_body_tracker.cpp:169:27:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Kint[m[K’ and ‘[01m[Kconst size_t[m[K’ {aka ‘[01m[Kconst long unsigned int[m[K’} [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wsign-compare-Wsign-compare]8;;[m[K]
+  169 |     for (int j = i + 1; [01;35m[Kj < numRigidBodies[m[K; ++j) {
+      |                         [01;35m[K~~^~~~~~~~~~~~~~~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/src/rigid_body_tracker.cpp:180:25:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Kint[m[K’ and ‘[01m[Kconst size_t[m[K’ {aka ‘[01m[Kconst long unsigned int[m[K’} [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wsign-compare-Wsign-compare]8;;[m[K]
+  180 |   for (int iRb = 0; [01;35m[KiRb < numRigidBodies[m[K; ++iRb) {
+      |                     [01;35m[K~~~~^~~~~~~~~~~~~~~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/src/rigid_body_tracker.cpp:195:16:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Kint[m[K’ and ‘[01m[Kconst size_t[m[K’ {aka ‘[01m[Kconst long unsigned int[m[K’} [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wsign-compare-Wsign-compare]8;;[m[K]
+  195 |     if ([01;35m[KnFound < rbNpts[m[K) {
+      |         [01;35m[K~~~~~~~^~~~~~~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/src/rigid_body_tracker.cpp:208:23:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Kint[m[K’ and ‘[01m[Kconst size_t[m[K’ {aka ‘[01m[Kconst long unsigned int[m[K’} [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wsign-compare-Wsign-compare]8;;[m[K]
+  208 |     for (int i = 0; [01;35m[Ki < rbNpts[m[K; ++i) {
+      |                     [01;35m[K~~^~~~~~~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/src/rigid_body_tracker.cpp:[m[K In member function ‘[01m[Kbool librigidbodytracker::RigidBodyTracker::initializePosition(std::chrono::_V2::system_clock::time_point, pcl::PointCloud<pcl::PointXYZ>::ConstPtr)[m[K’:
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/src/rigid_body_tracker.cpp:426:8:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[KtotalCost[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  426 |   long [01;35m[KtotalCost[m[K = assignment.solve(solution);
+      |        [01;35m[K^~~~~~~~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/src/rigid_body_tracker.cpp:[m[K In member function ‘[01m[Kvoid librigidbodytracker::RigidBodyTracker::updatePosition(std::chrono::_V2::system_clock::time_point, pcl::PointCloud<pcl::PointXYZ>::ConstPtr)[m[K’:
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/src/rigid_body_tracker.cpp:481:25:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Kint[m[K’ and ‘[01m[Kconst size_t[m[K’ {aka ‘[01m[Kconst long unsigned int[m[K’} [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wsign-compare-Wsign-compare]8;;[m[K]
+  481 |   for (int iRb = 0; [01;35m[KiRb < numRigidBodies[m[K; ++iRb) {
+      |                     [01;35m[K~~~~^~~~~~~~~~~~~~~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/src/rigid_body_tracker.cpp:537:8:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[KtotalCost[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  537 |   long [01;35m[KtotalCost[m[K = assignment.solve(solution);
+      |        [01;35m[K^~~~~~~~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/src/rigid_body_tracker.cpp:[m[K In member function ‘[01m[Kbool librigidbodytracker::RigidBodyTracker::initializeHybrid(std::chrono::_V2::system_clock::time_point, pcl::PointCloud<pcl::PointXYZ>::ConstPtr)[m[K’:
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/src/rigid_body_tracker.cpp:582:21:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Kint[m[K’ and ‘[01m[Kconst size_t[m[K’ {aka ‘[01m[Kconst long unsigned int[m[K’} [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wsign-compare-Wsign-compare]8;;[m[K]
+  582 |   for (int i = 0; [01;35m[Ki < numRigidBodies[m[K; ++i) {
+      |                   [01;35m[K~~^~~~~~~~~~~~~~~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/src/rigid_body_tracker.cpp:584:27:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Kint[m[K’ and ‘[01m[Kconst size_t[m[K’ {aka ‘[01m[Kconst long unsigned int[m[K’} [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wsign-compare-Wsign-compare]8;;[m[K]
+  584 |     for (int j = i + 1; [01;35m[Kj < numRigidBodies[m[K; ++j) {
+      |                         [01;35m[K~~^~~~~~~~~~~~~~~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/src/rigid_body_tracker.cpp:595:25:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Kint[m[K’ and ‘[01m[Kconst size_t[m[K’ {aka ‘[01m[Kconst long unsigned int[m[K’} [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wsign-compare-Wsign-compare]8;;[m[K]
+  595 |   for (int iRb = 0; [01;35m[KiRb < numRigidBodies[m[K; ++iRb) {
+      |                     [01;35m[K~~~~^~~~~~~~~~~~~~~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/src/rigid_body_tracker.cpp:610:16:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Kint[m[K’ and ‘[01m[Kconst size_t[m[K’ {aka ‘[01m[Kconst long unsigned int[m[K’} [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wsign-compare-Wsign-compare]8;;[m[K]
+  610 |     if ([01;35m[KnFound < rbNpts[m[K) {
+      |         [01;35m[K~~~~~~~^~~~~~~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/src/rigid_body_tracker.cpp:623:13:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kdist[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  623 |       float [01;35m[Kdist[m[K = (pi - marker).norm();
+      |             [01;35m[K^~~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/src/rigid_body_tracker.cpp:644:23:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Kint[m[K’ and ‘[01m[Kconst size_t[m[K’ {aka ‘[01m[Kconst long unsigned int[m[K’} [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wsign-compare-Wsign-compare]8;;[m[K]
+  644 |     for (int i = 0; [01;35m[Ki < rbNpts[m[K; ++i) {
+      |                     [01;35m[K~~^~~~~~~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/src/rigid_body_tracker.cpp:[m[K In member function ‘[01m[Kvoid librigidbodytracker::RigidBodyTracker::updateHybrid(std::chrono::_V2::system_clock::time_point, pcl::PointCloud<pcl::PointXYZ>::ConstPtr)[m[K’:
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/src/rigid_body_tracker.cpp:756:25:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Kint[m[K’ and ‘[01m[Kconst size_t[m[K’ {aka ‘[01m[Kconst long unsigned int[m[K’} [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wsign-compare-Wsign-compare]8;;[m[K]
+  756 |   for (int iRb = 0; [01;35m[KiRb < numRigidBodies[m[K; ++iRb) {
+      |                     [01;35m[K~~~~^~~~~~~~~~~~~~~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/src/rigid_body_tracker.cpp:830:26:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Ksize_t[m[K’ {aka ‘[01m[Klong unsigned int[m[K’} and ‘[01m[Kint[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wsign-compare-Wsign-compare]8;;[m[K]
+  830 |     for (size_t i = 0; [01;35m[Ki < k[m[K; ++i)  {
+      |                        [01;35m[K~~^~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/src/rigid_body_tracker.cpp:1038:27:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Kint[m[K’ and ‘[01m[Kconst size_t[m[K’ {aka ‘[01m[Kconst long unsigned int[m[K’} [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wsign-compare-Wsign-compare]8;;[m[K]
+ 1038 |     for (int iRb = 0; [01;35m[KiRb < numRigidBodies[m[K; ++iRb) {
+      |                       [01;35m[K~~~~^~~~~~~~~~~~~~~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/src/rigid_body_tracker.cpp:943:8:[m[K [01;35m[Kwarning: [m[Kvariable ‘[01m[KoutputToFile[m[K’ set but not used [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-but-set-variable-Wunused-but-set-variable]8;;[m[K]
+  943 |   bool [01;35m[KoutputToFile[m[K = false;
+      |        [01;35m[K^~~~~~~~~~~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/src/rigid_body_tracker.cpp:948:7:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Km_lowLevelExpanded[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  948 |   int [01;35m[Km_lowLevelExpanded[m[K = 0;
+      |       [01;35m[K^~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/librigidbodytracker/src/rigid_body_tracker.cpp:949:7:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kduplicate[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  949 |   int [01;35m[Kduplicate[m[K = 0;
+      |       [01;35m[K^~~~~~~~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/src/optitrack_closed_source.cpp:[m[K In member function ‘[01m[Kvoid libmotioncapture::MotionCaptureOptitrackClosedSourceImpl::FrameReceivedCallback(sFrameOfMocapData*)[m[K’:
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/src/optitrack_closed_source.cpp:27:28:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Ksize_t[m[K’ {aka ‘[01m[Klong unsigned int[m[K’} and ‘[01m[Kint32_t[m[K’ {aka ‘[01m[Kint[m[K’} [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wsign-compare-Wsign-compare]8;;[m[K]
+   27 |       for (size_t i = 0; [01;35m[Ki < data->nRigidBodies[m[K; ++i) {
+      |                          [01;35m[K~~^~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/src/optitrack_closed_source.cpp:48:28:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Ksize_t[m[K’ {aka ‘[01m[Klong unsigned int[m[K’} and ‘[01m[Kint32_t[m[K’ {aka ‘[01m[Kint[m[K’} [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wsign-compare-Wsign-compare]8;;[m[K]
+   48 |       for (size_t r = 0; [01;35m[Kr < data->nOtherMarkers[m[K; ++r)
+      |                          [01;35m[K~~^~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/src/optitrack_closed_source.cpp:[m[K In member function ‘[01m[Kconst string& libmotioncapture::MotionCaptureOptitrackClosedSource::version() const[m[K’:
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/src/optitrack_closed_source.cpp:184:3:[m[K [01;35m[Kwarning: [m[Kno return statement in function returning non-void [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreturn-type-Wreturn-type]8;;[m[K]
+  184 |   [01;35m[K}[m[K
+      |   [01;35m[K^[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/src/optitrack.cpp:[m[K In member function ‘[01m[Kvirtual void libmotioncapture::MotionCaptureOptitrack::waitForNextFrame()[m[K’:
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/src/optitrack.cpp:713:14:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[KbTrackedModelsChanged[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+  713 |         bool [01;35m[KbTrackedModelsChanged[m[K = (params & 0x02) != 0;         // 0x02 Actively tracked model list has changed
+      |              [01;35m[K^~~~~~~~~~~~~~~~~~~~~[m[K
+In file included from [01m[K/usr/include/boost/smart_ptr/detail/sp_thread_sleep.hpp:22[m[K,
+                 from [01m[K/usr/include/boost/smart_ptr/detail/yield_k.hpp:23[m[K,
+                 from [01m[K/usr/include/boost/smart_ptr/detail/spinlock_gcc_atomic.hpp:14[m[K,
+                 from [01m[K/usr/include/boost/smart_ptr/detail/spinlock.hpp:42[m[K,
+                 from [01m[K/usr/include/boost/smart_ptr/detail/spinlock_pool.hpp:25[m[K,
+                 from [01m[K/usr/include/boost/smart_ptr/shared_ptr.hpp:29[m[K,
+                 from [01m[K/usr/include/boost/shared_ptr.hpp:17[m[K,
+                 from [01m[K/usr/include/boost/date_time/time_clock.hpp:17[m[K,
+                 from [01m[K/usr/include/boost/date_time/posix_time/posix_time_types.hpp:10[m[K,
+                 from [01m[K/usr/include/boost/asio/time_traits.hpp:23[m[K,
+                 from [01m[K/usr/include/boost/asio/detail/timer_queue_ptime.hpp:22[m[K,
+                 from [01m[K/usr/include/boost/asio/detail/deadline_timer_service.hpp:29[m[K,
+                 from [01m[K/usr/include/boost/asio/basic_deadline_timer.hpp:25[m[K,
+                 from [01m[K/usr/include/boost/asio.hpp:25[m[K,
+                 from [01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/include/libmotioncapture/fzmotion.h:7[m[K,
+                 from [01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/src/motioncapture.cpp:25[m[K:
+[01m[K/usr/include/boost/bind.hpp:36:1:[m[K [01;36m[Knote: [m[K‘[01m[K#pragma message: The practice of declaring the Bind placeholders (_1, _2, ...) in the global namespace is deprecated. Please use <boost/bind/bind.hpp> + using namespace boost::placeholders, or define BOOST_BIND_GLOBAL_PLACEHOLDERS to retain the current behavior.[m[K’
+   36 | [01;36m[KBOOST_PRAGMA_MESSAGE[m[K(
+      | [01;36m[K^~~~~~~~~~~~~~~~~~~~[m[K
+In file included from [01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/src/motioncapture.cpp:25[m[K:
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/include/libmotioncapture/fzmotion.h:133:32:[m[K [01;35m[Kwarning: [m[KISO C++ prohibits anonymous structs [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wpedantic-Wpedantic]8;;[m[K]
+  133 |                         struct [01;35m[K{[m[K uint8 v1; uint8 v2; uint8 v3; uint8 v4; };
+      |                                [01;35m[K^[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/include/libmotioncapture/fzmotion.h:138:32:[m[K [01;35m[Kwarning: [m[KISO C++ prohibits anonymous structs [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wpedantic-Wpedantic]8;;[m[K]
+  138 |                         struct [01;35m[K{[m[K uint8 v1; uint8 v2; uint8 v3; uint8 v4; };
+      |                                [01;35m[K^[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/include/libmotioncapture/fzmotion.h:145:32:[m[K [01;35m[Kwarning: [m[KISO C++ prohibits anonymous structs [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wpedantic-Wpedantic]8;;[m[K]
+  145 |                         struct [01;35m[K{[m[K octet h1; octet h2; octet l1; octet l2; };
+      |                                [01;35m[K^[m[K
+In file included from [01m[K/usr/include/boost/smart_ptr/detail/sp_thread_sleep.hpp:22[m[K,
+                 from [01m[K/usr/include/boost/smart_ptr/detail/yield_k.hpp:23[m[K,
+                 from [01m[K/usr/include/boost/smart_ptr/detail/spinlock_gcc_atomic.hpp:14[m[K,
+                 from [01m[K/usr/include/boost/smart_ptr/detail/spinlock.hpp:42[m[K,
+                 from [01m[K/usr/include/boost/smart_ptr/detail/spinlock_pool.hpp:25[m[K,
+                 from [01m[K/usr/include/boost/smart_ptr/shared_ptr.hpp:29[m[K,
+                 from [01m[K/usr/include/boost/shared_ptr.hpp:17[m[K,
+                 from [01m[K/usr/include/boost/date_time/time_clock.hpp:17[m[K,
+                 from [01m[K/usr/include/boost/date_time/posix_time/posix_time_types.hpp:10[m[K,
+                 from [01m[K/usr/include/boost/asio/time_traits.hpp:23[m[K,
+                 from [01m[K/usr/include/boost/asio/detail/timer_queue_ptime.hpp:22[m[K,
+                 from [01m[K/usr/include/boost/asio/detail/deadline_timer_service.hpp:29[m[K,
+                 from [01m[K/usr/include/boost/asio/basic_deadline_timer.hpp:25[m[K,
+                 from [01m[K/usr/include/boost/asio.hpp:25[m[K,
+                 from [01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/include/libmotioncapture/fzmotion.h:7[m[K,
+                 from [01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/src/fzmotion.cpp:1[m[K:
+[01m[K/usr/include/boost/bind.hpp:36:1:[m[K [01;36m[Knote: [m[K‘[01m[K#pragma message: The practice of declaring the Bind placeholders (_1, _2, ...) in the global namespace is deprecated. Please use <boost/bind/bind.hpp> + using namespace boost::placeholders, or define BOOST_BIND_GLOBAL_PLACEHOLDERS to retain the current behavior.[m[K’
+   36 | [01;36m[KBOOST_PRAGMA_MESSAGE[m[K(
+      | [01;36m[K^~~~~~~~~~~~~~~~~~~~[m[K
+In file included from [01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/src/fzmotion.cpp:1[m[K:
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/include/libmotioncapture/fzmotion.h:133:32:[m[K [01;35m[Kwarning: [m[KISO C++ prohibits anonymous structs [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wpedantic-Wpedantic]8;;[m[K]
+  133 |                         struct [01;35m[K{[m[K uint8 v1; uint8 v2; uint8 v3; uint8 v4; };
+      |                                [01;35m[K^[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/include/libmotioncapture/fzmotion.h:138:32:[m[K [01;35m[Kwarning: [m[KISO C++ prohibits anonymous structs [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wpedantic-Wpedantic]8;;[m[K]
+  138 |                         struct [01;35m[K{[m[K uint8 v1; uint8 v2; uint8 v3; uint8 v4; };
+      |                                [01;35m[K^[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/include/libmotioncapture/fzmotion.h:145:32:[m[K [01;35m[Kwarning: [m[KISO C++ prohibits anonymous structs [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wpedantic-Wpedantic]8;;[m[K]
+  145 |                         struct [01;35m[K{[m[K octet h1; octet h2; octet l1; octet l2; };
+      |                                [01;35m[K^[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/include/libmotioncapture/fzmotion.h:[m[K In constructor ‘[01m[Klibmotioncapture::MotionCaptureFZMotion::MotionCaptureFZMotion(const string&, int, const string&, int)[m[K’:
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/include/libmotioncapture/fzmotion.h:165:29:[m[K [01;35m[Kwarning: [m[K‘[01m[Klibmotioncapture::MotionCaptureFZMotion::m_ConnectionSocket[m[K’ will be initialized after [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+  165 |                 udp::socket [01;35m[Km_ConnectionSocket[m[K;
+      |                             [01;35m[K^~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/include/libmotioncapture/fzmotion.h:164:29:[m[K [01;35m[Kwarning: [m[K  ‘[01m[Kboost::asio::ip::udp::socket libmotioncapture::MotionCaptureFZMotion::m_TransmissionSocket[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+  164 |                 udp::socket [01;35m[Km_TransmissionSocket[m[K;
+      |                             [01;35m[K^~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/src/fzmotion.cpp:5:5:[m[K [01;35m[Kwarning: [m[K  when initialized here [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreorder-Wreorder]8;;[m[K]
+    5 |     [01;35m[KMotionCaptureFZMotion[m[K::MotionCaptureFZMotion(
+      |     [01;35m[K^~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/src/fzmotion.cpp:[m[K In member function ‘[01m[Kvoid libmotioncapture::MotionCaptureFZMotion::receiveFrameData()[m[K’:
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/src/fzmotion.cpp:293:9:[m[K [01;35m[Kwarning: [m[Klabel ‘[01m[Kboost[m[K’ defined but not used [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-label-Wunused-label]8;;[m[K]
+  293 |         [01;35m[Kboost[m[K:system::error_code ec;
+      |         [01;35m[K^~~~~[m[K
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/src/fzmotion.cpp:[m[K In member function ‘[01m[Kvirtual const PointCloud& libmotioncapture::MotionCaptureFZMotion::pointCloud() const[m[K’:
+[01m[K/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/src/fzmotion.cpp:412:32:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[KEigen::EigenBase<Eigen::Matrix<float, -1, 3, 1> >::Index[m[K’ {aka ‘[01m[Klong int[m[K’} and ‘[01m[Kstd::vector<libmotioncapture::LMarker>::size_type[m[K’ {aka ‘[01m[Klong unsigned int[m[K’} [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wsign-compare-Wsign-compare]8;;[m[K]
+  412 |         if ([01;35m[Kpointcloud_.size() != this->m_vctMarkData.size()[m[K) {
+      |             [01;35m[K~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K

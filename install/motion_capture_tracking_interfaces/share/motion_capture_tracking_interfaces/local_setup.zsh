@@ -1,0 +1,1 @@
+/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking_interfaces/ament_cmake_environment_hooks/local_setup.zsh

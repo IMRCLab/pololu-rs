@@ -1,0 +1,3 @@
+source;share/crazyflie_sim/environment/ament_prefix_path.sh
+source;share/crazyflie_sim/environment/path.sh
+source;share/crazyflie_sim/environment/pythonpath.sh

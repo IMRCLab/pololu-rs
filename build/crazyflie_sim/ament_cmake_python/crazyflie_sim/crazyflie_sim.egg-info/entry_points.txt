@@ -1,0 +1,3 @@
+[console_scripts]
+crazyflie_server = crazyflie_sim.crazyflie_server:main
+

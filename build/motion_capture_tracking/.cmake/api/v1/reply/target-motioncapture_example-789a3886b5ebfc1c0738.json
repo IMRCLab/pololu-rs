@@ -1,0 +1,424 @@
+{
+	"artifacts" : 
+	[
+		{
+			"path" : "deps/libmotioncapture/motioncapture_example"
+		}
+	],
+	"backtrace" : 1,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_executable",
+			"target_link_libraries",
+			"set_property",
+			"find_package",
+			"boost_find_component",
+			"add_compile_options",
+			"add_definitions",
+			"include_directories"
+		],
+		"files" : 
+		[
+			"deps/libmotioncapture/CMakeLists.txt",
+			"deps/libmotioncapture/deps/vicon-datastream-sdk/CMakeLists.txt",
+			"/usr/lib/x86_64-linux-gnu/cmake/boost_thread-1.74.0/boost_thread-config.cmake",
+			"/usr/lib/x86_64-linux-gnu/cmake/Boost-1.74.0/BoostConfig.cmake",
+			"/home/vincent/cmake/share/cmake-3.29/Modules/FindBoost.cmake",
+			"deps/libmotioncapture/deps/vrpn/CMakeLists.txt",
+			"deps/libmotioncapture/deps/vrpn/quat/CMakeLists.txt",
+			"CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 258,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 261,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 234,
+				"parent" : 0
+			},
+			{
+				"file" : 1
+			},
+			{
+				"command" : 1,
+				"file" : 1,
+				"line" : 37,
+				"parent" : 4
+			},
+			{
+				"command" : 3,
+				"file" : 1,
+				"line" : 9,
+				"parent" : 4
+			},
+			{
+				"file" : 4,
+				"parent" : 6
+			},
+			{
+				"command" : 3,
+				"file" : 4,
+				"line" : 594,
+				"parent" : 7
+			},
+			{
+				"file" : 3,
+				"parent" : 8
+			},
+			{
+				"command" : 4,
+				"file" : 3,
+				"line" : 258,
+				"parent" : 9
+			},
+			{
+				"command" : 3,
+				"file" : 3,
+				"line" : 141,
+				"parent" : 10
+			},
+			{
+				"file" : 2,
+				"parent" : 11
+			},
+			{
+				"command" : 2,
+				"file" : 2,
+				"line" : 101,
+				"parent" : 12
+			},
+			{
+				"file" : 5
+			},
+			{
+				"command" : 1,
+				"file" : 5,
+				"line" : 1341,
+				"parent" : 14
+			},
+			{
+				"file" : 6
+			},
+			{
+				"command" : 1,
+				"file" : 6,
+				"line" : 17,
+				"parent" : 16
+			},
+			{
+				"file" : 7
+			},
+			{
+				"command" : 5,
+				"file" : 7,
+				"line" : 5,
+				"parent" : 18
+			},
+			{
+				"command" : 6,
+				"file" : 0,
+				"line" : 22,
+				"parent" : 0
+			},
+			{
+				"command" : 6,
+				"file" : 0,
+				"line" : 195,
+				"parent" : 0
+			},
+			{
+				"command" : 6,
+				"file" : 0,
+				"line" : 80,
+				"parent" : 0
+			},
+			{
+				"command" : 6,
+				"file" : 0,
+				"line" : 98,
+				"parent" : 0
+			},
+			{
+				"command" : 6,
+				"file" : 0,
+				"line" : 124,
+				"parent" : 0
+			},
+			{
+				"command" : 6,
+				"file" : 0,
+				"line" : 61,
+				"parent" : 0
+			},
+			{
+				"command" : 6,
+				"file" : 0,
+				"line" : 175,
+				"parent" : 0
+			},
+			{
+				"command" : 7,
+				"file" : 0,
+				"line" : 221,
+				"parent" : 0
+			}
+		]
+	},
+	"compileGroups" : 
+	[
+		{
+			"compileCommandFragments" : 
+			[
+				{
+					"fragment" : "-std=c++14 -fPIE"
+				},
+				{
+					"backtrace" : 19,
+					"fragment" : "-Wall"
+				},
+				{
+					"backtrace" : 19,
+					"fragment" : "-Wextra"
+				},
+				{
+					"backtrace" : 19,
+					"fragment" : "-Wpedantic"
+				}
+			],
+			"defines" : 
+			[
+				{
+					"backtrace" : 2,
+					"define" : "BOOST_ALL_NO_LIB"
+				},
+				{
+					"backtrace" : 20,
+					"define" : "BOOST_DATE_TIME_NO_LIB"
+				},
+				{
+					"backtrace" : 20,
+					"define" : "BOOST_REGEX_NO_LIB"
+				},
+				{
+					"backtrace" : 2,
+					"define" : "BOOST_SYSTEM_DYN_LINK"
+				},
+				{
+					"backtrace" : 21,
+					"define" : "ENABLE_FZMOTION"
+				},
+				{
+					"backtrace" : 22,
+					"define" : "ENABLE_OPTITRACK"
+				},
+				{
+					"backtrace" : 23,
+					"define" : "ENABLE_OPTITRACK_CLOSED_SOURCE"
+				},
+				{
+					"backtrace" : 24,
+					"define" : "ENABLE_QUALISYS"
+				},
+				{
+					"backtrace" : 25,
+					"define" : "ENABLE_VICON"
+				},
+				{
+					"backtrace" : 26,
+					"define" : "ENABLE_VRPN"
+				},
+				{
+					"backtrace" : 20,
+					"define" : "_BUILD_STATIC_LIB"
+				}
+			],
+			"includes" : 
+			[
+				{
+					"backtrace" : 27,
+					"path" : "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/include"
+				},
+				{
+					"backtrace" : 27,
+					"path" : "/usr/include/eigen3"
+				},
+				{
+					"backtrace" : 27,
+					"path" : "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/deps/vicon-datastream-sdk/Vicon/CrossMarket/DataStream"
+				},
+				{
+					"backtrace" : 27,
+					"path" : "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/deps/NatNetSDKCrossplatform/include"
+				},
+				{
+					"backtrace" : 27,
+					"path" : "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/deps/qualisys_cpp_sdk"
+				},
+				{
+					"backtrace" : 27,
+					"path" : "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/deps/vrpn"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/deps/vicon-datastream-sdk/Vicon/CrossMarket/DataStream/ViconDataStreamSDK_CPP"
+				}
+			],
+			"language" : "CXX",
+			"languageStandard" : 
+			{
+				"backtraces" : 
+				[
+					2
+				],
+				"standard" : "14"
+			},
+			"sourceIndexes" : 
+			[
+				0
+			]
+		}
+	],
+	"dependencies" : 
+	[
+		{
+			"backtrace" : 2,
+			"id" : "libmotioncapture::@09785d0e4e5fbc268e16"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "ViconDataStreamSDK_CPP::@276107015065727bad87"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "qualisys_cpp_sdk::@5a99e0bc11ee08158fb6"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "vrpn::@b5f54566f3aaf3e43f1e"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "quat::@26b651c3ef0d73d9d3ae"
+		}
+	],
+	"id" : "motioncapture_example::@09785d0e4e5fbc268e16",
+	"link" : 
+	{
+		"commandFragments" : 
+		[
+			{
+				"fragment" : "",
+				"role" : "flags"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "-L/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/deps/NatNetSDKCrossplatform/lib/ubuntu",
+				"role" : "libraryPath"
+			},
+			{
+				"fragment" : "-Wl,-rpath,/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/deps/NatNetSDKCrossplatform/lib/ubuntu",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "liblibmotioncapture.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 3,
+				"fragment" : "deps/vicon-datastream-sdk/libViconDataStreamSDK_CPP.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 5,
+				"fragment" : "/usr/lib/x86_64-linux-gnu/libboost_thread.so.1.74.0",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 13,
+				"fragment" : "/usr/lib/x86_64-linux-gnu/libboost_atomic.so.1.74.0",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 5,
+				"fragment" : "/usr/lib/x86_64-linux-gnu/libboost_chrono.so.1.74.0",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 3,
+				"fragment" : "/usr/lib/x86_64-linux-gnu/libboost_system.so.1.74.0",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 3,
+				"fragment" : "-lNatNet",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 3,
+				"fragment" : "deps/qualisys_cpp_sdk/libqualisys_cpp_sdk.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 3,
+				"fragment" : "deps/vrpn/libvrpn.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 15,
+				"fragment" : "deps/vrpn/quat/libquat.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 17,
+				"fragment" : "-lm",
+				"role" : "libraries"
+			}
+		],
+		"language" : "CXX"
+	},
+	"name" : "motioncapture_example",
+	"nameOnDisk" : "motioncapture_example",
+	"paths" : 
+	{
+		"build" : "deps/libmotioncapture",
+		"source" : "deps/libmotioncapture"
+	},
+	"sourceGroups" : 
+	[
+		{
+			"name" : "Source Files",
+			"sourceIndexes" : 
+			[
+				0
+			]
+		}
+	],
+	"sources" : 
+	[
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "deps/libmotioncapture/examples/main.cpp",
+			"sourceGroupIndex" : 0
+		}
+	],
+	"type" : "EXECUTABLE"
+}

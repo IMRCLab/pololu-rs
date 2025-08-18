@@ -1,0 +1,15 @@
+// generated from rosidl_adapter/resource/srv.idl.em
+// with input from crazyflie_interfaces/srv/RemoveLogging.srv
+// generated code does not contain a copyright notice
+
+
+module crazyflie_interfaces {
+  module srv {
+    struct RemoveLogging_Request {
+      string topic_name;
+    };
+    struct RemoveLogging_Response {
+      boolean success;
+    };
+  };
+};

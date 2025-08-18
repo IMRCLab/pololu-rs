@@ -1,0 +1,1 @@
+/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_interfaces/rosidl_generator_cpp/crazyflie_interfaces/srv/detail/upload_trajectory__traits.hpp

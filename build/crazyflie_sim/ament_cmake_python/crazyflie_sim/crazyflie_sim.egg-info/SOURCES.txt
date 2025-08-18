@@ -1,0 +1,11 @@
+setup.cfg
+setup.py
+crazyflie_sim/__init__.py
+crazyflie_sim/crazyflie_server.py
+crazyflie_sim/crazyflie_sil.py
+crazyflie_sim/sim_data_types.py
+crazyflie_sim.egg-info/PKG-INFO
+crazyflie_sim.egg-info/SOURCES.txt
+crazyflie_sim.egg-info/dependency_links.txt
+crazyflie_sim.egg-info/entry_points.txt
+crazyflie_sim.egg-info/top_level.txt

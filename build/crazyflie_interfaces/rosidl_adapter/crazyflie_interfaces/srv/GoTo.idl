@@ -1,0 +1,27 @@
+// generated from rosidl_adapter/resource/srv.idl.em
+// with input from crazyflie_interfaces/srv/GoTo.srv
+// generated code does not contain a copyright notice
+
+#include "builtin_interfaces/msg/Duration.idl"
+#include "geometry_msgs/msg/Point.idl"
+
+module crazyflie_interfaces {
+  module srv {
+    struct GoTo_Request {
+      uint8 group_mask;
+
+      boolean relative;
+
+      geometry_msgs::msg::Point goal;
+
+      @verbatim (language="comment", text=
+        "deg")
+      float yaw;
+
+      builtin_interfaces::msg::Duration duration;
+    };
+    struct GoTo_Response {
+      uint8 structure_needs_at_least_one_member;
+    };
+  };
+};

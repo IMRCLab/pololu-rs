@@ -1,0 +1,250 @@
+-- Found ament_cmake: 1.3.12 (/opt/ros/humble/share/ament_cmake/cmake)
+-- Found Python3: /usr/bin/python3 (found version "3.10.12") found components: Interpreter
+-- Override CMake install command with custom implementation using symlinks instead of copying resources
+-- Found builtin_interfaces: 1.2.2 (/opt/ros/humble/share/builtin_interfaces/cmake)
+-- Found rosidl_generator_c: 3.1.7 (/opt/ros/humble/share/rosidl_generator_c/cmake)
+-- Found rosidl_adapter: 3.1.7 (/opt/ros/humble/share/rosidl_adapter/cmake)
+-- Found rosidl_generator_cpp: 3.1.7 (/opt/ros/humble/share/rosidl_generator_cpp/cmake)
+-- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c
+-- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp
+-- Found geometry_msgs: 4.9.0 (/opt/ros/humble/share/geometry_msgs/cmake)
+-- Found rosidl_default_generators: 1.2.0 (/opt/ros/humble/share/rosidl_default_generators/cmake)
+-- Found ament_cmake_cppcheck: 0.12.14 (/opt/ros/humble/share/ament_cmake_cppcheck/cmake)
+-- Found ament_cmake_cpplint: 0.12.14 (/opt/ros/humble/share/ament_cmake_cpplint/cmake)
+-- Found ament_cmake_uncrustify: 0.12.14 (/opt/ros/humble/share/ament_cmake_uncrustify/cmake)
+-- Found ament_cmake_ros: 0.10.0 (/opt/ros/humble/share/ament_cmake_ros/cmake)
+-- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c
+-- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp
+[33mCMake Warning (dev) at /opt/ros/humble/share/rosidl_generator_py/cmake/rosidl_generator_py_generate_interfaces.cmake:20 (find_package):
+  Policy CMP0148 is not set: The FindPythonInterp and FindPythonLibs modules
+  are removed.  Run "cmake --help-policy CMP0148" for policy details.  Use
+  the cmake_policy command to set the policy and suppress this warning.
+
+Call Stack (most recent call first):
+  /opt/ros/humble/share/ament_cmake_core/cmake/core/ament_execute_extensions.cmake:48 (include)
+  /opt/ros/humble/share/rosidl_cmake/cmake/rosidl_generate_interfaces.cmake:286 (ament_execute_extensions)
+  CMakeLists.txt:20 (rosidl_generate_interfaces)
+This warning is for project developers.  Use -Wno-dev to suppress it.
+[0m
+-- Found PythonInterp: /usr/bin/python3 (found suitable version "3.10.12", minimum required is "3.6")
+-- Found python_cmake_module: 0.10.0 (/opt/ros/humble/share/python_cmake_module/cmake)
+[33mCMake Warning (dev) at /opt/ros/humble/share/python_cmake_module/cmake/Modules/FindPythonExtra.cmake:52 (find_package):
+  Policy CMP0148 is not set: The FindPythonInterp and FindPythonLibs modules
+  are removed.  Run "cmake --help-policy CMP0148" for policy details.  Use
+  the cmake_policy command to set the policy and suppress this warning.
+
+Call Stack (most recent call first):
+  /opt/ros/humble/share/rosidl_generator_py/cmake/rosidl_generator_py_generate_interfaces.cmake:23 (find_package)
+  /opt/ros/humble/share/ament_cmake_core/cmake/core/ament_execute_extensions.cmake:48 (include)
+  /opt/ros/humble/share/rosidl_cmake/cmake/rosidl_generate_interfaces.cmake:286 (ament_execute_extensions)
+  CMakeLists.txt:20 (rosidl_generate_interfaces)
+This warning is for project developers.  Use -Wno-dev to suppress it.
+[0m
+[33mCMake Warning (dev) at /opt/ros/humble/share/python_cmake_module/cmake/Modules/FindPythonExtra.cmake:140 (find_package):
+  Policy CMP0148 is not set: The FindPythonInterp and FindPythonLibs modules
+  are removed.  Run "cmake --help-policy CMP0148" for policy details.  Use
+  the cmake_policy command to set the policy and suppress this warning.
+
+Call Stack (most recent call first):
+  /opt/ros/humble/share/rosidl_generator_py/cmake/rosidl_generator_py_generate_interfaces.cmake:23 (find_package)
+  /opt/ros/humble/share/ament_cmake_core/cmake/core/ament_execute_extensions.cmake:48 (include)
+  /opt/ros/humble/share/rosidl_cmake/cmake/rosidl_generate_interfaces.cmake:286 (ament_execute_extensions)
+  CMakeLists.txt:20 (rosidl_generate_interfaces)
+This warning is for project developers.  Use -Wno-dev to suppress it.
+[0m
+-- Found PythonLibs: /usr/lib/x86_64-linux-gnu/libpython3.10.so (found suitable version "3.10.12", minimum required is "3.5")
+-- Using PYTHON_EXECUTABLE: /usr/bin/python3
+-- Using PYTHON_INCLUDE_DIRS: /usr/include/python3.10
+-- Using PYTHON_LIBRARIES: /usr/lib/x86_64-linux-gnu/libpython3.10.so
+-- Found PythonExtra: .so
+-- Found ament_cmake_flake8: 0.12.14 (/opt/ros/humble/share/ament_cmake_flake8/cmake)
+-- Found ament_cmake_pep257: 0.12.14 (/opt/ros/humble/share/ament_cmake_pep257/cmake)
+-- Configuring done (1.4s)
+-- Generating done (0.0s)
+-- Build files have been written to: /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking_interfaces
+[  2%] [34m[1mGenerating C code for ROS interfaces[0m
+[  5%] [34m[1mGenerating C++ code for ROS interfaces[0m
+[  5%] Built target ament_cmake_python_symlink_motion_capture_tracking_interfaces
+running egg_info
+creating motion_capture_tracking_interfaces.egg-info
+writing motion_capture_tracking_interfaces.egg-info/PKG-INFO
+writing dependency_links to motion_capture_tracking_interfaces.egg-info/dependency_links.txt
+writing top-level names to motion_capture_tracking_interfaces.egg-info/top_level.txt
+writing manifest file 'motion_capture_tracking_interfaces.egg-info/SOURCES.txt'
+reading manifest file 'motion_capture_tracking_interfaces.egg-info/SOURCES.txt'
+writing manifest file 'motion_capture_tracking_interfaces.egg-info/SOURCES.txt'
+[  5%] Built target motion_capture_tracking_interfaces__cpp
+[  7%] [34m[1mGenerating C++ type support for eProsima Fast-RTPS[0m
+[ 10%] [34m[1mGenerating C++ introspection for ROS interfaces[0m
+[ 12%] [34m[1mGenerating C++ type support dispatch for ROS interfaces[0m
+[ 15%] [32mBuilding C object CMakeFiles/motion_capture_tracking_interfaces__rosidl_generator_c.dir/rosidl_generator_c/motion_capture_tracking_interfaces/msg/detail/named_pose__functions.c.o[0m
+[ 17%] [32mBuilding C object CMakeFiles/motion_capture_tracking_interfaces__rosidl_generator_c.dir/rosidl_generator_c/motion_capture_tracking_interfaces/msg/detail/named_pose_array__functions.c.o[0m
+[ 17%] Built target ament_cmake_python_build_motion_capture_tracking_interfaces_egg
+[ 20%] [32m[1mLinking C shared library libmotion_capture_tracking_interfaces__rosidl_generator_c.so[0m
+[ 20%] Built target motion_capture_tracking_interfaces__rosidl_generator_c
+[ 23%] [34m[1mGenerating C introspection for ROS interfaces[0m
+[ 25%] [34m[1mGenerating C type support dispatch for ROS interfaces[0m
+[ 28%] [34m[1mGenerating C type support for eProsima Fast-RTPS[0m
+[ 33%] [32mBuilding CXX object CMakeFiles/motion_capture_tracking_interfaces__rosidl_typesupport_fastrtps_cpp.dir/rosidl_typesupport_fastrtps_cpp/motion_capture_tracking_interfaces/msg/detail/dds_fastrtps/named_pose__type_support.cpp.o[0m
+[ 33%] [32mBuilding CXX object CMakeFiles/motion_capture_tracking_interfaces__rosidl_typesupport_fastrtps_cpp.dir/rosidl_typesupport_fastrtps_cpp/motion_capture_tracking_interfaces/msg/detail/dds_fastrtps/named_pose_array__type_support.cpp.o[0m
+[ 35%] [32mBuilding CXX object CMakeFiles/motion_capture_tracking_interfaces__rosidl_typesupport_c.dir/rosidl_typesupport_c/motion_capture_tracking_interfaces/msg/named_pose_array__type_support.cpp.o[0m
+[ 38%] [32mBuilding CXX object CMakeFiles/motion_capture_tracking_interfaces__rosidl_typesupport_c.dir/rosidl_typesupport_c/motion_capture_tracking_interfaces/msg/named_pose__type_support.cpp.o[0m
+[ 41%] [32mBuilding CXX object CMakeFiles/motion_capture_tracking_interfaces__rosidl_typesupport_cpp.dir/rosidl_typesupport_cpp/motion_capture_tracking_interfaces/msg/named_pose__type_support.cpp.o[0m
+[ 43%] [32mBuilding CXX object CMakeFiles/motion_capture_tracking_interfaces__rosidl_typesupport_cpp.dir/rosidl_typesupport_cpp/motion_capture_tracking_interfaces/msg/named_pose_array__type_support.cpp.o[0m
+[ 46%] [32mBuilding C object CMakeFiles/motion_capture_tracking_interfaces__rosidl_typesupport_introspection_c.dir/rosidl_typesupport_introspection_c/motion_capture_tracking_interfaces/msg/detail/named_pose_array__type_support.c.o[0m
+[ 48%] [32mBuilding C object CMakeFiles/motion_capture_tracking_interfaces__rosidl_typesupport_introspection_c.dir/rosidl_typesupport_introspection_c/motion_capture_tracking_interfaces/msg/detail/named_pose__type_support.c.o[0m
+[ 53%] [32mBuilding CXX object CMakeFiles/motion_capture_tracking_interfaces__rosidl_typesupport_fastrtps_c.dir/rosidl_typesupport_fastrtps_c/motion_capture_tracking_interfaces/msg/detail/named_pose__type_support_c.cpp.o[0m
+[ 53%] [32mBuilding CXX object CMakeFiles/motion_capture_tracking_interfaces__rosidl_typesupport_fastrtps_c.dir/rosidl_typesupport_fastrtps_c/motion_capture_tracking_interfaces/msg/detail/named_pose_array__type_support_c.cpp.o[0m
+[ 56%] [32m[1mLinking CXX shared library libmotion_capture_tracking_interfaces__rosidl_typesupport_c.so[0m
+[ 58%] [32m[1mLinking C shared library libmotion_capture_tracking_interfaces__rosidl_typesupport_introspection_c.so[0m
+[ 61%] [32mBuilding CXX object CMakeFiles/motion_capture_tracking_interfaces__rosidl_typesupport_introspection_cpp.dir/rosidl_typesupport_introspection_cpp/motion_capture_tracking_interfaces/msg/detail/named_pose__type_support.cpp.o[0m
+[ 64%] [32mBuilding CXX object CMakeFiles/motion_capture_tracking_interfaces__rosidl_typesupport_introspection_cpp.dir/rosidl_typesupport_introspection_cpp/motion_capture_tracking_interfaces/msg/detail/named_pose_array__type_support.cpp.o[0m
+[ 64%] Built target motion_capture_tracking_interfaces__rosidl_typesupport_introspection_c
+[ 64%] Built target motion_capture_tracking_interfaces__rosidl_typesupport_c
+[ 66%] [32m[1mLinking CXX shared library libmotion_capture_tracking_interfaces__rosidl_typesupport_cpp.so[0m
+[ 66%] Built target motion_capture_tracking_interfaces__rosidl_typesupport_cpp
+[ 69%] [32m[1mLinking CXX shared library libmotion_capture_tracking_interfaces__rosidl_typesupport_fastrtps_cpp.so[0m
+[ 71%] [32m[1mLinking CXX shared library libmotion_capture_tracking_interfaces__rosidl_typesupport_fastrtps_c.so[0m
+[ 71%] Built target motion_capture_tracking_interfaces__rosidl_typesupport_fastrtps_cpp
+[ 74%] [32m[1mLinking CXX shared library libmotion_capture_tracking_interfaces__rosidl_typesupport_introspection_cpp.so[0m
+[ 74%] Built target motion_capture_tracking_interfaces__rosidl_typesupport_fastrtps_c
+[ 74%] Built target motion_capture_tracking_interfaces__rosidl_typesupport_introspection_cpp
+[ 74%] Built target motion_capture_tracking_interfaces
+[ 76%] [34m[1mGenerating Python code for ROS interfaces[0m
+[ 76%] Built target motion_capture_tracking_interfaces__py
+[ 79%] [32mBuilding C object CMakeFiles/motion_capture_tracking_interfaces__rosidl_generator_py.dir/rosidl_generator_py/motion_capture_tracking_interfaces/msg/_named_pose_s.c.o[0m
+[ 82%] [32mBuilding C object CMakeFiles/motion_capture_tracking_interfaces__rosidl_generator_py.dir/rosidl_generator_py/motion_capture_tracking_interfaces/msg/_named_pose_array_s.c.o[0m
+[ 84%] [32m[1mLinking C shared library rosidl_generator_py/motion_capture_tracking_interfaces/libmotion_capture_tracking_interfaces__rosidl_generator_py.so[0m
+[ 84%] Built target motion_capture_tracking_interfaces__rosidl_generator_py
+[ 87%] [32mBuilding C object CMakeFiles/motion_capture_tracking_interfaces__rosidl_typesupport_introspection_c__pyext.dir/rosidl_generator_py/motion_capture_tracking_interfaces/_motion_capture_tracking_interfaces_s.ep.rosidl_typesupport_introspection_c.c.o[0m
+[ 89%] [32mBuilding C object CMakeFiles/motion_capture_tracking_interfaces__rosidl_typesupport_fastrtps_c__pyext.dir/rosidl_generator_py/motion_capture_tracking_interfaces/_motion_capture_tracking_interfaces_s.ep.rosidl_typesupport_fastrtps_c.c.o[0m
+[ 92%] [32mBuilding C object CMakeFiles/motion_capture_tracking_interfaces__rosidl_typesupport_c__pyext.dir/rosidl_generator_py/motion_capture_tracking_interfaces/_motion_capture_tracking_interfaces_s.ep.rosidl_typesupport_c.c.o[0m
+[ 94%] [32m[1mLinking C shared library rosidl_generator_py/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces_s__rosidl_typesupport_c.cpython-310-x86_64-linux-gnu.so[0m
+[ 97%] [32m[1mLinking C shared library rosidl_generator_py/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces_s__rosidl_typesupport_fastrtps_c.cpython-310-x86_64-linux-gnu.so[0m
+[ 97%] Built target motion_capture_tracking_interfaces__rosidl_typesupport_c__pyext
+[100%] [32m[1mLinking C shared library rosidl_generator_py/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces_s__rosidl_typesupport_introspection_c.cpython-310-x86_64-linux-gnu.so[0m
+[100%] Built target motion_capture_tracking_interfaces__rosidl_typesupport_fastrtps_c__pyext
+[100%] Built target motion_capture_tracking_interfaces__rosidl_typesupport_introspection_c__pyext
+-- Install configuration: ""
+-- Execute custom install script
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/ament_index/resource_index/rosidl_interfaces/motion_capture_tracking_interfaces
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/include/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces/msg/detail/named_pose__functions.h
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/include/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces/msg/detail/named_pose__struct.h
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/include/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces/msg/detail/named_pose__type_support.h
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/include/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces/msg/detail/named_pose_array__functions.h
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/include/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces/msg/detail/named_pose_array__struct.h
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/include/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces/msg/detail/named_pose_array__type_support.h
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/include/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces/msg/named_pose.h
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/include/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces/msg/named_pose_array.h
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/include/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces/msg/rosidl_generator_c__visibility_control.h
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/environment/library_path.sh
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/environment/library_path.dsv
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/include/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces/msg/detail/named_pose__rosidl_typesupport_fastrtps_c.h
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/include/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces/msg/detail/named_pose_array__rosidl_typesupport_fastrtps_c.h
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/include/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces/msg/rosidl_typesupport_fastrtps_c__visibility_control.h
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/include/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces/msg/detail/named_pose__builder.hpp
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/include/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces/msg/detail/named_pose__struct.hpp
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/include/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces/msg/detail/named_pose__traits.hpp
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/include/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces/msg/detail/named_pose__type_support.hpp
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/include/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces/msg/detail/named_pose_array__builder.hpp
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/include/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces/msg/detail/named_pose_array__struct.hpp
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/include/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces/msg/detail/named_pose_array__traits.hpp
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/include/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces/msg/detail/named_pose_array__type_support.hpp
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/include/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces/msg/named_pose.hpp
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/include/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces/msg/named_pose_array.hpp
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/include/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces/msg/rosidl_generator_cpp__visibility_control.hpp
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/include/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces/msg/detail/named_pose__rosidl_typesupport_fastrtps_cpp.hpp
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/include/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces/msg/detail/named_pose_array__rosidl_typesupport_fastrtps_cpp.hpp
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/include/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces/msg/rosidl_typesupport_fastrtps_cpp__visibility_control.h
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/include/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces/msg/detail/named_pose__rosidl_typesupport_introspection_c.h
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/include/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces/msg/detail/named_pose_array__rosidl_typesupport_introspection_c.h
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/include/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces/msg/rosidl_typesupport_introspection_c__visibility_control.h
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/include/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces/msg/detail/named_pose__rosidl_typesupport_introspection_cpp.hpp
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/include/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces/msg/detail/named_pose_array__rosidl_typesupport_introspection_cpp.hpp
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/environment/pythonpath.sh
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/environment/pythonpath.dsv
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages/motion_capture_tracking_interfaces-1.0.6-py3.10.egg-info/PKG-INFO
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages/motion_capture_tracking_interfaces-1.0.6-py3.10.egg-info/SOURCES.txt
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages/motion_capture_tracking_interfaces-1.0.6-py3.10.egg-info/dependency_links.txt
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages/motion_capture_tracking_interfaces-1.0.6-py3.10.egg-info/top_level.txt
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages/motion_capture_tracking_interfaces/__init__.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages/motion_capture_tracking_interfaces/_motion_capture_tracking_interfaces_s.ep.rosidl_typesupport_c.c
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages/motion_capture_tracking_interfaces/_motion_capture_tracking_interfaces_s.ep.rosidl_typesupport_fastrtps_c.c
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages/motion_capture_tracking_interfaces/_motion_capture_tracking_interfaces_s.ep.rosidl_typesupport_introspection_c.c
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages/motion_capture_tracking_interfaces/libmotion_capture_tracking_interfaces__rosidl_generator_py.so
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces_s__rosidl_typesupport_c.cpython-310-x86_64-linux-gnu.so
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces_s__rosidl_typesupport_fastrtps_c.cpython-310-x86_64-linux-gnu.so
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces_s__rosidl_typesupport_introspection_c.cpython-310-x86_64-linux-gnu.so
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages/motion_capture_tracking_interfaces/msg/__init__.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages/motion_capture_tracking_interfaces/msg/_named_pose.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages/motion_capture_tracking_interfaces/msg/_named_pose_array.py
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages/motion_capture_tracking_interfaces/msg/_named_pose_array_s.c
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages/motion_capture_tracking_interfaces/msg/_named_pose_s.c
+-- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces_s__rosidl_typesupport_fastrtps_c.cpython-310-x86_64-linux-gnu.so
+-- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces_s__rosidl_typesupport_introspection_c.cpython-310-x86_64-linux-gnu.so
+-- Up-to-date symlink: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages/motion_capture_tracking_interfaces/motion_capture_tracking_interfaces_s__rosidl_typesupport_c.cpython-310-x86_64-linux-gnu.so
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/msg/NamedPose.idl
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/msg/NamedPoseArray.idl
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/msg/NamedPose.msg
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/msg/NamedPoseArray.msg
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/ament_index/resource_index/package_run_dependencies/motion_capture_tracking_interfaces
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/ament_index/resource_index/parent_prefix_path/motion_capture_tracking_interfaces
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/environment/ament_prefix_path.sh
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/environment/ament_prefix_path.dsv
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/environment/path.sh
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/environment/path.dsv
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/local_setup.bash
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/local_setup.sh
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/local_setup.zsh
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/local_setup.dsv
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/package.dsv
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/ament_index/resource_index/packages/motion_capture_tracking_interfaces
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/cmake/rosidl_cmake-extras.cmake
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/cmake/ament_cmake_export_dependencies-extras.cmake
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/cmake/ament_cmake_export_include_directories-extras.cmake
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/cmake/ament_cmake_export_libraries-extras.cmake
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/cmake/ament_cmake_export_targets-extras.cmake
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/cmake/rosidl_cmake_export_typesupport_targets-extras.cmake
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/cmake/rosidl_cmake_export_typesupport_libraries-extras.cmake
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/cmake/motion_capture_tracking_interfacesConfig.cmake
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/cmake/motion_capture_tracking_interfacesConfig-version.cmake
+-- Symlinking: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/package.xml
+-- Installing: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/lib/libmotion_capture_tracking_interfaces__rosidl_generator_c.so
+-- Set non-toolchain portion of runtime path of "/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/lib/libmotion_capture_tracking_interfaces__rosidl_generator_c.so" to ""
+-- Installing: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/lib/libmotion_capture_tracking_interfaces__rosidl_typesupport_fastrtps_c.so
+-- Set non-toolchain portion of runtime path of "/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/lib/libmotion_capture_tracking_interfaces__rosidl_typesupport_fastrtps_c.so" to ""
+-- Installing: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/lib/libmotion_capture_tracking_interfaces__rosidl_typesupport_fastrtps_cpp.so
+-- Set non-toolchain portion of runtime path of "/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/lib/libmotion_capture_tracking_interfaces__rosidl_typesupport_fastrtps_cpp.so" to ""
+-- Installing: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/lib/libmotion_capture_tracking_interfaces__rosidl_typesupport_introspection_c.so
+-- Set non-toolchain portion of runtime path of "/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/lib/libmotion_capture_tracking_interfaces__rosidl_typesupport_introspection_c.so" to ""
+-- Installing: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/lib/libmotion_capture_tracking_interfaces__rosidl_typesupport_c.so
+-- Set non-toolchain portion of runtime path of "/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/lib/libmotion_capture_tracking_interfaces__rosidl_typesupport_c.so" to ""
+-- Installing: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/lib/libmotion_capture_tracking_interfaces__rosidl_typesupport_introspection_cpp.so
+-- Set non-toolchain portion of runtime path of "/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/lib/libmotion_capture_tracking_interfaces__rosidl_typesupport_introspection_cpp.so" to ""
+-- Installing: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/lib/libmotion_capture_tracking_interfaces__rosidl_typesupport_cpp.so
+-- Set non-toolchain portion of runtime path of "/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/lib/libmotion_capture_tracking_interfaces__rosidl_typesupport_cpp.so" to ""
+Listing '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages/motion_capture_tracking_interfaces'...
+Compiling '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages/motion_capture_tracking_interfaces/__init__.py'...
+Listing '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages/motion_capture_tracking_interfaces/msg'...
+Compiling '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages/motion_capture_tracking_interfaces/msg/__init__.py'...
+Compiling '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages/motion_capture_tracking_interfaces/msg/_named_pose.py'...
+Compiling '/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/local/lib/python3.10/dist-packages/motion_capture_tracking_interfaces/msg/_named_pose_array.py'...
+-- Installing: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/lib/libmotion_capture_tracking_interfaces__rosidl_generator_py.so
+-- Set non-toolchain portion of runtime path of "/home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/lib/libmotion_capture_tracking_interfaces__rosidl_generator_py.so" to ""
+-- Installing: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/cmake/export_motion_capture_tracking_interfaces__rosidl_generator_cExport.cmake
+-- Installing: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/cmake/export_motion_capture_tracking_interfaces__rosidl_generator_cExport-noconfig.cmake
+-- Installing: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/cmake/export_motion_capture_tracking_interfaces__rosidl_typesupport_fastrtps_cExport.cmake
+-- Installing: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/cmake/export_motion_capture_tracking_interfaces__rosidl_typesupport_fastrtps_cExport-noconfig.cmake
+-- Installing: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/cmake/export_motion_capture_tracking_interfaces__rosidl_generator_cppExport.cmake
+-- Installing: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/cmake/export_motion_capture_tracking_interfaces__rosidl_typesupport_fastrtps_cppExport.cmake
+-- Installing: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/cmake/export_motion_capture_tracking_interfaces__rosidl_typesupport_fastrtps_cppExport-noconfig.cmake
+-- Installing: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/cmake/motion_capture_tracking_interfaces__rosidl_typesupport_introspection_cExport.cmake
+-- Installing: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/cmake/motion_capture_tracking_interfaces__rosidl_typesupport_introspection_cExport-noconfig.cmake
+-- Installing: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/cmake/motion_capture_tracking_interfaces__rosidl_typesupport_cExport.cmake
+-- Installing: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/cmake/motion_capture_tracking_interfaces__rosidl_typesupport_cExport-noconfig.cmake
+-- Installing: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/cmake/motion_capture_tracking_interfaces__rosidl_typesupport_introspection_cppExport.cmake
+-- Installing: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/cmake/motion_capture_tracking_interfaces__rosidl_typesupport_introspection_cppExport-noconfig.cmake
+-- Installing: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/cmake/motion_capture_tracking_interfaces__rosidl_typesupport_cppExport.cmake
+-- Installing: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/cmake/motion_capture_tracking_interfaces__rosidl_typesupport_cppExport-noconfig.cmake
+-- Installing: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/cmake/export_motion_capture_tracking_interfaces__rosidl_generator_pyExport.cmake
+-- Installing: /home/vincent/Ground_Robots/mocap_broadcast_ros/install/motion_capture_tracking_interfaces/share/motion_capture_tracking_interfaces/cmake/export_motion_capture_tracking_interfaces__rosidl_generator_pyExport-noconfig.cmake

@@ -1,0 +1,19 @@
+// generated from rosidl_adapter/resource/srv.idl.em
+// with input from crazyflie_interfaces/srv/AddLogging.srv
+// generated code does not contain a copyright notice
+
+
+module crazyflie_interfaces {
+  module srv {
+    struct AddLogging_Request {
+      string topic_name;
+
+      int32 frequency;
+
+      sequence<string> vars;
+    };
+    struct AddLogging_Response {
+      boolean success;
+    };
+  };
+};

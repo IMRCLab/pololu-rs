@@ -1,0 +1,22 @@
+Built target ament_cmake_python_symlink_crazyflie_sim_setup
+Built target ament_cmake_python_symlink_crazyflie_sim
+running install_scripts
+/usr/lib/python3/dist-packages/setuptools/command/install.py:34: SetuptoolsDeprecationWarning: setup.py install is deprecated. Use build and pip and other standards-based tools.
+  warnings.warn(
+running egg_info
+writing crazyflie_sim.egg-info/PKG-INFO
+writing dependency_links to crazyflie_sim.egg-info/dependency_links.txt
+writing entry points to crazyflie_sim.egg-info/entry_points.txt
+writing top-level names to crazyflie_sim.egg-info/top_level.txt
+reading manifest file 'crazyflie_sim.egg-info/SOURCES.txt'
+writing manifest file 'crazyflie_sim.egg-info/SOURCES.txt'
+Installing crazyflie_server script to scripts
+Built target ament_cmake_python_build_crazyflie_sim_scripts
+running egg_info
+writing crazyflie_sim.egg-info/PKG-INFO
+writing dependency_links to crazyflie_sim.egg-info/dependency_links.txt
+writing entry points to crazyflie_sim.egg-info/entry_points.txt
+writing top-level names to crazyflie_sim.egg-info/top_level.txt
+reading manifest file 'crazyflie_sim.egg-info/SOURCES.txt'
+writing manifest file 'crazyflie_sim.egg-info/SOURCES.txt'
+Built target ament_cmake_python_build_crazyflie_sim_egg

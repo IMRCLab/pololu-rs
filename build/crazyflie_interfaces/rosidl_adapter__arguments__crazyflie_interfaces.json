@@ -1,0 +1,27 @@
+{
+  "package_name": "crazyflie_interfaces",
+  "non_idl_tuples": [
+    "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_interfaces:msg/ConnectionStatistics.msg",
+    "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_interfaces:msg/ConnectionStatisticsArray.msg",
+    "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_interfaces:msg/FullState.msg",
+    "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_interfaces:msg/LogDataGeneric.msg",
+    "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_interfaces:msg/Hover.msg",
+    "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_interfaces:msg/LogBlock.msg",
+    "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_interfaces:msg/Position.msg",
+    "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_interfaces:msg/Status.msg",
+    "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_interfaces:msg/TrajectoryPolynomialPiece.msg",
+    "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_interfaces:msg/VelocityWorld.msg",
+    "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_interfaces:srv/GoTo.srv",
+    "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_interfaces:srv/Land.srv",
+    "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_interfaces:srv/NotifySetpointsStop.srv",
+    "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_interfaces:srv/SetGroupMask.srv",
+    "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_interfaces:srv/StartTrajectory.srv",
+    "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_interfaces:srv/Stop.srv",
+    "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_interfaces:srv/Takeoff.srv",
+    "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_interfaces:srv/UpdateParams.srv",
+    "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_interfaces:srv/UploadTrajectory.srv",
+    "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_interfaces:srv/RemoveLogging.srv",
+    "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_interfaces:srv/AddLogging.srv",
+    "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_interfaces:srv/Arm.srv"
+  ]
+}

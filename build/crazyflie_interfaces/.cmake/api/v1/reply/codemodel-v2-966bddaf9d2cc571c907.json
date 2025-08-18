@@ -1,0 +1,233 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"childIndexes" : 
+					[
+						1
+					],
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-ac1f8bf32b6ae30622c7.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.12"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						5,
+						6,
+						7,
+						8,
+						9,
+						10,
+						11,
+						12,
+						13,
+						14,
+						15,
+						16,
+						17
+					]
+				},
+				{
+					"build" : "crazyflie_interfaces__py",
+					"jsonFile" : "directory-crazyflie_interfaces__py-56b3a0d2df631346c5e5.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.12"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_interfaces/crazyflie_interfaces__py",
+					"targetIndexes" : 
+					[
+						4
+					]
+				}
+			],
+			"name" : "",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0,
+						1
+					],
+					"name" : "crazyflie_interfaces",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6,
+						7,
+						8,
+						9,
+						10,
+						11,
+						12,
+						13,
+						14,
+						15,
+						16,
+						17
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "ament_cmake_python_build_crazyflie_interfaces_egg::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ament_cmake_python_build_crazyflie_interfaces_egg-f819ff90ba0fb02c8dca.json",
+					"name" : "ament_cmake_python_build_crazyflie_interfaces_egg",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "ament_cmake_python_symlink_crazyflie_interfaces::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ament_cmake_python_symlink_crazyflie_interfaces-91d4703043b62eb8cb96.json",
+					"name" : "ament_cmake_python_symlink_crazyflie_interfaces",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "crazyflie_interfaces::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-crazyflie_interfaces-c5d14ff2673ffcb6809d.json",
+					"name" : "crazyflie_interfaces",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "crazyflie_interfaces__cpp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-crazyflie_interfaces__cpp-65e3d7ff01083c0f198a.json",
+					"name" : "crazyflie_interfaces__cpp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "crazyflie_interfaces__py::@4636e39a825347fff95f",
+					"jsonFile" : "target-crazyflie_interfaces__py-d01a4296bbc7b9064c12.json",
+					"name" : "crazyflie_interfaces__py",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "crazyflie_interfaces__rosidl_generator_c::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-crazyflie_interfaces__rosidl_generator_c-618e633ed604c45087bd.json",
+					"name" : "crazyflie_interfaces__rosidl_generator_c",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "crazyflie_interfaces__rosidl_generator_py::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-crazyflie_interfaces__rosidl_generator_py-31193e0d816988126e2e.json",
+					"name" : "crazyflie_interfaces__rosidl_generator_py",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "crazyflie_interfaces__rosidl_typesupport_c::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-crazyflie_interfaces__rosidl_typesupport_c-6a605ce5ed35e1a54e7f.json",
+					"name" : "crazyflie_interfaces__rosidl_typesupport_c",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "crazyflie_interfaces__rosidl_typesupport_c__pyext::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-crazyflie_interfaces__rosidl_typesupport_c__pyext-3f564262ca1280654a6b.json",
+					"name" : "crazyflie_interfaces__rosidl_typesupport_c__pyext",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "crazyflie_interfaces__rosidl_typesupport_cpp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-crazyflie_interfaces__rosidl_typesupport_cpp-c01f204898da344c2e09.json",
+					"name" : "crazyflie_interfaces__rosidl_typesupport_cpp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "crazyflie_interfaces__rosidl_typesupport_fastrtps_c::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-crazyflie_interfaces__rosidl_typesupport_fastrtps_c-dc9c9e58cd93c883f337.json",
+					"name" : "crazyflie_interfaces__rosidl_typesupport_fastrtps_c",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "crazyflie_interfaces__rosidl_typesupport_fastrtps_c__pyext::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-crazyflie_interfaces__rosidl_typesupport_fastrtps_c__pyext-d2836cfb4a31b21cfaba.json",
+					"name" : "crazyflie_interfaces__rosidl_typesupport_fastrtps_c__pyext",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "crazyflie_interfaces__rosidl_typesupport_fastrtps_cpp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-crazyflie_interfaces__rosidl_typesupport_fastrtps_cpp-e16dcae6dee1552865ed.json",
+					"name" : "crazyflie_interfaces__rosidl_typesupport_fastrtps_cpp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "crazyflie_interfaces__rosidl_typesupport_introspection_c::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-crazyflie_interfaces__rosidl_typesupport_introspection_c-fe1a660f183f4328de20.json",
+					"name" : "crazyflie_interfaces__rosidl_typesupport_introspection_c",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "crazyflie_interfaces__rosidl_typesupport_introspection_c__pyext::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-crazyflie_interfaces__rosidl_typesupport_introspection_c__pyext-6a7a1aaa7c74f75d5650.json",
+					"name" : "crazyflie_interfaces__rosidl_typesupport_introspection_c__pyext",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "crazyflie_interfaces__rosidl_typesupport_introspection_cpp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-crazyflie_interfaces__rosidl_typesupport_introspection_cpp-643ae289b8f0f388bfb3.json",
+					"name" : "crazyflie_interfaces__rosidl_typesupport_introspection_cpp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "crazyflie_interfaces_uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-crazyflie_interfaces_uninstall-c004da5b4126ec41f606.json",
+					"name" : "crazyflie_interfaces_uninstall",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-uninstall-2664950496e7e0af5db9.json",
+					"name" : "uninstall",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_interfaces",
+		"source" : "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_interfaces"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 7
+	}
+}
