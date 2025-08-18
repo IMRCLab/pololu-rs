@@ -1,4 +1,4 @@
-use defmt::{info, warn};
+use defmt::{info};
 use embassy_futures::select::{Either, select};
 use embassy_sync::blocking_mutex::raw::{NoopRawMutex, ThreadModeRawMutex};
 use embassy_sync::mutex::Mutex;
@@ -6,10 +6,10 @@ use embassy_time::{Duration, Timer};
 
 use crate::encoder::get_rpms;
 use crate::motor::MotorController;
-use crate::packet::{CmdLegacyPacketMix, CmdLegacyPacketF32, CmdTeleopPacketMix};
+use crate::packet::{CmdLegacyPacketF32, CmdTeleopPacketMix};
 use crate::uart::SharedUart;
 // Import the global verbosity macros
-use crate::{debug_v1, debug_v2, debug_warn, debug_error};
+use crate::{debug_v1, debug_v2, debug_warn};
 
 use heapless::Vec;
 

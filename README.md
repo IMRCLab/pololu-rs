@@ -118,6 +118,25 @@ There are two major frameworks: [embedded-hal](https://github.com/rp-rs/rp-hal-b
 
 ## Flash
 
+### Important Notice!!!!!!!!!!!
+The newest version `1.89.0` of `rustc` is released on 4th Aug 2025. However, the flashing with `elf2uf2-rs -d` might suffers some temporary issues. For example, an error `unregonized ABI` occurs because of the generated elf header doesn't match the requirements of the elf2uf2 runner. (The generated 8th bit of the header is `03`, which indicates that the OS/ABI type is `UNIX - GNU`, but actually should be `00`, which indicates `UNIX - System V`).
+
+There are 2 ways to solve this issue:
+- If you really need the newest rustc, then each time after you build the project you should enter you target folder and do:
+```
+printf '\x00' | dd of=teleop_control bs=1 seek=7 count=1 conv=notrunc
+```
+This will change the 8th bit from `03` to `00` and then you can flash this as usual (don't build it again).
+
+- The other way is to downgrade rustc to `1.87.0` by using:
+```
+rustup toolchain install 1.87.0
+rustup default 1.87.0
+rustup component add rust-src --toolchain 1.87.0
+rustup target add thumbv6m-none-eabi --toolchain 1.87.0
+```
+This will solve all problems.
+
 ### Using the `./run` Script (Recommended)
 
 The project includes a convenient `./run` script for building and flashing different robot configurations:
