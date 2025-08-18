@@ -1,4 +1,4 @@
-use defmt::{info, warn};
+use defmt::{info};
 use embassy_futures::select::{Either, select};
 use embassy_sync::blocking_mutex::raw::{NoopRawMutex, ThreadModeRawMutex};
 use embassy_sync::mutex::Mutex;
@@ -6,9 +6,10 @@ use embassy_time::{Duration, Timer};
 
 use crate::encoder::get_rpms;
 use crate::motor::MotorController;
-use crate::packet::{CmdLegacyPacketMix, CmdLegacyPacketF32, CmdTeleopPacketMix};
+use crate::packet::{CmdLegacyPacketF32, CmdTeleopPacketMix};
 use crate::uart::SharedUart;
-use crate::{debug_v1, debug_v2, debug_warn, debug_error};
+// Import the global verbosity macros
+use crate::{debug_v1, debug_v2, debug_warn};
 
 use heapless::Vec;
 
@@ -176,6 +177,8 @@ pub async fn motor_control_task(
         filtered_rpm_left = alpha * rpm_left_now + (1.0 - alpha) * filtered_rpm_left;
         filtered_rpm_right = alpha * rpm_right_now + (1.0 - alpha) * filtered_rpm_right;
 
+
+        //deadband for more robust handling of zero commands
         let deadband = 2.0;
         e_k_left = rpm_left_target - filtered_rpm_left;
         if e_k_left.abs() < deadband {
@@ -190,6 +193,8 @@ pub async fn motor_control_task(
         debug_v2!("Left RPM - Raw: {}, Filtered: {}, Target: {}, Error: {}", rpm_left_now, filtered_rpm_left, rpm_left_target, e_k_left);
         debug_v2!("Right RPM - Raw: {}, Filtered: {}, Target: {}, Error: {}", rpm_right_now, filtered_rpm_right, rpm_right_target, e_k_right);
 
+
+        //Summing up PID control feedback 
         let P_inc_left = kp * (e_k_left - e_k1_left);
         let I_inc_left = ki * Ts * e_k_left; 
         let D_inc_left = kd * (e_k_left - e_k1_left) / Ts; 
@@ -202,6 +207,8 @@ pub async fn motor_control_task(
         I_right += I_inc_right;
         u_k_right = u_k1_right + P_inc_right + I_inc_right + D_inc_right;
 
+
+        //update errors and output values
         e_k1_left = e_k_left;
         e_k1_right = e_k_right;
 
@@ -211,9 +218,13 @@ pub async fn motor_control_task(
         debug_v2!("Left - P_inc: {}, I_total: {}, I_inc: {}, D_inc: {}, u_k: {}", P_inc_left, I_left, I_inc_left, D_inc_left, u_k_left);
         debug_v2!("Right - P_inc: {}, I_total: {}, I_inc: {}, D_inc: {}, u_k: {}", P_inc_right, I_right, I_inc_right, D_inc_right, u_k_right);
     
+
+        //clamp to saturation limits
         u_sat_left = (u_k_left).clamp(-1.0f32, 1.0f32);
         u_sat_right = (u_k_right).clamp(-1.0f32, 1.0f32);
 
+
+        //if the desired velocities are close to zero, then reset all the errors already and set output to zero.
         if v_left.abs() < 0.01 && v_right.abs() < 0.01 {
             I_left = 0.0;
             I_right = 0.0;
@@ -228,6 +239,8 @@ pub async fn motor_control_task(
             debug_v2!("v left and right close to zero - resetting integrator, control values, and derivative history");
         }
 
+
+        //Cap integrator values to prevent windup
         let max_integrator = 0.5;
         if I_left.abs() > max_integrator {
             I_left = I_left.signum() * max_integrator;
@@ -238,6 +251,7 @@ pub async fn motor_control_task(
             debug_v2!("Right integrator clamped to prevent windup");
         }
 
+        //resetting I gain to avoid issue with robot getting stuck at high speeds (really helpful?)
         #[cfg(feature = "three-pi")]
         let duty_left = (u_sat_left).clamp(-1.0, 1.0);
         #[cfg(feature = "three-pi")]
@@ -478,7 +492,7 @@ pub async fn robot_command_control_task(uart: SharedUart<'static>) {
                                 let sign = if raw_omega >= 0.0 { 1.0 } else { -1.0 };
                                 let abs_omega = raw_omega.abs();
                                 
-                                let max_omega = 200.0;
+                                let max_omega = 5.0; //experimental
                                 let scaled_omega = max_omega * (libm::expf(abs_omega / max_omega) - 1.0) / (libm::expf(1.0) - 1.0);
                                 sign * scaled_omega
                             },
