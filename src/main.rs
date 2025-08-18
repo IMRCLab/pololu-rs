@@ -13,6 +13,7 @@ use pololu3pi2040_rs::{
     encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     imu::read_imu_task,
     init::init_all,
+    joystick_control::{motor_control_task, CONTROL_CMD_UNICYCLE, ControlCommandUnicycle},
     sdlog::*,
     uart::uart_receive_task,
 };
@@ -35,9 +36,6 @@ async fn main(spawner: Spawner) {
     spawner.spawn(button_task_b(buttons.btn_b)).unwrap();
     spawner.spawn(button_task_c(buttons.btn_c)).unwrap();
 
-    // === Motor Task ===
-    let motors = devices.motor;
-
     // === Encoder Task ===
     let EncoderPair {
         encoder_left,
@@ -50,6 +48,13 @@ async fn main(spawner: Spawner) {
         .unwrap();
     spawner
         .spawn(encoder_right_task(encoder_right, encoder_count_right))
+        .unwrap();
+
+    // === Motor Control Task ===
+    // Start the PI controller task instead of direct motor control
+    let motors = devices.motor;
+    spawner
+        .spawn(motor_control_task(motors, encoder_count_left, encoder_count_right))
         .unwrap();
 
     // === IMU Task ===
@@ -94,17 +99,34 @@ async fn main(spawner: Spawner) {
         defmt::warn!("No SD card / SdLogger disabled, skip logging");
     }
 
-    // === Control Logic ===
+    // === Control Logic - Step Function Tests ===
+    defmt::info!("Starting step function tests for wheel speed control");
+    
+    // Helper function to set wheel speed commands
+    let set_wheel_speed = |v: f32, omega: f32| async move {
+        let mut lock = CONTROL_CMD_UNICYCLE.lock().await;
+        *lock = ControlCommandUnicycle { v, omega };
+        defmt::info!("Set command: v={} m/s, omega={} rad/s", v, omega);
+    };
+
     loop {
-        led.blink(100, 3).await;
+        led.blink(100, 1).await;
 
-        motors.set_speed(0.1, 0.1).await; // forward
-        Timer::after_millis(1000).await;
+        // Step 1: Keep speed at zero for 2 seconds
+        defmt::info!("=== Step 1: Zero speed for 2 seconds ===");
+        set_wheel_speed(0.0, 0.0).await;
+        Timer::after_millis(2000).await;
 
-        motors.set_speed(-0.1, -0.1).await; // backward
-        Timer::after_millis(1000).await;
+        // Step 2: Step up to 0.4 m/s for 4 seconds
+        defmt::info!("=== Step 2: Step up to 0.4 m/s for 4 seconds ===");
+        set_wheel_speed(1.0, 0.0).await;
+        Timer::after_millis(4000).await;
 
-        motors.set_speed(0.0, 0.0).await; // stop
-        Timer::after_millis(1000).await;
+        // Step 3: Set back to zero for 4 seconds
+        defmt::info!("=== Step 3: Back to zero for 4 seconds ===");
+        set_wheel_speed(0.0, 0.0).await;
+        Timer::after_millis(4000).await;
+
+        defmt::info!("=== Test cycle complete, restarting... ===");
     }
 }
