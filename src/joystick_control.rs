@@ -1,4 +1,4 @@
-use defmt::{info};
+use defmt::info;
 use embassy_futures::select::{Either, select};
 use embassy_sync::blocking_mutex::raw::{NoopRawMutex, ThreadModeRawMutex};
 use embassy_sync::mutex::Mutex;
@@ -17,75 +17,51 @@ const PI: f32 = core::f32::consts::PI;
 const SAMPLE_MS: u64 = 20;
 
 #[cfg(feature = "three-pi")]
-const MIN_RPM: f32 = -2388.0;
+const MIN_RPM: f32 = -2388.0; //calculated from max speed 4 [m/s] and wheel radius 0.016 [m]
 const MAX_RPM: f32 = 2388.0;
 
+// Zumo robot constants
 #[cfg(feature = "zumo")]
 mod robot_constants {
-    use super::SAMPLE_MS;
-    pub const GEAR_RATIO: f32 = 75.81; // Zumo gear ratio
-    pub const ENCODER_CPR: f32 = GEAR_RATIO * 12.0/4.0;
+    pub const GEAR_RATIO: f32 = 75.81;
+    pub const ENCODER_CPR: f32 = GEAR_RATIO * 12.0 / 4.0; // = 909.72
     pub const WHEEL_BASE: f32 = 0.099;
     pub const WHEEL_RADIUS: f32 = 0.02;
-    pub const MOTOR_DIRECTION_LEFT: f32 = -1.0; // Zumo motor direction is inverse
+    pub const MOTOR_DIRECTION_LEFT: f32 = -1.0; // Zumo has reversed motors
     pub const MOTOR_DIRECTION_RIGHT: f32 = -1.0;
-    pub const MIN_RPM: f32 = -95.5; // Experimentally determined
-    pub const MAX_RPM: f32 = 95.5;
-    pub const Ts : f32 = SAMPLE_MS as f32 / 1000.0;
-    pub const kp: f32 = 0.6;
-    pub const ki: f32 = 8.0;
-    pub const kd: f32 = 0.005;
-    pub const Kaw: f32 = 0.1;
-    pub const Kpwm: f32 = 0.1;
-    pub const u_0: f32 = 0.0;
 }
 
+// 3Pi robot constants
 #[cfg(feature = "three-pi")]
 mod robot_constants {
-    use super::SAMPLE_MS;
-    pub const GEAR_RATIO: f32 = 29.86; // Adjusted for 3Pi gear ratio
-    pub const ENCODER_CPR: f32 = GEAR_RATIO * 12.0/4.0; 
-    pub const WHEEL_BASE: f32 = 0.0842; 
+    pub const GEAR_RATIO: f32 = 29.86;
+    pub const ENCODER_CPR: f32 = GEAR_RATIO * 12.0 / 4.0; // = 358.32
+    pub const WHEEL_BASE: f32 = 0.0842;
     pub const WHEEL_RADIUS: f32 = 0.016;
-    pub const MOTOR_DIRECTION_LEFT: f32 = 1.0;
+    pub const MOTOR_DIRECTION_LEFT: f32 = 1.0; // 3Pi has normal motor directions
     pub const MOTOR_DIRECTION_RIGHT: f32 = 1.0;
-    pub const MIN_RPM: f32 = -119.4;
-    pub const MAX_RPM: f32 = 119.4;
-    pub const Ts : f32 = SAMPLE_MS as f32 / 1000.0;
-    pub const kp: f32 = 0.5; // Proportional gain
-    pub const ki: f32 = 0.2; // Integral gain
-    pub const kd: f32 = 0.003; // Derivative gain
-    pub const Kaw: f32 = 0.1; // Anti-windup gain
-    pub const Kpwm: f32 = 0.1; // PWM gain
-    pub const u_0: f32 = 0.0;
 }
 
+// Default values for testing when no features are active
 #[cfg(not(any(feature = "zumo", feature = "three-pi")))]
 mod robot_constants {
-    use super::SAMPLE_MS;
-    pub const GEAR_RATIO: f32 = 75.81;
-    pub const ENCODER_CPR: f32 = GEAR_RATIO * 12.0/4.0;
+    pub const GEAR_RATIO: f32 = 75.81; // Default to Zumo values for testing
+    pub const ENCODER_CPR: f32 = GEAR_RATIO * 12.0 / 4.0;
     pub const WHEEL_BASE: f32 = 0.099;
     pub const WHEEL_RADIUS: f32 = 0.02;
-    pub const MOTOR_DIRECTION_LEFT: f32 = -1.0;
+    pub const MOTOR_DIRECTION_LEFT: f32 = -1.0; // Default to Zumo behavior
     pub const MOTOR_DIRECTION_RIGHT: f32 = -1.0;
-    pub const MIN_RPM: f32 = -95.5; //experimentally determined
-    pub const MAX_RPM: f32 = 95.5;
-    pub const Ts : f32 = SAMPLE_MS as f32 / 1000.0;
-    pub const kp: f32 = 0.6; // Proportional gain
-    pub const ki: f32 = 1.0; // Integral gain
-    pub const kd: f32 = 0.005; // Derivative gain
-    pub const Kaw: f32 = 0.1; // Anti-windup gain
-    pub const Kpwm: f32 = 0.1; // PWM gain
-    pub const u_0: f32 = 0.0;
 }
 
+// Import the selected constants into the module scope
 use robot_constants::*;
 
+/// Get the gear ratio for runtime identification
 pub fn get_gear_ratio() -> f32 {
     GEAR_RATIO
 }
 
+/// Get motor direction multipliers for runtime identification
 pub fn get_motor_directions() -> (f32, f32) {
     (MOTOR_DIRECTION_LEFT, MOTOR_DIRECTION_RIGHT)
 }
@@ -110,6 +86,7 @@ pub static CONTROL_CMD: Mutex<ThreadModeRawMutex, ControlCommand> = Mutex::new(C
 pub static CONTROL_CMD_UNICYCLE: Mutex<ThreadModeRawMutex, ControlCommandUnicycle> =
     Mutex::new(ControlCommandUnicycle { v: 0.0, omega: 0.0 });
 
+/// === Joy Stick Control Task (without pd controller) ===
 #[embassy_executor::task]
 pub async fn motor_task(motor: MotorController) {
     loop {
@@ -121,172 +98,84 @@ pub async fn motor_task(motor: MotorController) {
             )
             .await;
 
+        // 50ms
         Timer::after(Duration::from_millis(50)).await;
     }
 }
 
+/// === Joy Stick Control Task ===
 #[embassy_executor::task]
 pub async fn motor_control_task(
     motor: MotorController,
     left_counter: &'static Mutex<NoopRawMutex, i32>,
     right_counter: &'static Mutex<NoopRawMutex, i32>,
 ) {
-    debug_warn!("Motor control task starting - this message always appears");
-    debug_v1!("Verbosity level 1 enabled - basic control info will be shown");
-    debug_v2!("Verbosity level 2 enabled - detailed debug info will be shown");
-
-    let mut e_k_left = 0.0;
-    let mut e_k1_left = 0.0;
-    let mut e_k2_left = 0.0;
-    let mut e_k_right = 0.0;
-    let mut e_k1_right = 0.0;
-    let mut e_k2_right = 0.0;
-
-    let mut u_k_left = 0.0;
-    let mut u_k1_left = 0.0;
-    let mut u_k_right = 0.0;
-    let mut u_k1_right = 0.0;
-    let mut u_sat_left = 0.0;
-    let mut u_sat_right = 0.0;
-    
-    let mut I_left = 0.0;
-    let mut I_right = 0.0;
-
-    let alpha = 0.3;
+    // 初始滤波值设为 0.0 initial filter coefficient
     let mut filtered_rpm_left = 0.0;
     let mut filtered_rpm_right = 0.0;
 
+    // 滤波系数 α ∈ (0,1)，越小越平滑 Filterr coefficient alpha ∈ (0,1), smaller value means smoother/better
+    let alpha = 0.1;
+
+    let mut error_sum_left = 0.0;
+    let mut error_sum_right = 0.0;
+
+    let kp = 60.0;
+    let ki = 1.0;
+
     loop {
         let cmd = CONTROL_CMD_UNICYCLE.lock().await.clone();
-        
-        debug_v1!("Raw commands: v={}, omega={}", cmd.v, cmd.omega);
-        
-        let v = cmd.v;
-        let omega = cmd.omega;
+        let v = cmd.v; // m/s
+        let omega = cmd.omega; //rad/s
 
         let v_left = v - omega * WHEEL_BASE / 2.0;
         let v_right = v + omega * WHEEL_BASE / 2.0;
 
-        let rpm_left_target = v_left / (2.0 * PI * WHEEL_RADIUS) * 60.0;
-        let rpm_right_target = v_right /(2.0 * PI * WHEEL_RADIUS) * 60.0;
-        
+        let rpm_left_target = v_left / (2.0 * core::f32::consts::PI * WHEEL_RADIUS) * 60.0;
+        let rpm_right_target = v_right / (2.0 * core::f32::consts::PI * WHEEL_RADIUS) * 60.0;
 
-        let (rpm_left_now, rpm_right_now) = 
+        let (rpm_left_now, rpm_right_now) =
             get_rpms(left_counter, right_counter, ENCODER_CPR, SAMPLE_MS).await;
-
         filtered_rpm_left = alpha * rpm_left_now + (1.0 - alpha) * filtered_rpm_left;
         filtered_rpm_right = alpha * rpm_right_now + (1.0 - alpha) * filtered_rpm_right;
 
+        let error_left = rpm_left_target - filtered_rpm_left;
+        let error_right = rpm_right_target - filtered_rpm_right;
 
-        //deadband for more robust handling of zero commands
-        let deadband = 2.0;
-        e_k_left = rpm_left_target - filtered_rpm_left;
-        if e_k_left.abs() < deadband {
-            e_k_left = 0.0;
+        error_sum_left += error_left;
+        error_sum_right += error_right;
+
+        let mut duty_left = ((kp * error_left + ki * error_sum_left) / 10000.0).clamp(-1.0, 1.0);
+        let mut duty_right = ((kp * error_right + ki * error_sum_right) / 10000.0).clamp(-1.0, 1.0);
+
+        info!("Set Speed: {}, {}", duty_left, duty_right);
+        info!(
+            "rpm_left_target: {}, rpm_left_now: {}",
+            rpm_left_target, rpm_left_now
+        );
+        info!(
+            "rpm_right_target: {}, rpm_right_now: {}",
+            rpm_right_target, rpm_right_now
+        );
+
+        if v_left.abs() < 0.1 {
+            //slack for zero speed recognition
+            duty_left = 0.0;
+            error_sum_left = 0.0; // Reset error when speed is close to zero
         }
-        
-        e_k_right = rpm_right_target - filtered_rpm_right;
-        if e_k_right.abs() < deadband {
-            e_k_right = 0.0;
-        }
-
-        debug_v2!("Left RPM - Raw: {}, Filtered: {}, Target: {}, Error: {}", rpm_left_now, filtered_rpm_left, rpm_left_target, e_k_left);
-        debug_v2!("Right RPM - Raw: {}, Filtered: {}, Target: {}, Error: {}", rpm_right_now, filtered_rpm_right, rpm_right_target, e_k_right);
-
-
-        //Summing up PID control feedback 
-        let P_inc_left = kp * (e_k_left - e_k1_left);
-        let I_inc_left = ki * Ts * e_k_left; 
-        let D_inc_left = kd * (e_k_left - e_k1_left) / Ts; 
-        I_left += I_inc_left;
-        u_k_left = u_k1_left + P_inc_left + I_inc_left + D_inc_left;
-
-        let P_inc_right = kp * (e_k_right - e_k1_right);
-        let I_inc_right = ki * Ts * e_k_right; 
-        let D_inc_right = kd * (e_k_right - e_k1_right) / Ts;
-        I_right += I_inc_right;
-        u_k_right = u_k1_right + P_inc_right + I_inc_right + D_inc_right;
-
-
-        //update errors and output values
-        e_k1_left = e_k_left;
-        e_k1_right = e_k_right;
-
-        u_k1_left = u_k_left;
-        u_k1_right = u_k_right;
-
-        debug_v2!("Left - P_inc: {}, I_total: {}, I_inc: {}, D_inc: {}, u_k: {}", P_inc_left, I_left, I_inc_left, D_inc_left, u_k_left);
-        debug_v2!("Right - P_inc: {}, I_total: {}, I_inc: {}, D_inc: {}, u_k: {}", P_inc_right, I_right, I_inc_right, D_inc_right, u_k_right);
-    
-
-        //clamp to saturation limits
-        u_sat_left = (u_k_left).clamp(-1.0f32, 1.0f32);
-        u_sat_right = (u_k_right).clamp(-1.0f32, 1.0f32);
-
-
-        //if the desired velocities are close to zero, then reset all the errors already and set output to zero.
-        if v_left.abs() < 0.01 && v_right.abs() < 0.01 {
-            I_left = 0.0;
-            I_right = 0.0;
-            u_sat_left = 0.0;
-            u_sat_right = 0.0;
-            e_k1_left = 0.0;
-            e_k1_right = 0.0;
-            e_k_left = 0.0;
-            e_k_right = 0.0;
-            u_k_left = 0.0;
-            u_k_right = 0.0;
-            debug_v2!("v left and right close to zero - resetting integrator, control values, and derivative history");
+        if v_right.abs() < 0.1 {
+            //slack for zero speed recognition
+            duty_right = 0.0;
+            error_sum_right = 0.0; // Reset error when speed is close to zero
         }
 
-
-        //Cap integrator values to prevent windup
-        let max_integrator = 0.5;
-        if I_left.abs() > max_integrator {
-            I_left = I_left.signum() * max_integrator;
-            debug_v2!("Left integrator clamped to prevent windup");
-        }
-        if I_right.abs() > max_integrator {
-            I_right = I_right.signum() * max_integrator;
-            debug_v2!("Right integrator clamped to prevent windup");
-        }
-
-        //resetting I gain to avoid issue with robot getting stuck at high speeds (really helpful?)
-        #[cfg(feature = "three-pi")]
-        let duty_left = (u_sat_left).clamp(-1.0, 1.0);
-        #[cfg(feature = "three-pi")]
-        {
-            if u_sat_left.abs() > 0.95 {
-            I_left = 0.0;
-            u_k_left = u_sat_left;
-            e_k1_left = e_k_left;
-
-            debug_warn!("Left motor saturated - resetting integrator, control value, and derivative history");
-            }
-        }
-
-        #[cfg(feature = "three-pi")]
-        let duty_right = (u_sat_right).clamp(-1.0, 1.0);
-        
-        #[cfg(feature = "three-pi")]
-        {
-            if u_sat_right.abs() > 0.95 {
-            I_right = 0.0;
-            u_k_right = u_sat_right;
-            e_k1_right = e_k_right;
-            debug_warn!("Right motor saturated - resetting integrator, control value, and derivative history");
-            }
-        }
-        #[cfg(not(feature = "three-pi"))]
-        let duty_left = u_k_left.clamp(-1.0, 1.0);
-        #[cfg(not(feature = "three-pi"))]
-        let duty_right = u_k_right.clamp(-1.0, 1.0);
-
-        
-        motor.set_speed(
-            duty_left * MOTOR_DIRECTION_LEFT, 
-            duty_right * MOTOR_DIRECTION_RIGHT
-        ).await;
+        // Apply robot-specific motor direction corrections
+        motor
+            .set_speed(
+                duty_left * MOTOR_DIRECTION_LEFT,
+                duty_right * MOTOR_DIRECTION_RIGHT,
+            )
+            .await;
 
         Timer::after(Duration::from_millis(SAMPLE_MS)).await;
     }
@@ -404,7 +293,7 @@ pub async fn robot_command_control_task(uart: SharedUart<'static>) {
                     if let Some(pkt) = CmdLegacyPacketMix::from_bytes(&buffer) {
                         let v = pkt.right_direction as f32;
                         let omega = pkt.left_direction;
-                        
+
                         //scale v in CmdLegacyPacketMix with 0.00001 and omega with PI / (180.0 * 0.5)
                         let cmd = ControlCommandUnicycle {
                             v: v * 0.00001, // scale 0 - 20000 "thrust" to 0 - 0.2 m/s
@@ -433,7 +322,6 @@ pub async fn robot_command_control_task(uart: SharedUart<'static>) {
 }
 */
 
-
 #[embassy_executor::task]
 pub async fn robot_command_control_task(uart: SharedUart<'static>) {
     let mut buffer: Vec<u8, 32> = Vec::new();
@@ -461,7 +349,7 @@ pub async fn robot_command_control_task(uart: SharedUart<'static>) {
             }
 
             Either::Second(Some(byte)) => {
-                if buffer.is_empty() && !(byte == 2 || byte == 8 || byte == 9) { 
+                if buffer.is_empty() && !(byte == 2 || byte == 8 || byte == 9) {
                     continue;
                 }
 
@@ -479,11 +367,11 @@ pub async fn robot_command_control_task(uart: SharedUart<'static>) {
                             let raw = pkt.linear_velocity as f32;
                             let sign = if raw >= 0.0 { 1.0 } else { -1.0 };
                             let abs_raw = raw.abs();
-                            
+
                             let normalized = ((abs_raw - 1000.0) / 19000.0).clamp(0.0, 1.0);
-                            let speed = 0.4 * (libm::expf(2.0 * normalized) - 1.0) / (libm::expf(2.0) - 1.0);
+                            let speed = 0.4 * (libm::expf(2.0 * normalized) - 1.0)
+                                / (libm::expf(2.0) - 1.0);
                             sign * speed
-                    
                         };
                         let cmd = ControlCommandUnicycle {
                             v: v,
@@ -491,9 +379,11 @@ pub async fn robot_command_control_task(uart: SharedUart<'static>) {
                                 let raw_omega = pkt.steering_angle * PI / (180.0 * 0.1);
                                 let sign = if raw_omega >= 0.0 { 1.0 } else { -1.0 };
                                 let abs_omega = raw_omega.abs();
-                                
+
                                 let max_omega = 5.0; //experimental
-                                let scaled_omega = max_omega * (libm::expf(abs_omega / max_omega) - 1.0) / (libm::expf(1.0) - 1.0);
+                                let scaled_omega = max_omega
+                                    * (libm::expf(abs_omega / max_omega) - 1.0)
+                                    / (libm::expf(1.0) - 1.0);
                                 sign * scaled_omega
                             },
                         };
