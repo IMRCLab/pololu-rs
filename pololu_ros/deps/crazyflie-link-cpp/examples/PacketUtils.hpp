@@ -129,6 +129,26 @@ public:
         return packet;
     }
 
+    static bitcraze::crazyflieLinkCpp::Packet motionCapture_Pololu_fullstate(uint8_t id, float x, float y, float z, uint16_t quat_first, uint16_t quat_second) { 
+        //use uint16 instead of int16 to match pack function for packet type 
+        //use float for uint32_t like in crtp.h
+        const uint8_t size = 18;
+        std::array<uint8_t, size> buffer;
+        buffer[0] = 0xFF;
+        uint8_t index = 1;
+        index += pack(buffer.data(), index, id);
+        index += pack(buffer.data(), index, x);
+        index += pack(buffer.data(), index, y);
+        index += pack(buffer.data(), index, z);
+        index += pack(buffer.data(), index, quat_first);
+        index += pack(buffer.data(), index, quat_second);
+
+        bitcraze::crazyflieLinkCpp::Packet packet(buffer.data(), size);
+        packet.setPort((uint8_t)0x03);          // PORT 3
+        packet.setChannel((uint8_t) 0x00);
+        return packet;
+    }
+
 
 
 
