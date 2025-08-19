@@ -101,6 +101,15 @@ Notice: Button A is conflict with the LED pin. User should select the function o
 
 ### Flash memory
 
+### SD Card Deck
+Adopted from [Crazyflie uSD deck](https://www.bitcraze.io/products/micro-sd-card-deck/). The deck use spi to write/read data to/from the micro SD Card. The deck now is assigned to SPI0, the pin mapping is shown as:
+- SPI_SCK: PIN_18
+- SPI_MOSI: PIN_19
+- SPI_MISO: PIN_20
+- SPI_CS: PIN_21
+#### Notice
+* The current connection is conflict with the line sensors, which means that we have to disable the line sensors if we would like to log data to SD Card.
+
 ## Rust
 
 There are two major frameworks: [embedded-hal](https://github.com/rp-rs/rp-hal-boards/tree/main/boards/rp-pico) + [RTIC](https://rtic.rs) or [Embassy](https://embassy.dev)
@@ -173,6 +182,13 @@ The code only print a test value(constant). When new debug information is needed
 ```
 info!("New Sensor Data: {}", value);
 ```
+
+## Logging with sd card
+The SD card logging is built based on [Crazyflie micro sd card deck](https://www.bitcraze.io/products/micro-sd-card-deck/). The deck uses spi protocol to log data in and read data out from the micro sd card. There are mutiple available file format including `csv`, `txt` and `binary file` and different logging functions and some preset structs is provided for testing which can be modified later on according to individual use cases.
+
+### TODO:
+When the sd card deck initialization function is called but no sd card is inserted in the deck, a segmentation fault will raises. Therefore, we need to modify the intialization function so that even no sd card is in the deck but the code can still run.
+
 
 ## Uart
 ### Packet Type

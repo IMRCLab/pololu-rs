@@ -6,6 +6,7 @@ use crate::buzzer::Buzzer;
 use crate::encoder::{EncoderCounters, EncoderPair, init_encoder_counts};
 use crate::led::Led;
 use crate::motor::{MotorController, init_motor};
+use crate::sdlog::{self, SdLogger};
 use crate::uart::SharedUart;
 use embassy_rp::peripherals::UART0;
 use embassy_rp::uart::Uart;
@@ -44,6 +45,7 @@ pub struct InitDevices<'a> {
     pub encoder_counts: EncoderCounters,
     pub imu: ImuPack<'a, I2c<'a, I2C0, i2c::Async>>,
     pub uart: SharedUart<'static>,
+    pub sdlogger: SdLogger,
 }
 
 /// init all used components
@@ -104,6 +106,9 @@ pub fn init_all(p: embassy_rp::Peripherals) -> InitDevices<'static> {
     );
     let uart = UART_CELL.init(Mutex::new(uart));
 
+    // === SD Logger ===
+    let sdlogger = sdlog::init_sd_logger(p.SPI0, p.PIN_18, p.PIN_19, p.PIN_20, p.PIN_21);
+
     InitDevices {
         led,
         buzzer,
@@ -113,5 +118,6 @@ pub fn init_all(p: embassy_rp::Peripherals) -> InitDevices<'static> {
         encoder_counts,
         imu,
         uart,
+        sdlogger,
     }
 }
