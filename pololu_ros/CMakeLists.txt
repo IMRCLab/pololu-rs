@@ -14,7 +14,7 @@ find_package(rclpy REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
-#find_package(motion_capture_tracking_interfaces REQUIRED)
+find_package(motion_capture_tracking_interfaces REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
 
 # add dependencies
@@ -36,6 +36,7 @@ ament_target_dependencies(teleop
   sensor_msgs
   std_srvs
   geometry_msgs
+  motion_capture_tracking_interfaces
 )
 
 # Install C++ executables
