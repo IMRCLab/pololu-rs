@@ -8,7 +8,7 @@ use embassy_rp::init;
 use embassy_time::{Duration, Timer};
 
 use pololu3pi2040_rs::init::init_all;
-use pololu3pi2040_rs::trajectory_control::{CtrlCfg, Gains, control_task};
+use pololu3pi2040_rs::trajectory_control::control_task;
 use pololu3pi2040_rs::trajectory_uart::{UartCfg, uart_motioncap_receiving_task};
 
 #[embassy_executor::main]
@@ -18,29 +18,18 @@ async fn main(spawner: Spawner) {
 
     let mut led = devices.led;
 
+    Timer::after(Duration::from_secs(5)).await;
+
     // ===== start receiving position message from motion cap system =====
     spawner
         .spawn(uart_motioncap_receiving_task(
             devices.uart,
-            UartCfg { robot_id: 1 },
+            UartCfg { robot_id: 8 },
         ))
         .unwrap();
 
     // ==================== start control task ===========================
-    spawner
-        .spawn(control_task(
-            devices.motor,
-            CtrlCfg {
-                dt_s: 0.1,
-                wheel_base_m: 0.05,
-                gains: Gains {
-                    kx: 1.0,
-                    ky: 2.0,
-                    ktheta: 1.5,
-                },
-            },
-        ))
-        .unwrap();
+    spawner.spawn(control_task(devices.motor)).unwrap();
 
     // ========================= blink LED ===============================
     let mut on = false;

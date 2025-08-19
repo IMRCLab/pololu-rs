@@ -1,5 +1,6 @@
 use core::cell::RefCell;
 use core::f32::consts::PI;
+use defmt::info;
 use embassy_futures::block_on;
 use embassy_futures::select::{Either, select};
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex, signal::Signal};
@@ -9,13 +10,52 @@ use static_cell::StaticCell;
 
 use crate::motor::MotorController;
 use crate::trajectory_reading::{Action, Pose, Trajectory};
-use crate::trajectory_signal::{FIRST_MESSAGE, LAST_STATE, PoseAbs, START_EVENT, STATE_SIG};
+use crate::trajectory_signal::{FIRST_MESSAGE, LAST_STATE, PoseAbs, STATE_SIG};
 
-// static POSE: Mutex<ThreadModeRawMutex, RefCell<Pose>> = Mutex::new(RefCell::new(Pose {
-//     x: 0.0,
-//     y: 0.0,
-//     yaw: 0.0,
-// }));
+// Zumo robot constants
+#[cfg(feature = "zumo")]
+mod robot_constants_for_traj_following {
+    pub const DT_S: f32 = 0.1;
+    pub const WHEEL_BASE: f32 = 0.099;
+    pub const MOTOR_DIRECTION_LEFT: f32 = -1.0; // Zumo has reversed motors
+    pub const MOTOR_DIRECTION_RIGHT: f32 = -1.0;
+    pub const MOTOR_MAX_DUTY_LEFT: f32 = 0.8;
+    pub const MOTOR_MAX_DUTY_RIGHT: f32 = 0.8;
+    pub const KX: f32 = 0.5;
+    pub const KY: f32 = 0.5;
+    pub const KTHETA: f32 = 0.8;
+}
+
+// 3Pi robot constants
+#[cfg(feature = "three-pi")]
+mod robot_constants_for_traj_following {
+    pub const DT_S: f32 = 0.1;
+    pub const WHEEL_BASE: f32 = 0.0842;
+    pub const MOTOR_DIRECTION_LEFT: f32 = 1.0; // 3Pi has normal motor directions
+    pub const MOTOR_DIRECTION_RIGHT: f32 = 1.0;
+    pub const MOTOR_MAX_DUTY_LEFT: f32 = 0.8;
+    pub const MOTOR_MAX_DUTY_RIGHT: f32 = 0.8;
+    pub const KX: f32 = 0.5;
+    pub const KY: f32 = 0.5;
+    pub const KTHETA: f32 = 0.8;
+}
+
+// Default values for testing when no features are active
+#[cfg(not(any(feature = "zumo", feature = "three-pi")))]
+mod robot_constants_for_traj_following {
+    pub const DT_S: f32 = 0.1;
+    pub const WHEEL_BASE: f32 = 0.099;
+    pub const MOTOR_DIRECTION_LEFT: f32 = -1.0; // Default to Zumo behavior
+    pub const MOTOR_DIRECTION_RIGHT: f32 = -1.0;
+    pub const MOTOR_MAX_DUTY_LEFT: f32 = 0.8;
+    pub const MOTOR_MAX_DUTY_RIGHT: f32 = 0.8;
+    pub const KX: f32 = 0.5;
+    pub const KY: f32 = 0.5;
+    pub const KTHETA: f32 = 0.8;
+}
+
+// Import the selected constants into the module scope
+use robot_constants_for_traj_following::*;
 
 // =============================== Save Trajectory ================================
 static TRAJ_REF: Mutex<ThreadModeRawMutex, RefCell<Option<&'static Trajectory>>> =
@@ -64,26 +104,9 @@ impl Sample {
 pub static SAMPLE: Mutex<ThreadModeRawMutex, RefCell<Sample>> =
     Mutex::new(RefCell::new(Sample::zero()));
 
-// pub async fn update_pose(x: f32, y: f32, yaw: f32) {
-//     let p = POSE.lock().await;
-//     *p.borrow_mut() = Pose { x, y, yaw };
-// }
-
 /* ===================== Control Related Variables and Functions ================== */
-pub struct Gains {
-    pub kx: f32,
-    pub ky: f32,
-    pub ktheta: f32,
-}
-
-pub struct CtrlCfg {
-    pub dt_s: f32,
-    pub wheel_base_m: f32,
-    pub gains: Gains,
-}
-
 #[embassy_executor::task]
-pub async fn control_task(motor: MotorController, cfg: CtrlCfg) {
+pub async fn control_task(motor: MotorController) {
     TRAJ_READY.wait().await;
 
     let (states, actions) = {
@@ -98,20 +121,22 @@ pub async fn control_task(motor: MotorController, cfg: CtrlCfg) {
 
     // ===== Wait for first pose and start event =====
     FIRST_MESSAGE.wait().await;
-    START_EVENT.wait().await;
+    // START_EVENT.wait().await;
 
     let mut pose: PoseAbs = {
         let s = LAST_STATE.lock().await;
         *s
     };
 
-    let mut ticker = Ticker::every(Duration::from_millis((cfg.dt_s * 1000.0) as u64));
+    let mut ticker = Ticker::every(Duration::from_millis((DT_S * 1000.0) as u64));
     let start = Instant::now();
+    info!("here");
 
     loop {
         // check whether we have new pose or not, if not then keep waiting
         match select(STATE_SIG.wait(), ticker.next()).await {
             Either::First(p) => {
+                info!("here");
                 pose = p;
                 continue;
             }
@@ -120,7 +145,7 @@ pub async fn control_task(motor: MotorController, cfg: CtrlCfg) {
 
         let t = Instant::now() - start;
         let t_sec = t.as_millis() as f32 / 1000.0;
-        let mut i = (t_sec / cfg.dt_s) as usize;
+        let mut i = (t_sec / DT_S) as usize;
         if i >= len {
             i = len - 1;
         }
@@ -153,15 +178,23 @@ pub async fn control_task(motor: MotorController, cfg: CtrlCfg) {
         let y_error = -dx * sinf(theta) + dy * cosf(theta);
         let delta_theta = wrap_angle(theta_d - theta);
 
-        let v_ctrl = v_d * cosf(delta_theta) + cfg.gains.kx * x_error;
-        let omega_ctrl = om_d
-            + v_d * (cfg.gains.ky * y_error + cfg.gains.ktheta * sinf(delta_theta))
-            + cfg.gains.ktheta * delta_theta;
+        let v_ctrl = v_d * cosf(delta_theta) + KX * x_error;
+        let omega_ctrl =
+            om_d + v_d * (KY * y_error + KTHETA * sinf(delta_theta)) + KTHETA * delta_theta;
 
-        let u_l = v_ctrl - omega_ctrl * cfg.wheel_base_m * 0.5;
-        let u_r = v_ctrl + omega_ctrl * cfg.wheel_base_m * 0.5;
+        let mut u_l = v_ctrl - omega_ctrl * WHEEL_BASE * 0.5;
+        let mut u_r = v_ctrl + omega_ctrl * WHEEL_BASE * 0.5;
 
-        motor.set_speed(u_l, u_r).await;
+        u_l = u_l.clamp(-MOTOR_MAX_DUTY_LEFT, MOTOR_MAX_DUTY_LEFT);
+        u_r = u_r.clamp(-MOTOR_MAX_DUTY_RIGHT, MOTOR_MAX_DUTY_RIGHT);
+
+        if i == (len - 1) {
+            motor.set_speed(0.0, 0.0).await;
+        } else {
+            motor
+                .set_speed(u_l * MOTOR_DIRECTION_LEFT, u_r * MOTOR_DIRECTION_RIGHT)
+                .await;
+        }
         defmt::info!(
             "i={}, ul={}, ur={}, pose=({},{},{})",
             i,
@@ -186,7 +219,7 @@ pub async fn control_task(motor: MotorController, cfg: CtrlCfg) {
             };
         }
 
-        Timer::after(Duration::from_millis((cfg.dt_s * 1000.0) as u64)).await;
+        Timer::after(Duration::from_millis((DT_S * 1000.0) as u64)).await;
     }
 }
 

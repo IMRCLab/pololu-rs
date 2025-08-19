@@ -229,6 +229,10 @@ tio /dev/ttyACM0
 
   **Robot-specific adaptions in joystick_control.rs**
   - `joystick_control.rs`: Default/testing configuration (currently Zumo parameters)
+  - `trajectory_control.rs`: Trajectory following controller.
+  - `trajectory_read.rs`: Read trajectory from preset json file.
+  - `trajectory_signal.rs`: Event/Update signals definition.
+  - `trajectory_uart.rs`: Receive poses from Mocap.
   - `bin/`: Binary targets
     - `teleop_control.rs`: Teleop control application
     - `trajectory_following.rs`: Trajectory following application

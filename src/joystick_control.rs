@@ -9,7 +9,7 @@ use crate::motor::MotorController;
 use crate::packet::{CmdLegacyPacketF32, CmdTeleopPacketMix};
 use crate::uart::SharedUart;
 // Import the global verbosity macros
-use crate::{debug_v1, debug_v2, debug_warn};
+use crate::debug_warn;
 
 use heapless::Vec;
 
@@ -17,8 +17,8 @@ const PI: f32 = core::f32::consts::PI;
 const SAMPLE_MS: u64 = 20;
 
 #[cfg(feature = "three-pi")]
-const MIN_RPM: f32 = -2388.0; //calculated from max speed 4 [m/s] and wheel radius 0.016 [m]
-const MAX_RPM: f32 = 2388.0;
+const _MIN_RPM: f32 = -2388.0; //calculated from max speed 4 [m/s] and wheel radius 0.016 [m]
+const _MAX_RPM: f32 = 2388.0;
 
 // Zumo robot constants
 #[cfg(feature = "zumo")]
@@ -110,11 +110,11 @@ pub async fn motor_control_task(
     left_counter: &'static Mutex<NoopRawMutex, i32>,
     right_counter: &'static Mutex<NoopRawMutex, i32>,
 ) {
-    // 初始滤波值设为 0.0 initial filter coefficient
+    // initial filter coefficient 0.0
     let mut filtered_rpm_left = 0.0;
     let mut filtered_rpm_right = 0.0;
 
-    // 滤波系数 α ∈ (0,1)，越小越平滑 Filterr coefficient alpha ∈ (0,1), smaller value means smoother/better
+    // Filterr coefficient alpha ∈ (0,1), smaller value means smoother/better
     let alpha = 0.1;
 
     let mut error_sum_left = 0.0;
@@ -148,15 +148,15 @@ pub async fn motor_control_task(
         let mut duty_left = ((kp * error_left + ki * error_sum_left) / 10000.0).clamp(-1.0, 1.0);
         let mut duty_right = ((kp * error_right + ki * error_sum_right) / 10000.0).clamp(-1.0, 1.0);
 
-        info!("Set Speed: {}, {}", duty_left, duty_right);
-        info!(
-            "rpm_left_target: {}, rpm_left_now: {}",
-            rpm_left_target, rpm_left_now
-        );
-        info!(
-            "rpm_right_target: {}, rpm_right_now: {}",
-            rpm_right_target, rpm_right_now
-        );
+        // info!("Set Speed: {}, {}", duty_left, duty_right);
+        // info!(
+        //     "rpm_left_target: {}, rpm_left_now: {}",
+        //     rpm_left_target, rpm_left_now
+        // );
+        // info!(
+        //     "rpm_right_target: {}, rpm_right_now: {}",
+        //     rpm_right_target, rpm_right_now
+        // );
 
         if v_left.abs() < 0.1 {
             //slack for zero speed recognition

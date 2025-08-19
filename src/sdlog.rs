@@ -146,7 +146,7 @@ pub fn init_sd_logger(
             return Err(SdError::NoCardOrInitFail);
         }
     };
-    let volume = VOLUME.init(volume); // 现在有了具体值，才能塞进 StaticCell
+    let volume = VOLUME.init(volume);
 
     let dir_res = volume.open_root_dir();
     let dir = match dir_res {

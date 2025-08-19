@@ -7,12 +7,9 @@ use embassy_executor::Spawner;
 use embassy_rp::init;
 
 use pololu3pi2040_rs::{
-    button::{button_task_b, button_task_c},
     encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     init::init_all,
     joystick_control::{get_gear_ratio, motor_control_task, robot_command_control_task},
-    sdlog::*,
-    uart::uart_receive_task,
 };
 
 #[embassy_executor::main]

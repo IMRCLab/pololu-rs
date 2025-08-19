@@ -1,3 +1,5 @@
+use core::f32::consts::FRAC_1_SQRT_2;
+
 use libm::{asinf, atan2f, sqrtf};
 
 pub struct Quaternion {
@@ -32,6 +34,40 @@ pub fn decode_quat_i8x4(p: u32) -> Quaternion {
         x: f(x),
         y: f(y),
         z: f(z),
+    }
+}
+
+pub fn quat_decompress(comp: u32) -> Quaternion {
+    let mut comp = comp;
+    let mask: u32 = (1 << 9) - 1; // 9-bit magnitude -> 0..511
+
+    let i_largest: usize = (comp >> 30) as usize;
+
+    let mut q = [0.0f32; 4];
+    let mut sum_squares: f32 = 0.0;
+
+    for i in (0..=3).rev() {
+        if i != i_largest {
+            let mag: u32 = comp & mask;
+            let negbit: u32 = (comp >> 9) & 0x1;
+            comp >>= 10;
+
+            let mut val = FRAC_1_SQRT_2 * (mag as f32) / (mask as f32);
+            if negbit == 1 {
+                val = -val;
+            }
+            q[i] = val;
+            sum_squares += val * val;
+        }
+    }
+
+    q[i_largest] = sqrtf(1.0f32 - sum_squares);
+
+    Quaternion {
+        w: q[3],
+        x: q[0],
+        y: q[1],
+        z: q[2],
     }
 }
 

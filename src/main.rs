@@ -13,7 +13,7 @@ use pololu3pi2040_rs::{
     encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     imu::read_imu_task,
     init::init_all,
-    joystick_control::{motor_control_task, CONTROL_CMD_UNICYCLE, ControlCommandUnicycle},
+    joystick_control::{CONTROL_CMD_UNICYCLE, ControlCommandUnicycle, motor_control_task},
     sdlog::*,
     uart::uart_receive_task,
 };
@@ -54,7 +54,11 @@ async fn main(spawner: Spawner) {
     // Start the PI controller task instead of direct motor control
     let motors = devices.motor;
     spawner
-        .spawn(motor_control_task(motors, encoder_count_left, encoder_count_right))
+        .spawn(motor_control_task(
+            motors,
+            encoder_count_left,
+            encoder_count_right,
+        ))
         .unwrap();
 
     // === IMU Task ===
@@ -101,7 +105,7 @@ async fn main(spawner: Spawner) {
 
     // === Control Logic - Step Function Tests ===
     defmt::info!("Starting step function tests for wheel speed control");
-    
+
     // Helper function to set wheel speed commands
     let set_wheel_speed = |v: f32, omega: f32| async move {
         let mut lock = CONTROL_CMD_UNICYCLE.lock().await;
@@ -119,7 +123,7 @@ async fn main(spawner: Spawner) {
 
         // Step 2: Step up to 0.4 m/s for 4 seconds
         defmt::info!("=== Step 2: Step up to 0.4 m/s for 4 seconds ===");
-        set_wheel_speed(1.0, 0.0).await;
+        // set_wheel_speed(1.0, 0.0).await;
         Timer::after_millis(4000).await;
 
         // Step 3: Set back to zero for 4 seconds

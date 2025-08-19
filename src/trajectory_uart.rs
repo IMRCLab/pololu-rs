@@ -4,7 +4,7 @@ use embassy_futures::select::{Either, select};
 use embassy_time::{Duration, Timer};
 use heapless::Vec as HVec;
 
-use crate::math::{decode_quat_i8x4, rpy_from_quaternion};
+use crate::math::{quat_decompress, rpy_from_quaternion};
 use crate::trajectory_signal::{FIRST_MESSAGE, LAST_STATE, PoseAbs, START_EVENT, STATE_SIG};
 use crate::uart::SharedUart; // = Mutex<Raw, Uart<'static, Async>>
 
@@ -13,9 +13,9 @@ pub struct UartCfg {
     pub robot_id: u8,
 }
 
-const FRAME_MAX: usize = 64;
-const LEN_A: u8 = 0x18;
-const LEN_B: u8 = 10;
+const FRAME_MAX: usize = 54;
+const LEN_POSE: u8 = 18;
+const LEN_START: u8 = 10;
 
 #[embassy_executor::task]
 pub async fn uart_motioncap_receiving_task(uart: SharedUart<'static>, cfg: UartCfg) {
@@ -47,7 +47,8 @@ pub async fn uart_motioncap_receiving_task(uart: SharedUart<'static>, cfg: UartC
         };
 
         let len = len_buf[0];
-        if !(len == LEN_A || len == LEN_B) {
+        if !(len == LEN_POSE || len == LEN_START) {
+            // info!("here1");
             continue; // illegal Length
         }
 
@@ -58,7 +59,8 @@ pub async fn uart_motioncap_receiving_task(uart: SharedUart<'static>, cfg: UartC
 
         while got < need {
             // maximally read 32 bytes at a time
-            let mut chunk = [0u8, 32];
+
+            let mut chunk = [0u8; 18];
             let take = min(need - got, chunk.len());
 
             let ok: bool = {
@@ -81,9 +83,10 @@ pub async fn uart_motioncap_receiving_task(uart: SharedUart<'static>, cfg: UartC
             }
 
             // attach to frame
-            for &b in &chunk[..take] {
-                let _ = frame.push(b);
-            }
+            let _ = frame.extend_from_slice(&chunk[..take]);
+            // for &b in &chunk[..take] {
+            //     let _ = frame.push(b);
+            // }
             got += take;
         }
 
@@ -92,43 +95,46 @@ pub async fn uart_motioncap_receiving_task(uart: SharedUart<'static>, cfg: UartC
         }
 
         // -------- Decoding --------
-        if is_start_event(&frame) {
-            START_EVENT.signal(());
-            info!("start event received");
+        if len == LEN_START {
+            if is_start_event(&frame) {
+                START_EVENT.signal(());
+                info!("start event received");
+            }
             continue;
         }
-        if let Some(pose) = decode_abs_pose(&frame, cfg.robot_id) {
-            {
-                let mut s = LAST_STATE.lock().await;
-                *s = pose;
-            }
-            STATE_SIG.signal(pose);
+        if len == LEN_POSE {
+            if let Some(pose) = decode_abs_pose(&frame, cfg.robot_id) {
+                {
+                    let mut s = LAST_STATE.lock().await;
+                    *s = pose;
+                }
+                STATE_SIG.signal(pose);
 
-            if !seen_first {
-                FIRST_MESSAGE.signal(());
-                seen_first = true;
-                info!("first message set");
+                if !seen_first {
+                    FIRST_MESSAGE.signal(());
+                    seen_first = true;
+                    info!("first message set");
+                }
             }
-        } else {
-            // Unknown Frame, ignore.
+            continue;
         }
     }
 }
 
 fn is_start_event(payload: &[u8]) -> bool {
-    payload.len() >= 2 && (payload[0] & 0xF3) == 0x80 && payload[1] == 0x05
+    payload.len() == 10 && (payload[0] & 0xF3) == 0x80 && payload[1] == 0x05
 }
 
 fn decode_abs_pose(payload: &[u8], robot_id: u8) -> Option<PoseAbs> {
     // frame header check
-    if !(payload.len() >= 24 && (payload[0] & 0xF3) == 0x61 && payload[1] == 0x09) {
+    // info!("here3 {}", payload);
+
+    if !(payload.len() == 18 && (payload[0] == 0x3C)) {
         return None;
     }
 
-    let s1 = if payload[2] == robot_id {
-        &payload[2..13]
-    } else if payload[13] == robot_id {
-        &payload[13..24]
+    let s1 = if payload[1] == robot_id {
+        &payload[2..18]
     } else {
         return None;
     };
@@ -137,15 +143,32 @@ fn decode_abs_pose(payload: &[u8], robot_id: u8) -> Option<PoseAbs> {
         return None;
     }
 
-    // i16(mm) -> f32(m)
-    let x = i16::from_le_bytes([s1[1], s1[2]]) as f32 * 0.001;
-    let y = i16::from_le_bytes([s1[3], s1[4]]) as f32 * 0.001;
-    let z = i16::from_le_bytes([s1[5], s1[6]]) as f32 * 0.001;
+    // if let Some(pkt) = MocapPosesPacketF32Test::from_bytes(&buffer) {
+    //                     defmt::info!(
+    //                         "Pose Packet: robot_id={}, PosX={} PosY={} Pos_Z={} Quat={}",
+    //                         pkt.robot_id,
+    //                         pkt.pos_x,
+    //                         pkt.pos_y,
+    //                         pkt.pos_z,
+    //                         pkt.quat
+    //                     );
+    //                 } else {
+    //                     defmt::warn!("Invalid Pose packet");
+    //                 }
 
-    // I8x4 -> Quaternion
-    let raw = u32::from_le_bytes([s1[7], s1[8], s1[9], s1[10]]);
-    let q = decode_quat_i8x4(raw);
+    let x = f32::from_le_bytes([s1[0], s1[1], s1[2], s1[3]]);
+    let y = f32::from_le_bytes([s1[4], s1[5], s1[6], s1[7]]);
+    let z = f32::from_le_bytes([s1[8], s1[9], s1[10], s1[11]]);
+
+    let raw = u32::from_le_bytes([s1[12], s1[13], s1[14], s1[15]]);
+    let q = quat_decompress(raw);
+    info!("quat {} {} {} {}", q.x, q.y, q.z, q.w);
     let (roll, pitch, yaw) = rpy_from_quaternion(&q);
+
+    info!(
+        "x:{}, y:{}, z:{}, roll:{}, pitch:{}, yaw:{}",
+        x, y, z, roll, pitch, yaw,
+    );
 
     Some(PoseAbs {
         x,
