@@ -16,6 +16,7 @@ use embedded_sdmmc::{
 use heapless::String;
 use static_cell::StaticCell;
 
+use crate::robot_config::{RobotConfig, load_robot_config_with_dir};
 use crate::trajectory_control::{register_trajectory, store_trajectory};
 
 pub type SpiDev<'a> = ExclusiveDevice<Spi<'a, SPI0, spi::Blocking>, Output<'a>, NoDelay>;
@@ -117,7 +118,7 @@ pub fn init_sd_logger(
     mosi: Peri<'static, PIN_19>,
     miso: Peri<'static, PIN_20>,
     cs: Peri<'static, PIN_21>,
-) -> Result<SdLogger, SdError> {
+) -> Result<(SdLogger, RobotConfig), SdError> {
     // SPI clock needs to be running at <= 400kHz during initialization
     let mut slow_cfg = spi::Config::default();
     slow_cfg.frequency = 400_000;
@@ -202,7 +203,18 @@ pub fn init_sd_logger(
             defmt::warn!("Trajectory file not found or open failed: {}", e);
         }
     }
+    // === Read + Parse Trajectory（File name must be json, file name format must be: TRJ0001.JSN） ===
 
+    // =============================== Read Robot Configuration file =================================
+    let cfg = load_robot_config_with_dir::<
+        Sd<'static>,
+        Clock,
+        { MAX_DIRS },
+        { MAX_FILES },
+        { MAX_VOLUMES },
+    >(dir, scratch);
+
+    // ============================= Prepare logging file for trajectory =============================
     let mut file = None;
     for i in 0..100 {
         // File name will be TR00....TR99, binary file
@@ -233,7 +245,7 @@ pub fn init_sd_logger(
     let file = file.expect("No available log file slot");
     info!("SD logger initialized.");
 
-    Ok(SdLogger { file })
+    Ok((SdLogger { file }, cfg))
 }
 
 #[repr(C)]
