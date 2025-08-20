@@ -6,6 +6,7 @@ use crate::buzzer::Buzzer;
 use crate::encoder::{EncoderCounters, EncoderPair, init_encoder_counts};
 use crate::led::Led;
 use crate::motor::{MotorController, init_motor};
+use crate::robot_config::RobotConfig;
 use crate::sdlog::{self, SdLogger};
 use crate::uart::SharedUart;
 use embassy_rp::peripherals::UART0;
@@ -46,6 +47,7 @@ pub struct InitDevices<'a> {
     pub imu: ImuPack<'a, I2c<'a, I2C0, i2c::Async>>,
     pub uart: SharedUart<'static>,
     pub sdlogger: Option<SdLogger>,
+    pub config: Option<RobotConfig>,
 }
 
 /// init all used components
@@ -108,13 +110,14 @@ pub fn init_all(p: embassy_rp::Peripherals) -> InitDevices<'static> {
     let uart = UART_CELL.init(Mutex::new(uart));
 
     // === SD Logger ===
-    let sdlogger = match sdlog::init_sd_logger(p.SPI0, p.PIN_18, p.PIN_19, p.PIN_20, p.PIN_21) {
-        Ok(l) => Some(l),
-        Err(_e) => {
-            defmt::info!("SD card initilization failed!!");
-            None
-        }
-    };
+    let (sdlogger, config) =
+        match sdlog::init_sd_logger(p.SPI0, p.PIN_18, p.PIN_19, p.PIN_20, p.PIN_21) {
+            Ok((logger, cfg)) => (Some(logger), Some(cfg)),
+            Err(_e) => {
+                defmt::info!("SD card initialization failed!!");
+                (None, Some(RobotConfig::default()))
+            }
+        };
 
     InitDevices {
         led,
@@ -126,5 +129,6 @@ pub fn init_all(p: embassy_rp::Peripherals) -> InitDevices<'static> {
         imu,
         uart,
         sdlogger,
+        config,
     }
 }

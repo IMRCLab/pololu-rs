@@ -9,53 +9,54 @@ use libm::{cosf, sinf};
 use static_cell::StaticCell;
 
 use crate::motor::MotorController;
+use crate::robot_config::RobotConfig;
 use crate::trajectory_reading::{Action, Pose, Trajectory};
 use crate::trajectory_signal::{FIRST_MESSAGE, LAST_STATE, PoseAbs, STATE_SIG};
 
 // Zumo robot constants
-#[cfg(feature = "zumo")]
-mod robot_constants_for_traj_following {
-    pub const DT_S: f32 = 0.1;
-    pub const WHEEL_BASE: f32 = 0.099;
-    pub const MOTOR_DIRECTION_LEFT: f32 = -1.0; // Zumo has reversed motors
-    pub const MOTOR_DIRECTION_RIGHT: f32 = -1.0;
-    pub const MOTOR_MAX_DUTY_LEFT: f32 = 0.8;
-    pub const MOTOR_MAX_DUTY_RIGHT: f32 = 0.8;
-    pub const KX: f32 = 0.5;
-    pub const KY: f32 = 0.5;
-    pub const KTHETA: f32 = 0.8;
-}
+// #[cfg(feature = "zumo")]
+// mod robot_constants_for_traj_following {
+//     pub const DT_S: f32 = 0.1;
+//     pub const WHEEL_BASE: f32 = 0.099;
+//     pub const MOTOR_DIRECTION_LEFT: f32 = -1.0; // Zumo has reversed motors
+//     pub const MOTOR_DIRECTION_RIGHT: f32 = -1.0;
+//     pub const MOTOR_MAX_DUTY_LEFT: f32 = 0.8;
+//     pub const MOTOR_MAX_DUTY_RIGHT: f32 = 0.8;
+//     pub const KX: f32 = 0.5;
+//     pub const KY: f32 = 0.5;
+//     pub const KTHETA: f32 = 0.8;
+// }
 
-// 3Pi robot constants
-#[cfg(feature = "three-pi")]
-mod robot_constants_for_traj_following {
-    pub const DT_S: f32 = 0.1;
-    pub const WHEEL_BASE: f32 = 0.0842;
-    pub const MOTOR_DIRECTION_LEFT: f32 = 1.0; // 3Pi has normal motor directions
-    pub const MOTOR_DIRECTION_RIGHT: f32 = 1.0;
-    pub const MOTOR_MAX_DUTY_LEFT: f32 = 0.8;
-    pub const MOTOR_MAX_DUTY_RIGHT: f32 = 0.8;
-    pub const KX: f32 = 0.5;
-    pub const KY: f32 = 0.5;
-    pub const KTHETA: f32 = 0.8;
-}
+// // 3Pi robot constants
+// #[cfg(feature = "three-pi")]
+// mod robot_constants_for_traj_following {
+//     pub const DT_S: f32 = 0.1;
+//     pub const WHEEL_BASE: f32 = 0.0842;
+//     pub const MOTOR_DIRECTION_LEFT: f32 = 1.0; // 3Pi has normal motor directions
+//     pub const MOTOR_DIRECTION_RIGHT: f32 = 1.0;
+//     pub const MOTOR_MAX_DUTY_LEFT: f32 = 0.8;
+//     pub const MOTOR_MAX_DUTY_RIGHT: f32 = 0.8;
+//     pub const KX: f32 = 0.5;
+//     pub const KY: f32 = 0.5;
+//     pub const KTHETA: f32 = 0.8;
+// }
 
-// Default values for testing when no features are active
-#[cfg(not(any(feature = "zumo", feature = "three-pi")))]
-mod robot_constants_for_traj_following {
-    pub const DT_S: f32 = 0.1;
-    pub const WHEEL_BASE: f32 = 0.099;
-    pub const MOTOR_DIRECTION_LEFT: f32 = -1.0; // Default to Zumo behavior
-    pub const MOTOR_DIRECTION_RIGHT: f32 = -1.0;
-    pub const MOTOR_MAX_DUTY_LEFT: f32 = 0.8;
-    pub const MOTOR_MAX_DUTY_RIGHT: f32 = 0.8;
-    pub const KX: f32 = 0.5;
-    pub const KY: f32 = 0.5;
-    pub const KTHETA: f32 = 0.8;
-}
+// // Default values for testing when no features are active
+// #[cfg(not(any(feature = "zumo", feature = "three-pi")))]
+// mod robot_constants_for_traj_following {
+//     pub const DT_S: f32 = 0.1;
+//     pub const WHEEL_BASE: f32 = 0.099;
+//     pub const MOTOR_DIRECTION_LEFT: f32 = -1.0; // Default to Zumo behavior
+//     pub const MOTOR_DIRECTION_RIGHT: f32 = -1.0;
+//     pub const MOTOR_MAX_DUTY_LEFT: f32 = 0.8;
+//     pub const MOTOR_MAX_DUTY_RIGHT: f32 = 0.8;
+//     pub const KX: f32 = 0.5;
+//     pub const KY: f32 = 0.5;
+//     pub const KTHETA: f32 = 0.8;
+// }
 
-// Import the selected constants into the module scope
-use robot_constants_for_traj_following::*;
+// // Import the selected constants into the module scope
+// use robot_constants_for_traj_following::*;
 
 // =============================== Save Trajectory ================================
 static TRAJ_REF: Mutex<ThreadModeRawMutex, RefCell<Option<&'static Trajectory>>> =
@@ -106,7 +107,7 @@ pub static SAMPLE: Mutex<ThreadModeRawMutex, RefCell<Sample>> =
 
 /* ===================== Control Related Variables and Functions ================== */
 #[embassy_executor::task]
-pub async fn control_task(motor: MotorController) {
+pub async fn control_task(motor: MotorController, cfg: RobotConfig) {
     TRAJ_READY.wait().await;
 
     let (states, actions) = {
@@ -128,7 +129,7 @@ pub async fn control_task(motor: MotorController) {
         *s
     };
 
-    let mut ticker = Ticker::every(Duration::from_millis((DT_S * 1000.0) as u64));
+    let mut ticker = Ticker::every(Duration::from_millis((cfg.dt_s * 1000.0) as u64));
     let start = Instant::now();
     info!("here");
 
@@ -145,7 +146,7 @@ pub async fn control_task(motor: MotorController) {
 
         let t = Instant::now() - start;
         let t_sec = t.as_millis() as f32 / 1000.0;
-        let mut i = (t_sec / DT_S) as usize;
+        let mut i = (t_sec / cfg.dt_s) as usize;
         if i >= len {
             i = len - 1;
         }
@@ -178,21 +179,25 @@ pub async fn control_task(motor: MotorController) {
         let y_error = -dx * sinf(theta) + dy * cosf(theta);
         let delta_theta = wrap_angle(theta_d - theta);
 
-        let v_ctrl = v_d * cosf(delta_theta) + KX * x_error;
-        let omega_ctrl =
-            om_d + v_d * (KY * y_error + KTHETA * sinf(delta_theta)) + KTHETA * delta_theta;
+        let v_ctrl = v_d * cosf(delta_theta) + cfg.kx * x_error;
+        let omega_ctrl = om_d
+            + v_d * (cfg.ky * y_error + cfg.ktheta * sinf(delta_theta))
+            + cfg.ktheta * delta_theta;
 
-        let mut u_l = v_ctrl - omega_ctrl * WHEEL_BASE * 0.5;
-        let mut u_r = v_ctrl + omega_ctrl * WHEEL_BASE * 0.5;
+        let mut u_l = v_ctrl - omega_ctrl * cfg.wheel_base * 0.5;
+        let mut u_r = v_ctrl + omega_ctrl * cfg.wheel_base * 0.5;
 
-        u_l = u_l.clamp(-MOTOR_MAX_DUTY_LEFT, MOTOR_MAX_DUTY_LEFT);
-        u_r = u_r.clamp(-MOTOR_MAX_DUTY_RIGHT, MOTOR_MAX_DUTY_RIGHT);
+        u_l = u_l.clamp(-cfg.motor_max_duty_left, cfg.motor_max_duty_left);
+        u_r = u_r.clamp(-cfg.motor_max_duty_right, cfg.motor_max_duty_right);
 
         if i == (len - 1) {
             motor.set_speed(0.0, 0.0).await;
         } else {
             motor
-                .set_speed(u_l * MOTOR_DIRECTION_LEFT, u_r * MOTOR_DIRECTION_RIGHT)
+                .set_speed(
+                    u_l * cfg.motor_direction_left,
+                    u_r * cfg.motor_direction_right,
+                )
                 .await;
         }
         defmt::info!(
@@ -219,7 +224,7 @@ pub async fn control_task(motor: MotorController) {
             };
         }
 
-        Timer::after(Duration::from_millis((DT_S * 1000.0) as u64)).await;
+        Timer::after(Duration::from_millis((cfg.dt_s * 1000.0) as u64)).await;
     }
 }
 

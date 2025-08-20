@@ -29,7 +29,9 @@ async fn main(spawner: Spawner) {
         .unwrap();
 
     // ==================== start control task ===========================
-    spawner.spawn(control_task(devices.motor)).unwrap();
+    spawner
+        .spawn(control_task(devices.motor, devices.config.unwrap()))
+        .unwrap();
 
     // ========================= blink LED ===============================
     let mut on = false;
