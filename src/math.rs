@@ -1,6 +1,8 @@
 use core::f32::consts::FRAC_1_SQRT_2;
 
-use libm::{asinf, atan2f, sqrtf};
+const PI: f32 = core::f32::consts::PI;
+
+use libm::{asinf, atan2f, cosf, sinf, sqrtf};
 
 pub struct Quaternion {
     pub w: f32,
@@ -88,4 +90,71 @@ pub fn rpy_from_quaternion(q: &Quaternion) -> (f32, f32, f32) {
     let yaw = atan2f(siny_cosp, cosy_cosp);
 
     (roll, pitch, yaw)
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct SO2 {
+    value: f32, // rad, [-pi, pi]
+}
+
+impl SO2 {
+    pub fn zero() -> SO2 {
+        SO2 { value: 0.0 }
+    }
+    pub fn value(&self) -> f32 {
+        self.value
+    }
+
+    pub fn new(value: f32) -> SO2 {
+        let mut v = SO2 { value };
+        v.normalize();
+        v
+    }
+
+    // Normalize radians to be in range [-pi,pi]
+    // See https://stackoverflow.com/questions/4633177/c-how-to-wrap-a-float-to-the-interval-pi-pi
+    fn normalize(&mut self) {
+        // Copy the sign of the value in radians to the value of pi.
+        let signed_pi = PI.copysign(self.value);
+        // Set the value of difference to the appropriate signed value between pi and -pi.
+        self.value = (self.value + signed_pi) % (2.0 * PI) - signed_pi;
+    }
+
+    // returns the current value in radians [-pi, pi]
+    pub fn rad(&self) -> f32 {
+        self.value
+    }
+
+    pub fn cos(&self) -> f32 {
+        cosf(self.value)
+    }
+
+    pub fn sin(&self) -> f32 {
+        sinf(self.value)
+    }
+
+    // smallest signed difference
+    // see https://stackoverflow.com/questions/1878907/how-can-i-find-the-smallest-difference-between-two-angles-around-a-point
+    pub fn error(target: SO2, source: SO2) -> f32 {
+        let d = target.value - source.value;
+        atan2f(sinf(d), cosf(d))
+    }
+
+    pub fn distance(a: SO2, b: SO2) -> f32 {
+        assert!(a.value <= PI);
+        assert!(a.value >= -PI);
+        assert!(b.value <= PI);
+        assert!(b.value >= -PI);
+
+        let d = (a.value - b.value).abs();
+        if d > PI {
+            return 2.0 * PI - d;
+        }
+        d
+    }
+    pub fn add(&mut self, a: f32) -> SO2 {
+        let mut v = SO2::new(self.value + a);
+        v.normalize();
+        v
+    }
 }

@@ -2,3 +2,7 @@
 *.log
 *.csv
 /Debug
+*/install
+*/logs
+*/build
+*/log
