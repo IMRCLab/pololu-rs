@@ -42,7 +42,7 @@ mod robot_constants_diffdrive {
     pub const WHEEL_BASE: f32 = 0.099;
     pub const MOTOR_DIRECTION_LEFT: f32 = -1.0;
     pub const MOTOR_DIRECTION_RIGHT: f32 = -1.0;
-    pub const WHEEL_SPEED_MAX: f32 = 5.0;
+    pub const WHEEL_SPEED_MAX: f32 = 5.0 / 2.0;
     pub const KX: f32 = 1.0;
     pub const KY: f32 = 1.0;
     pub const KTHETA: f32 = 2.0;
@@ -231,7 +231,7 @@ pub async fn diffdrive_control_task(motor: MotorController) {
     let controller = DiffdriveController::new(KX, KY, KTHETA);
 
     // Wait for first mocap pose
-    FIRST_MESSAGE.wait().await;
+    //FIRST_MESSAGE.wait().await; --> no mocap needed for diff flatness generated action sequence
 
     let mut pose: PoseAbs = {
         let s = LAST_STATE.lock().await;
@@ -289,10 +289,12 @@ pub async fn diffdrive_control_task(motor: MotorController) {
         // Use only the feedforward actions from the trajectory (vdes, wdes)
         let v = setpoint.vdes;
         let w = setpoint.wdes;
-        let mut ur = (2.0 * v + robot.l * w) / (2.0 * robot.r);
-        let mut ul = (2.0 * v - robot.l * w) / (2.0 * robot.r);
-        ur = ur.clamp(robot.ur_min, robot.ur_max);
-        ul = ul.clamp(robot.ul_min, robot.ul_max);
+        //let mut ur = (2.0 * v + robot.l * w) / (2.0 * robot.r);
+        //let mut ul = (2.0 * v - robot.l * w) / (2.0 * robot.r);
+        let ul = v - w * WHEEL_BASE / 2.0;
+        let ur = v + w * WHEEL_BASE / 2.0;
+        //ur = ur.clamp(robot.ur_min, robot.ur_max);
+        //ul = ul.clamp(robot.ul_min, robot.ul_max);
 
         // Convert wheel speeds to motor duty cycles
         let duty_left = (ul / WHEEL_SPEED_MAX).clamp(-1.0, 1.0) * MOTOR_DIRECTION_LEFT;
@@ -302,11 +304,13 @@ pub async fn diffdrive_control_task(motor: MotorController) {
         motor.set_speed(duty_left, duty_right).await;
 
         defmt::info!(
-            "t={}s, pos=({},{},{}), ff_action=({},{}), duty=({},{})",
+            "t={}s, pos_d=({},{},{}), action_d=({},{}), u = ({}, {}), duty=({},{})",
             t_sec,
-            robot.s.x,
-            robot.s.y,
-            robot.s.theta.rad(),
+            setpoint.des.x,
+            setpoint.des.y,
+            setpoint.des.theta.rad(),
+            setpoint.vdes,
+            setpoint.wdes,
             ul,
             ur,
             duty_left,
@@ -314,7 +318,7 @@ pub async fn diffdrive_control_task(motor: MotorController) {
         );
 
         // Stop after complete trajectory
-        if t_sec > circle_duration + bezier_duration + 2.0 {
+        if t_sec > circle_duration {
             motor.set_speed(0.0, 0.0).await;
             defmt::info!("Diffdrive trajectory following complete");
             break;
