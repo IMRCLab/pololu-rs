@@ -5,7 +5,7 @@ use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, signal::Signal};
 use embassy_time::{Duration, Instant, Ticker, Timer};
 use libm::{atan2f, cosf, sinf, sqrtf};
 
-use crate::motor::MotorController;
+use crate::motor::{Motor, MotorController};
 use crate::trajectory_signal::{FIRST_MESSAGE, LAST_STATE, PoseAbs, STATE_SIG};
 
 // Robot constants for diffdrive control
@@ -16,7 +16,6 @@ mod robot_constants_diffdrive {
     pub const WHEEL_BASE: f32 = 0.099; // 99mm wheelbase
     pub const MOTOR_DIRECTION_LEFT: f32 = -1.0;
     pub const MOTOR_DIRECTION_RIGHT: f32 = -1.0;
-    pub const WHEEL_SPEED_MAX: f32 = 5.0; // rad/s
     pub const KX: f32 = 1.0;
     pub const KY: f32 = 1.0;
     pub const KTHETA: f32 = 2.0;
@@ -29,7 +28,6 @@ mod robot_constants_diffdrive {
     pub const WHEEL_BASE: f32 = 0.0842; // 84.2mm wheelbase
     pub const MOTOR_DIRECTION_LEFT: f32 = 1.0;
     pub const MOTOR_DIRECTION_RIGHT: f32 = 1.0;
-    pub const WHEEL_SPEED_MAX: f32 = 5.0; // rad/s
     pub const KX: f32 = 1.0;
     pub const KY: f32 = 1.0;
     pub const KTHETA: f32 = 2.0;
@@ -37,20 +35,27 @@ mod robot_constants_diffdrive {
 
 #[cfg(not(any(feature = "zumo", feature = "three-pi")))]
 mod robot_constants_diffdrive {
-    pub const DT_S: f32 = 0.1;
+    pub const DT_S: f32 = 0.1; // Default to 100ms time step
     pub const WHEEL_RADIUS: f32 = 0.02;
     pub const WHEEL_BASE: f32 = 0.099;
     pub const MOTOR_DIRECTION_LEFT: f32 = -1.0;
     pub const MOTOR_DIRECTION_RIGHT: f32 = -1.0;
-    pub const WHEEL_SPEED_MAX: f32 = 5.0 / 2.0;
     pub const KX: f32 = 1.0;
     pub const KY: f32 = 1.0;
     pub const KTHETA: f32 = 2.0;
+    pub const GEAR_RATIO: f32 = 75.81;
+    pub const ENCODER_CPR: f32 = -GEAR_RATIO * 12.0 / 4.0;
+    pub const MAX_SPEED: f32 = 0.65; // 65 cm/s, according to datasheet 75:1 Gear Ratio
+    //find out the actual maximum speed of Zumo
+    pub const WHEEL_MAX: f32 = 0.233 * MAX_SPEED / WHEEL_RADIUS; // Maximum wheel speed in m/s scaling is experimentally derived
 }
-
+//TODO:
+//clean up robot struct and timer
+//add abstraction layer for trajectory selection
+//time to test the position controller with mocap system
 use robot_constants_diffdrive::*;
 
-pub static DIFFDRIVE_TRAJECTORY_READY: Signal<ThreadModeRawMutex, ()> = Signal::new();
+//pub static DIFFDRIVE_TRAJECTORY_READY: Signal<ThreadModeRawMutex, ()> = Signal::new();
 
 #[derive(Debug, Copy, Clone)]
 pub struct DiffdriveState {
@@ -122,16 +127,18 @@ impl Diffdrive {
         }
     }
 
-    pub fn circlereference(&self, t: f32, r: f32) -> DiffdriveSetpoint {
-        let x = r * cosf(t);
-        let y = r * sinf(t);
-        let xd = -r * sinf(t);
-        let yd = r * cosf(t);
-        let xdd = -r * cosf(t);
-        let ydd = -r * sinf(t);
+    pub fn circlereference(&self, t: f32, r: f32, wd: f32) -> DiffdriveSetpoint {
+        //apply scaling of t to reduce the angular velocity desired
+        let x = r * cosf(t * wd);
+        let y = r * sinf(t * wd);
+        //note: multiply with inner derivative
+        let xd = -r * sinf(t * wd) * wd;
+        let yd = r * cosf(t * wd) * wd;
+        let xdd = -r * cosf(t * wd) * wd * wd;
+        let ydd = -r * sinf(t * wd) * wd * wd;
 
-        let vdes: f32 = sqrtf(xd * xd + yd * yd);
-        let wdes: f32 = (ydd * xd - xdd * yd) / (xd * xd + yd * yd);
+        let vdes: f32 = sqrtf(xd * xd + yd * yd); //r * wd;
+        let wdes: f32 = (ydd * xd - xdd * yd) / (xd * xd + yd * yd); //wd
         let theta = SO2::new(atan2f(yd, xd));
 
         let des: DiffdriveState = DiffdriveState { x, y, theta };
@@ -139,6 +146,7 @@ impl Diffdrive {
     }
 
     pub fn beziercurve(&self, p: Point, t: f32, tau: f32) -> DiffdriveSetpoint {
+        //issue: Zumo has trouble keeping the angular velocity for the whole trajectory
         let t_norm = t / tau;
         let one_minus_t = 1.0 - t_norm;
 
@@ -201,6 +209,7 @@ impl DiffdriveController {
         // Convert to wheel speeds
         let mut ur = (2.0 * v + robot.l * w) / (2.0 * robot.r);
         let mut ul = (2.0 * v - robot.l * w) / (2.0 * robot.r);
+        //trying to give out an rpm value
 
         // Clip actions to permissible range
         ur = ur.clamp(robot.ur_min, robot.ur_max);
@@ -215,22 +224,26 @@ impl DiffdriveController {
 #[embassy_executor::task]
 pub async fn diffdrive_control_task(motor: MotorController) {
     // Wait for trajectory system to be ready
-    DIFFDRIVE_TRAJECTORY_READY.wait().await;
+    //DIFFDRIVE_TRAJECTORY_READY.wait().await;
 
     // Initialize robot model
     let mut robot = Diffdrive::new(
-        WHEEL_RADIUS,
-        WHEEL_BASE,
-        -WHEEL_SPEED_MAX,
-        WHEEL_SPEED_MAX,
-        -WHEEL_SPEED_MAX,
-        WHEEL_SPEED_MAX,
-    );
+        WHEEL_RADIUS, // 0.02 [m]
+        WHEEL_BASE,   // 0.099 [m]
+        -1.0,
+        1.0,
+        -1.0,
+        1.0,
+        //-MAX_SPEED,   // left wheel min
+        //MAX_SPEED,    // left wheel max
+        //-MAX_SPEED,   // right wheel min
+        //MAX_SPEED,    // right wheel max
+    ); //some max values ....
 
     // Initialize controller
     let controller = DiffdriveController::new(KX, KY, KTHETA);
 
-    // Wait for first mocap pose
+    // Wait for first mocap pose. not needed for now.
     //FIRST_MESSAGE.wait().await; --> no mocap needed for diff flatness generated action sequence
 
     let mut pose: PoseAbs = {
@@ -243,36 +256,39 @@ pub async fn diffdrive_control_task(motor: MotorController) {
     robot.s.y = pose.y;
     robot.s.theta = SO2::new(pose.yaw);
 
-    let mut ticker = Ticker::every(Duration::from_millis((DT_S * 1000.0) as u64));
+    let mut ticker = Ticker::every(Duration::from_millis((DT_S * 1000.0) as u64)); //define waiting time in loop
     let start = Instant::now();
 
     defmt::info!("Starting diffdrive trajectory following");
 
     // Demo trajectories
-    let circle_radius = 0.3; // 30cm radius
-    let circle_duration = 10.0; // 10 seconds
+    let circle_radius = 0.2; // 20cm radius
+    let circle_duration = 4.0; // 4 seconds
 
-    let bezier_duration = 8.0; // 8 seconds
+    // Bezier curve example doesn't look great.
+    let bezier_duration = 30.0; // 30 seconds
     let bezier_point = Point {
         p0x: 0.0,
         p0y: 0.0,
-        p1x: 0.2,
-        p1y: 0.1,
-        p2x: 0.4,
-        p2y: 0.3,
-        p3x: 0.6,
-        p3y: 0.2,
+        p1x: 0.0,
+        p1y: 0.5,
+        p2x: 0.5,
+        p2y: 0.0,
+        p3x: 0.5,
+        p3y: 0.5,
         x_ref: 0.0,
         y_ref: 0.0,
         theta_ref: 0.0,
     };
 
+    //counter for timestep in trajectory generation
+    let mut t_counter = 0.0;
+
     loop {
-        // Check for new pose data or timer tick
+        // Only compute and publish setpoint for speed controller
         match select(STATE_SIG.wait(), ticker.next()).await {
             Either::First(new_pose) => {
                 pose = new_pose;
-                // Update robot state from mocap
                 robot.s.x = pose.x;
                 robot.s.y = pose.y;
                 robot.s.theta = SO2::new(pose.yaw);
@@ -284,47 +300,75 @@ pub async fn diffdrive_control_task(motor: MotorController) {
         let t = Instant::now() - start;
         let t_sec = t.as_millis() as f32 / 1000.0;
 
-        // Generate setpoint based on time from the demo trajectory
-        let setpoint = robot.circlereference(t_sec * 0.5, circle_radius);
-        // Use only the feedforward actions from the trajectory (vdes, wdes)
-        let v = setpoint.vdes;
+        let wd = 0.39; // rad/s, desired angular velocity
+
+        //let setpoint = robot.circlereference(t_counter * DT_S, circle_radius, wd);
+        let setpoint = robot.beziercurve(bezier_point.clone(), t_counter * DT_S, bezier_duration);
         let w = setpoint.wdes;
-        //let mut ur = (2.0 * v + robot.l * w) / (2.0 * robot.r);
-        //let mut ul = (2.0 * v - robot.l * w) / (2.0 * robot.r);
-        let ul = v - w * WHEEL_BASE / 2.0;
-        let ur = v + w * WHEEL_BASE / 2.0;
-        //ur = ur.clamp(robot.ur_min, robot.ur_max);
-        //ul = ul.clamp(robot.ul_min, robot.ul_max);
+        let v = setpoint.vdes;
 
-        // Convert wheel speeds to motor duty cycles
-        let duty_left = (ul / WHEEL_SPEED_MAX).clamp(-1.0, 1.0) * MOTOR_DIRECTION_LEFT;
-        let duty_right = (ur / WHEEL_SPEED_MAX).clamp(-1.0, 1.0) * MOTOR_DIRECTION_RIGHT;
+        //calculate the angular velocity by defining how fast the robot should move about the circle.
+        //let w = 2.0 * PI / circle_duration; // rad/s
+        //from that get the linear velocity with the circle radius
+        //let v = w * circle_radius; // m/s
 
-        // Send commands to motors
-        motor.set_speed(duty_left, duty_right).await;
+        //for output logging
+        let w_rad = w; // rad/s
+        let w_deg = w_rad * 180.0 / PI; // deg/s
+
+        // Convert to wheel speeds
+        let mut ur = (2.0 * v + robot.l * w) / (2.0 * robot.r); //rad/s
+        let mut ul = (2.0 * v - robot.l * w) / (2.0 * robot.r);
+        //trying to give out an rpm value
+
+        // Clip actions to permissible range in case they go over limits
+        ur = (ur / WHEEL_MAX).clamp(robot.ur_min, robot.ur_max);
+        ul = (ul / WHEEL_MAX).clamp(robot.ul_min, robot.ul_max);
+
+        //give the caclulated duty to the motors scaled by 1.66
+        //let mut duty_left = ul_ff * 1.66;
+        //let mut duty_right = ur_ff * 1.66; //example scaling factor, adjust as needed
+        // Clamp the duties to the motor limits
+
+        motor
+            .set_speed(ul * MOTOR_DIRECTION_LEFT, ur * MOTOR_DIRECTION_RIGHT)
+            .await;
+
+        //and give it to the motor:
 
         defmt::info!(
-            "t={}s, pos_d=({},{},{}), action_d=({},{}), u = ({}, {}), duty=({},{})",
+            "t={}s, posd = ({},{},{}), v={}, w={} rad/s ({} deg/s), u_ff=({},{})",
             t_sec,
             setpoint.des.x,
             setpoint.des.y,
             setpoint.des.theta.rad(),
-            setpoint.vdes,
-            setpoint.wdes,
+            v,
+            w_rad,
+            w_deg,
             ul,
-            ur,
-            duty_left,
-            duty_right
+            ur
         );
 
         // Stop after complete trajectory
-        if t_sec > circle_duration {
+        // if t_sec > circle_duration {
+        //     motor.set_speed(0.0, 0.0).await;
+        //     defmt::info!("Diffdrive trajectory following complete");
+        //     break;
+        // }
+
+        //stop after the counter has arrived at bezier_duration / DT_S
+        if t_counter > bezier_duration / DT_S {
+            //motor.set_speed(0.0, 0.0).await;
             motor.set_speed(0.0, 0.0).await;
-            defmt::info!("Diffdrive trajectory following complete");
+            defmt::info!(
+                "Diffdrive trajectory following complete after {} steps",
+                t_counter
+            );
             break;
         }
-
-        Timer::after(Duration::from_millis((DT_S * 1000.0) as u64)).await;
+        //Timer::after(Duration::from_millis((DT_S * 1000.0) as u64)).await;
+        //increase t_counter;
+        t_counter += 1.0;
     }
 }
 

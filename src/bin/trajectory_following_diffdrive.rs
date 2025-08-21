@@ -7,7 +7,7 @@ use embassy_executor::Spawner;
 use embassy_rp::init;
 use embassy_time::{Duration, Timer};
 
-use pololu3pi2040_rs::diffdrive::{DIFFDRIVE_TRAJECTORY_READY, diffdrive_control_task};
+use pololu3pi2040_rs::diffdrive::diffdrive_control_task;
 use pololu3pi2040_rs::init::init_all;
 use pololu3pi2040_rs::trajectory_uart::{UartCfg, uart_motioncap_receiving_task};
 
@@ -31,7 +31,7 @@ async fn main(spawner: Spawner) {
     Timer::after(Duration::from_secs(2)).await;
 
     // Signal that diffdrive trajectory is ready
-    DIFFDRIVE_TRAJECTORY_READY.signal(());
+    //DIFFDRIVE_TRAJECTORY_READY.signal(());
 
     // ===== start receiving position message from motion cap system =====
     spawner
