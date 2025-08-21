@@ -177,14 +177,14 @@ This firmware supports both **Zumo** and **3Pi** robots with different physical 
 - **Wheel Radius**: 0.02m
 - **Wheel Base**: 0.099m
 - **Motor Direction**: Reversed (`-duty_left`, `-duty_right`)
-- **Encoder CPR**: 909.72 (75.81 × 12.0)
+- **Encoder CPR**:  227.81 (75.81 × 12.0/4.0)
 
 #### 3Pi Robot (`--features 3pi`)
 - **Gear Ratio**: 29.86
 - **Wheel Radius**: 0.016m
 - **Wheel Base**: 0.0842m
 - **Motor Direction**: Normal (`duty_left`, `duty_right`)
-- **Encoder CPR**: 358.32 (29.86 × 12.0)
+- **Encoder CPR**: 89.56 (29.86 × 12.0/4.0)
 
 #### Default/Testing (no features)
 - **Configuration**: Currently set to Zumo parameters for testing
@@ -198,7 +198,7 @@ This firmware supports both **Zumo** and **3Pi** robots with different physical 
 | Wheel Radius | 0.02m | 0.016m | 0.02m |
 | Wheel Base | 0.099m | 0.0842m | 0.099m |
 | Motor Direction | Reversed | Normal | Reversed |
-| Encoder CPR | 909.72 | 358.32 | 909.72 |
+| Encoder CPR | 227.81 | 89.56 | 227.81 |
 
 ### Quick Start Examples:
 ```bash
@@ -222,6 +222,7 @@ tio /dev/ttyACM0
   - `lib.rs`: Integrated libraries with feature-based module selection.
   - `led.rs`: Default LED driver.
   - `buzzer.rs`: Buzzer driver.
+  - `diffdrive.rs`: differential flatness computation for trajectory generation and following
   - `motor.rs`: Driver of both motors.
   - `encoder.rs`: Encoder driver for both encoders using PIO.
   - `uart.rs`: UART0 driver.
@@ -236,6 +237,7 @@ tio /dev/ttyACM0
   - `bin/`: Binary targets
     - `teleop_control.rs`: Teleop control application
     - `trajectory_following.rs`: Trajectory following application
+    - `trajectory_following_diffdrive.rs`: Trajectory following with differential flatness actions application
   - `imu/`: IMU library.
     - `lis3mdl.rs`: Driver for the 3-axis magnetometer.
     - `lsm6dso.rs`: Driver for the combined 3-axis accelerometer and 3-axis gyrometer.

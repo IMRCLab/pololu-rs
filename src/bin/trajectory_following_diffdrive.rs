@@ -17,9 +17,17 @@ async fn main(spawner: Spawner) {
     let devices = init_all(p);
 
     let mut led = devices.led;
-
-    // === Startup sound with LED blinking ===
     let mut buzzer = devices.buzzer;
+
+    #[cfg(feature = "zumo")]
+    for _ in 0..2 {
+        led.on();
+        buzzer.buzzer_warn(800, 1).await;
+        Timer::after(Duration::from_millis(150)).await;
+        led.off();
+        Timer::after(Duration::from_millis(100)).await;
+    }
+    #[cfg(feature = "three-pi")]
     for _ in 0..3 {
         led.on();
         buzzer.buzzer_warn(800, 1).await;
@@ -27,6 +35,9 @@ async fn main(spawner: Spawner) {
         led.off();
         Timer::after(Duration::from_millis(100)).await;
     }
+
+    // === Startup sound with LED blinking ===
+    //blink 2 times for zumo
 
     Timer::after(Duration::from_secs(2)).await;
 
@@ -43,10 +54,13 @@ async fn main(spawner: Spawner) {
 
     // ==================== start diffdrive control task ===========================
     spawner
-        .spawn(diffdrive_control_task(devices.motor))
+        .spawn(diffdrive_control_task(
+            devices.motor,
+            devices.sdlogger.expect("option"),
+        ))
         .unwrap();
 
-    // // ========================= blink LED ===============================
+    // ========================= blink LED ===============================
     // let mut on = false;
     // loop {
     //     Timer::after(Duration::from_secs(1)).await;

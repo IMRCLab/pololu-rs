@@ -123,6 +123,7 @@ pub async fn control_task(motor: MotorController, cfg: RobotConfig) {
     // ===== Wait for first pose and start event =====
     FIRST_MESSAGE.wait().await;
     // START_EVENT.wait().await;
+    defmt::info!("Starting control task with {} states and actions", len);
 
     let mut pose: PoseAbs = {
         let s = LAST_STATE.lock().await;
