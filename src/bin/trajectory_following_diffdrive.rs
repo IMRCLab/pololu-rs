@@ -16,7 +16,7 @@ async fn main(spawner: Spawner) {
     let p = init(Default::default());
     let devices = init_all(p);
 
-    // let mut led = devices.led;
+    let mut led = devices.led;
     // let mut buzzer = devices.buzzer;
 
     #[cfg(feature = "zumo")]
@@ -38,7 +38,6 @@ async fn main(spawner: Spawner) {
 
     // === Startup sound with LED blinking ===
     //blink 2 times for zumo
-
     Timer::after(Duration::from_secs(2)).await;
 
     // Signal that diffdrive trajectory is ready
@@ -54,21 +53,18 @@ async fn main(spawner: Spawner) {
 
     // ==================== start diffdrive control task ===========================
     spawner
-        .spawn(diffdrive_control_task(
-            devices.motor,
-            devices.sdlogger.expect("option"),
-        ))
+        .spawn(diffdrive_control_task(devices.motor, devices.sdlogger))
         .unwrap();
 
     // ========================= blink LED ===============================
-    // let mut on = false;
-    // loop {
-    //     Timer::after(Duration::from_secs(1)).await;
-    //     if on {
-    //         led.off();
-    //     } else {
-    //         led.on();
-    //     }
-    //     on = !on;
-    // }
+    let mut on = false;
+    loop {
+        Timer::after(Duration::from_secs(1)).await;
+        if on {
+            led.off();
+        } else {
+            led.on();
+        }
+        on = !on;
+    }
 }

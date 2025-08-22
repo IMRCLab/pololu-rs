@@ -61,12 +61,12 @@ pub mod robot_constants_diffdrive {
     pub const WHEEL_MAX: f32 = 0.233 * MAX_SPEED / WHEEL_RADIUS; // Maximum wheel speed in m/s scaling is experimentally derived
 }
 //TODO:
-//clean up robot struct and timer
-//add abstraction layer for trajectory selection
-//time to test the position controller with mocap system
+// clean up robot struct and timer
+// add abstraction layer for trajectory selection
+// time to test the position controller with mocap system
 use robot_constants_diffdrive::*;
 
-//pub static DIFFDRIVE_TRAJECTORY_READY: Signal<ThreadModeRawMutex, ()> = Signal::new();
+// pub static DIFFDRIVE_TRAJECTORY_READY: Signal<ThreadModeRawMutex, ()> = Signal::new();
 
 #[derive(Debug, Copy, Clone)]
 pub struct DiffdriveState {
@@ -301,11 +301,6 @@ impl DiffdriveController {
         // Convert to wheel speeds
         let ur = (2.0 * v + robot.l * w) / (2.0 * robot.r);
         let ul = (2.0 * v - robot.l * w) / (2.0 * robot.r);
-        //trying to give out an rpm value
-
-        // Clip actions to permissible range
-        //ur = ur.clamp(robot.ur_min, robot.ur_max);
-        //ul = ul.clamp(robot.ul_min, robot.ul_max);
 
         // Return the action and the errors as a tuple
         (DiffdriveAction { ul, ur }, xerror, yerror, therror)
@@ -315,7 +310,7 @@ impl DiffdriveController {
 /// Embassy task for diffdrive trajectory following control
 /// This task demonstrates circle and bezier curve trajectory following using the diffdrive model
 #[embassy_executor::task]
-pub async fn diffdrive_control_task(motor: MotorController, mut sdlogger: SdLogger) {
+pub async fn diffdrive_control_task(motor: MotorController, mut sdlogger: Option<SdLogger>) {
     // Wait for trajectory system to be ready
     //DIFFDRIVE_TRAJECTORY_READY.wait().await;
 
@@ -342,7 +337,9 @@ pub async fn diffdrive_control_task(motor: MotorController, mut sdlogger: SdLogg
 
     // Initialize controller
     let controller = DiffdriveController::new(KX, KY, KTHETA);
-    sdlogger.write_traj_control_header();
+    if let Some(ref mut logger) = sdlogger {
+        logger.write_csv_header();
+    }
     defmt::info!("csv header written");
 
     //Log on SD Card
@@ -475,11 +472,6 @@ pub async fn diffdrive_control_task(motor: MotorController, mut sdlogger: SdLogg
             theta: setpoint.des.theta,
         };
 
-        // Convert to wheel speeds
-        //let mut ur = (2.0 * vd + robot.l * w_rad) / (2.0 * robot.r); //rad/s
-        //let mut ul = (2.0 * vd - robot.l * w_rad) / (2.0 * robot.r);
-        //trying to give out an rpm value
-
         // Clip actions to permissible range in case they go over limits
 
         let mut ur = 0.0; //rad/s
@@ -532,7 +524,9 @@ pub async fn diffdrive_control_task(motor: MotorController, mut sdlogger: SdLogg
             ur: ur,
         };
 
-        sdlogger.log_traj_control_as_csv(&log);
+        if let Some(ref mut logger) = sdlogger {
+            logger.log_traj_control_as_csv(&log);
+        }
 
         //clip to permissible action range
         ur = (ur / (WHEEL_MAX)).clamp(robot.ur_min, robot.ur_max);
@@ -547,8 +541,6 @@ pub async fn diffdrive_control_task(motor: MotorController, mut sdlogger: SdLogg
             .set_speed(ul * MOTOR_DIRECTION_LEFT, ur * MOTOR_DIRECTION_RIGHT)
             .await;
 
-        //and give it to the motor:
-
         defmt::info!(
             "t={}s, posd = ({},{},{}), v={}, w={} rad/s ({} deg/s), u_ff=({},{})",
             t_sec,
@@ -562,13 +554,6 @@ pub async fn diffdrive_control_task(motor: MotorController, mut sdlogger: SdLogg
             ur
         );
 
-        // Stop after complete trajectory
-        // if t_sec > circle_duration {
-        //     motor.set_speed(0.0, 0.0).await;
-        //     defmt::info!("Diffdrive trajectory following complete");
-        //     break;
-        // }
-
         //stop after the counter has arrived at circle_duration / DT_S
         if t_counter > circle_duration / DT_S {
             //motor.set_speed(0.0, 0.0).await;
@@ -579,7 +564,6 @@ pub async fn diffdrive_control_task(motor: MotorController, mut sdlogger: SdLogg
             );
             break;
         }
-        //Timer::after(Duration::from_millis((DT_S * 1000.0) as u64)).await;
         //increase t_counter;
         t_counter += 1.0;
     }
