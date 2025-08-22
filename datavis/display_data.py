@@ -36,13 +36,13 @@ def display_data_summary(data, filename):
     print(f"Time range: {data['ts'].min()} to {data['ts'].max()} ms")
     print(f"Duration: {(data['ts'].max() - data['ts'].min()) / 1000:.2f} seconds")
     
-    print(f"\nTarget velocity range:")
-    print(f"  vx: {data['target_vx'].min():.3f} to {data['target_vx'].max():.3f}")
-    print(f"  vy: {data['target_vy'].min():.3f} to {data['target_vy'].max():.3f}")
+    print(f"\nTarget position range:")
+    print(f"  x: {data['target_vx'].min():.3f} to {data['target_vx'].max():.3f}")
+    print(f"  y: {data['target_vy'].min():.3f} to {data['target_vy'].max():.3f}")
     
-    print(f"\nActual velocity range:")
-    print(f"  vx: {data['actual_vx'].min():.3f} to {data['actual_vx'].max():.3f}")
-    print(f"  vy: {data['actual_vy'].min():.3f} to {data['actual_vy'].max():.3f}")
+    print(f"\nActual position range:")
+    print(f"  x: {data['actual_vx'].min():.3f} to {data['actual_vx'].max():.3f}")
+    print(f"  y: {data['actual_vy'].min():.3f} to {data['actual_vy'].max():.3f}")
     
     print(f"\nAngle range (degrees):")
     print(f"  roll: {np.degrees(data['roll']).min():.1f} to {np.degrees(data['roll']).max():.1f}")
@@ -50,7 +50,7 @@ def display_data_summary(data, filename):
     print(f"  yaw: {np.degrees(data['yaw']).min():.1f} to {np.degrees(data['yaw']).max():.1f}")
 
 def plot_single_trajectory(data, name, color='blue'):
-    """Create comprehensive trajectory and velocity comparison plots for a single dataset."""
+    """Create comprehensive trajectory and position comparison plots for a single dataset."""
     time_s = data['ts'] / 1000.0  # Convert to seconds
     
     # Create figure with 4 subplots
@@ -76,29 +76,29 @@ def plot_single_trajectory(data, name, color='blue'):
     ax1.yaxis.set_minor_locator(MultipleLocator(0.02))
     ax1.axis('equal')
     
-    # Plot 2: Velocity X Comparison over Time
+    # Plot 2: Position X Comparison over Time
     ax2 = axes[0, 1]
-    ax2.plot(time_s, data['target_vx'], 'r--', label='Target VX', linewidth=2)
-    ax2.plot(time_s, data['actual_vx'], 'b-', label='Actual VX', linewidth=2)
+    ax2.plot(time_s, data['target_vx'], 'r--', label='Target X', linewidth=2)
+    ax2.plot(time_s, data['actual_vx'], 'b-', label='Actual X', linewidth=2)
     ax2.set_xlabel('Time (s)')
-    ax2.set_ylabel('Velocity X (m/s)')
-    ax2.set_title('Velocity X over Time')
+    ax2.set_ylabel('Position X (m)')
+    ax2.set_title('Position X over Time')
     ax2.legend()
     ax2.grid(True, alpha=0.3)
     
-    # Plot 3: Velocity Y Comparison over Time
+    # Plot 3: Position Y Comparison over Time
     ax3 = axes[1, 0]
-    ax3.plot(time_s, data['target_vy'], 'r--', label='Target VY', linewidth=2)
-    ax3.plot(time_s, data['actual_vy'], 'g-', label='Actual VY', linewidth=2)
+    ax3.plot(time_s, data['target_vy'], 'r--', label='Target Y', linewidth=2)
+    ax3.plot(time_s, data['actual_vy'], 'g-', label='Actual Y', linewidth=2)
     ax3.set_xlabel('Time (s)')
-    ax3.set_ylabel('Velocity Y (m/s)')
-    ax3.set_title('Velocity Y over Time')
+    ax3.set_ylabel('Position Y (m)')
+    ax3.set_title('Position Y over Time')
     ax3.legend()
     ax3.grid(True, alpha=0.3)
     
     # Plot 4: Orientation (Yaw) over Time
     ax4 = axes[1, 1]
-    ax4.plot(time_s, data['yaw'], 'purple', label='Yaw Angle', linewidth=2, marker='o', markersize=2)
+    ax4.plot(time_s, np.degrees(data['yaw']), 'purple', label='Yaw Angle', linewidth=2, marker='o', markersize=2)
     ax4.set_xlabel('Time (s)')
     ax4.set_ylabel('Yaw Angle (degrees)')
     ax4.set_title('Robot Orientation over Time')
