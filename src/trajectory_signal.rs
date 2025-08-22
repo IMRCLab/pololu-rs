@@ -1,4 +1,6 @@
+use embassy_sync::channel::Channel;
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex as Raw, mutex::Mutex, signal::Signal};
+use embassy_time::Instant;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct PoseAbs {
@@ -26,3 +28,13 @@ pub static LAST_STATE: Mutex<Raw, PoseAbs> = Mutex::new(PoseAbs {
     pitch: 0.0,
     yaw: 0.0,
 });
+
+// ====== WHEEL COMMAND =======
+#[derive(Copy, Clone)]
+pub struct WheelCmd {
+    pub omega_l: f32,
+    pub omega_r: f32,
+    pub stamp: Instant,
+}
+
+pub static WHEEL_CMD_CH: Channel<Raw, WheelCmd, 4> = Channel::new();

@@ -2,17 +2,16 @@ use crate::math::SO2;
 use crate::sdlog::{MotionLog, SdLogger, TrajControlLog};
 use core::f32::consts::PI;
 use embassy_futures::select::{Either, select};
-use embassy_rp::pac::common::W;
-use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, signal::Signal};
-use embassy_time::{Duration, Instant, Ticker, Timer};
+// use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, signal::Signal};
+use embassy_time::{Duration, Instant, Ticker};
 use libm::{atan2f, cosf, sinf, sqrtf};
 
-use crate::motor::{Motor, MotorController};
+use crate::motor::MotorController;
 use crate::trajectory_signal::{FIRST_MESSAGE, LAST_STATE, PoseAbs, STATE_SIG};
 
 // Robot constants for diffdrive control
 #[cfg(feature = "zumo")]
-mod robot_constants_diffdrive {
+pub mod robot_constants_diffdrive {
     pub const DT_S: f32 = 0.1; // Default to 100ms time step
     pub const WHEEL_RADIUS: f32 = 0.02;
     pub const WHEEL_BASE: f32 = 0.099;
@@ -29,7 +28,7 @@ mod robot_constants_diffdrive {
 }
 
 #[cfg(feature = "three-pi")]
-mod robot_constants_diffdrive {
+pub mod robot_constants_diffdrive {
     pub const DT_S: f32 = 0.1;
     pub const WHEEL_RADIUS: f32 = 0.016; // 16mm wheel radius 
     pub const WHEEL_BASE: f32 = 0.0842; // 84.2mm wheelbase
@@ -46,15 +45,15 @@ mod robot_constants_diffdrive {
 }
 
 #[cfg(not(any(feature = "zumo", feature = "three-pi")))]
-mod robot_constants_diffdrive {
+pub mod robot_constants_diffdrive {
     pub const DT_S: f32 = 0.1; // Default to 100ms time step
     pub const WHEEL_RADIUS: f32 = 0.02;
     pub const WHEEL_BASE: f32 = 0.099;
     pub const MOTOR_DIRECTION_LEFT: f32 = -1.0;
     pub const MOTOR_DIRECTION_RIGHT: f32 = -1.0;
-    pub const KX: f32 = 1.0;
-    pub const KY: f32 = 1.0;
-    pub const KTHETA: f32 = 2.0;
+    pub const KX: f32 = 10.0;
+    pub const KY: f32 = 10.0;
+    pub const KTHETA: f32 = -5.0;
     pub const GEAR_RATIO: f32 = 75.81;
     pub const ENCODER_CPR: f32 = -GEAR_RATIO * 12.0 / 4.0;
     pub const MAX_SPEED: f32 = 0.65; // 65 cm/s, according to datasheet 75:1 Gear Ratio
@@ -137,6 +136,83 @@ impl Diffdrive {
                 theta: SO2::new(0.0),
             },
         }
+    }
+
+    pub fn circle_params_origin_normal_left(
+        &self,
+        x0: f32,
+        y0: f32,
+        theta0: f32,
+        r: f32,
+        omega_abs: f32,
+    ) -> (f32, f32, f32, f32) {
+        // compute the unit vector from the origin to the initial position
+        let d = sqrtf(x0 * x0 + y0 * y0);
+        // if the initial position is close to zero, then set a random direction
+        let (ux, uy) = if d > 1e-6 {
+            (x0 / d, y0 / d)
+        } else {
+            (0.0, 1.0)
+        };
+
+        // left circle, so rotate CCW for 90 degrees.
+        let (nlx, nly) = (-uy, ux);
+
+        // 圆心：在通过 p0 的法线上，距离 p0 为 r，取左侧
+        // Circle center is on the orthogonal lines, distance is the radius
+        let cx = x0 + r * nlx;
+        let cy = y0 + r * nly;
+
+        // 初始相位：圆心指向 p0 的极角
+        // initial phase, the angle between the center to p0 and the x axis
+        let phi0 = atan2f(y0 - cy, x0 - cx);
+
+        // 起始切向（phi 增大方向 = 逆时针）的单位切向量
+        // t_hat = (-sin phi0, cos phi0)
+        let (tx, ty) = (-sinf(phi0), cosf(phi0));
+
+        // 初始朝向单位向量
+        // initial direction vector
+        let (hx, hy) = (cosf(theta0), sinf(theta0));
+
+        // 选择角速度正负，使起始切向与朝向尽量一致
+        // 若点积 < 0，反向（顺时针）走
+        // choose the sign for the angular velocity and make sure it aligns with the
+        let s = if hx * tx + hy * ty >= 0.0 { 1.0 } else { -1.0 };
+        let omega_signed = s * omega_abs;
+
+        (cx, cy, phi0, omega_signed)
+    }
+
+    pub fn circle_reference_t(
+        &self,
+        t_s: f32,   // 时间 [s]
+        r: f32,     // radius [m]
+        omega: f32, // angular velocity
+        x0: f32,    // center x
+        y0: f32,    // center y
+        phi0: f32,  // intial phase
+    ) -> DiffdriveSetpoint {
+        let phi = phi0 + omega * t_s;
+        let (s, c) = (sinf(phi), cosf(phi));
+
+        let x = x0 + r * c;
+        let y = y0 + r * s;
+
+        let xd = -r * omega * s;
+        let yd = r * omega * c;
+
+        let xdd = -r * omega * omega * c;
+        let ydd = -r * omega * omega * s;
+
+        let vdes = sqrtf(xd * xd + yd * yd); // ≈ r*|omega|
+        let denom = (xd * xd + yd * yd).max(1e-9);
+        let wdes = (ydd * xd - xdd * yd) / denom; // ≈ omega
+
+        let theta = SO2::new(atan2f(yd, xd));
+
+        let des = DiffdriveState { x, y, theta };
+        DiffdriveSetpoint { des, vdes, wdes }
     }
 
     pub fn circlereference(&self, t: f32, r: f32, wd: f32) -> DiffdriveSetpoint {
@@ -283,6 +359,10 @@ pub async fn diffdrive_control_task(motor: MotorController, mut sdlogger: SdLogg
     robot.s.y = pose.y;
     robot.s.theta = SO2::new(pose.yaw);
 
+    let initial_position_x = pose.x;
+    let initial_position_y = pose.y;
+    let initial_position_yaw = pose.yaw;
+
     let mut ticker = Ticker::every(Duration::from_millis((DT_S * 1000.0) as u64)); //define waiting time in loop
     let start = Instant::now();
 
@@ -293,20 +373,28 @@ pub async fn diffdrive_control_task(motor: MotorController, mut sdlogger: SdLogg
     let circle_duration = 10.0; // 10 seconds
 
     // Bezier curve example doesn't look great.
-    let bezier_duration = 30.0; // 30 seconds
-    let bezier_point = Point {
-        p0x: 0.0,
-        p0y: 0.0,
-        p1x: 0.0,
-        p1y: 0.5,
-        p2x: 0.5,
-        p2y: 0.0,
-        p3x: 0.5,
-        p3y: 0.5,
-        x_ref: 0.0,
-        y_ref: 0.0,
-        theta_ref: 0.0,
-    };
+    // let bezier_duration = 30.0; // 30 seconds
+    // let bezier_point = Point {
+    //     p0x: 0.0,
+    //     p0y: 0.0,
+    //     p1x: 0.0,
+    //     p1y: 0.5,
+    //     p2x: 0.5,
+    //     p2y: 0.0,
+    //     p3x: 0.5,
+    //     p3y: 0.5,
+    //     x_ref: 0.0,
+    //     y_ref: 0.0,
+    //     theta_ref: 0.0,
+    // };
+    let wd = PI / 4.0; // rad/s, desired angular velocity
+    let (cx, cy, phi0, omega) = robot.circle_params_origin_normal_left(
+        initial_position_x,
+        initial_position_y,
+        initial_position_yaw,
+        circle_radius,
+        wd,
+    );
 
     //counter for timestep in trajectory generation
     let mut t_counter = 0.0;
@@ -345,17 +433,25 @@ pub async fn diffdrive_control_task(motor: MotorController, mut sdlogger: SdLogg
         let t = Instant::now() - start;
         let t_sec = t.as_millis() as f32 / 1000.0;
 
-        let wd = PI / 4.0; // rad/s, desired angular velocity
+        // let wd = PI / 4.0; // rad/s, desired angular velocity
 
-        let mut setpoint = robot.circlereference(t_counter * DT_S, circle_radius, wd);
-        //the robot should assume it is at the start of the trajectory with its init pose.
-        //first assume we are at the center of the circle
-        setpoint.des.x += q0.x - circle_radius * cosf(q0.theta.rad()); //and shift trajectory by the circle point with the given radius and angle
-        setpoint.des.y += q0.y - circle_radius * sinf(q0.theta.rad());
-        setpoint.des.theta = SO2::new(q0.theta.rad() + setpoint.des.theta.rad());
+        // let mut setpoint = robot.circlereference(t_counter * DT_S, circle_radius, wd);
+        // //the robot should assume it is at the start of the trajectory with its init pose.
+        // //first assume we are at the center of the circle
+        // setpoint.des.x += q0.x - circle_radius * cosf(q0.theta.rad()); //and shift trajectory by the circle point with the given radius and angle
+        // setpoint.des.y += q0.y - circle_radius * sinf(q0.theta.rad());
+        // setpoint.des.theta = SO2::new(q0.theta.rad() + setpoint.des.theta.rad());
 
-        //then shift the whole desired trajectory by the initial pose
-
+        // //then shift the whole desired trajectory by the initial pose
+        //let setpoint = robot.circlereference(t_counter * DT_S, circle_radius, wd);
+        let setpoint = robot.circle_reference_t(
+            t.as_millis() as f32 / 1000.0,
+            circle_radius,
+            omega,
+            cx,
+            cy,
+            phi0,
+        );
         //let setpoint = robot.beziercurve(bezier_point.clone(), t_counter * DT_S, bezier_duration);
 
         //let w = setpoint.wdes;
@@ -487,13 +583,4 @@ pub async fn diffdrive_control_task(motor: MotorController, mut sdlogger: SdLogg
         //increase t_counter;
         t_counter += 1.0;
     }
-}
-
-#[inline]
-fn wrap_angle(a: f32) -> f32 {
-    let mut x = (a + PI) % (2.0 * PI);
-    if x < 0.0 {
-        x += 2.0 * PI;
-    }
-    x - PI
 }

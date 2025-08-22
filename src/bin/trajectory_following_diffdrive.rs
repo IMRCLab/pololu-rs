@@ -16,8 +16,8 @@ async fn main(spawner: Spawner) {
     let p = init(Default::default());
     let devices = init_all(p);
 
-    let mut led = devices.led;
-    let mut buzzer = devices.buzzer;
+    // let mut led = devices.led;
+    // let mut buzzer = devices.buzzer;
 
     #[cfg(feature = "zumo")]
     for _ in 0..2 {

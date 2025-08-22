@@ -29,6 +29,7 @@ impl<'a> Motor<'a> {
 
 type SharedMotor = &'static Mutex<ThreadModeRawMutex, Motor<'static>>;
 
+#[derive(Copy, Clone)]
 pub struct MotorController {
     left: SharedMotor,
     right: SharedMotor,

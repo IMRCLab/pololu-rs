@@ -16,6 +16,9 @@ fi
 TRAJECTORY=$1
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_ENV="$SCRIPT_DIR/.venv/bin/python"
+# PYTHON_ENV="$SCRIPT_DIR/.venv/bin/python"
+// PYTHON_ENV="/home/vincent/anaconda3/envs/imrclab/bin/python"
+
 
 # Check if trajectory file exists
 if [ ! -f "$SCRIPT_DIR/$TRAJECTORY" ]; then

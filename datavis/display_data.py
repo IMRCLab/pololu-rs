@@ -6,7 +6,8 @@ This script reads CSV data from robotics sensor logs and creates visualizations.
 Usage: python3 display_data.py --TR00_final.csv
        python3 display_data.py --TR02_final.csv
 """
-
+# import matplotlib
+# matplotlib.use("Agg")
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
@@ -47,6 +48,7 @@ def display_data_summary(data, filename):
     print(f"\nAngle range (degrees):")
     print(f"  roll: {np.degrees(data['roll']).min():.1f} to {np.degrees(data['roll']).max():.1f}")
     print(f"  pitch: {np.degrees(data['pitch']).min():.1f} to {np.degrees(data['pitch']).max():.1f}")
+<<<<<<< HEAD
     print(f"  yaw (actual): {np.degrees(data['yaw']).min():.1f} to {np.degrees(data['yaw']).max():.1f}")
     
     # Add desired angle information if available
@@ -60,11 +62,15 @@ def display_data_summary(data, filename):
         print(f"\nSpeed range (m/s):")
         print(f"  target speed: {target_speed.min():.3f} to {target_speed.max():.3f}")
         print(f"  actual speed: {actual_speed.min():.3f} to {actual_speed.max():.3f}")
+=======
+    print(f"  yaw: {np.degrees(data['yaw']).min():.1f} to {np.degrees(data['yaw']).max():.1f}")
+>>>>>>> 5aaa456 (Friday diffdrive testing)
 
 def plot_single_trajectory(data, name, color='blue'):
     """Create comprehensive trajectory and position comparison plots for a single dataset."""
     time_s = data['ts'] / 1000.0  # Convert to seconds
     
+<<<<<<< HEAD
     # Create figure with 6 subplots (2x3 grid)
     fig, axes = plt.subplots(2, 3, figsize=(24, 12))
     fig.suptitle(f'{name} Robotics Data Analysis - Target vs Actual Comparison', fontsize=16, fontweight='bold')
@@ -104,6 +110,17 @@ def plot_single_trajectory(data, name, color='blue'):
                actual_speed[::skip], scale=1/scale_factor, scale_units='xy', angles='xy',
                cmap='Blues', alpha=0.7, width=0.003, label='Actual Velocity')
     
+=======
+    # Create figure with 4 subplots
+    
+    fig, axes = plt.subplots(2, 2, figsize=(16, 12))
+    fig.suptitle(f'{name} Robotics Data Analysis - Target vs Actual Comparison', fontsize=16, fontweight='bold')
+    
+    # Plot 1: XY Trajectory Comparison
+    ax1 = axes[0, 0]
+    ax1.plot(data['target_vx'], data['target_vy'], 'r--', label='Target Trajectory', linewidth=2, marker='o', markersize=3)
+    ax1.plot(data['actual_vx'], data['actual_vy'], 'b-', label='Actual Trajectory', linewidth=2, marker='s', markersize=3)
+>>>>>>> 5aaa456 (Friday diffdrive testing)
     ax1.set_xlabel('X Position (m)')
     ax1.set_ylabel('Y Position (m)')
     ax1.set_title('XY Position: Target vs Actual')
@@ -139,6 +156,7 @@ def plot_single_trajectory(data, name, color='blue'):
     ax3.legend()
     ax3.grid(True, alpha=0.3)
     
+<<<<<<< HEAD
     # Plot 4: Orientation (Yaw) over Time - Both Desired and Actual
     ax4 = axes[1, 1]
     ax4.plot(time_s, np.degrees(data['yaw']), 'b-', label='Actual Yaw', linewidth=2, marker='o', markersize=2)
@@ -147,12 +165,18 @@ def plot_single_trajectory(data, name, color='blue'):
     if 'target_qw' in data.columns and not data['target_qw'].isna().all():
         ax4.plot(time_s, np.degrees(data['target_qw']), 'r--', label='Desired Yaw', linewidth=2)
     
+=======
+    # Plot 4: Orientation (Yaw) over Time
+    ax4 = axes[1, 1]
+    ax4.plot(time_s, np.degrees(data['yaw']), 'purple', label='Yaw Angle', linewidth=2, marker='o', markersize=2)
+>>>>>>> 5aaa456 (Friday diffdrive testing)
     ax4.set_xlabel('Time (s)')
     ax4.set_ylabel('Yaw Angle (degrees)')
     ax4.set_title('Robot Orientation over Time')
     ax4.legend()
     ax4.grid(True, alpha=0.3)
     
+<<<<<<< HEAD
     # Plot 5: Desired vs Actual Orientation Comparison
     ax5 = axes[0, 2]
     # Check if we have target orientation data
@@ -197,6 +221,8 @@ def plot_single_trajectory(data, name, color='blue'):
              transform=ax6.transAxes, verticalalignment='top',
              bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
     
+=======
+>>>>>>> 5aaa456 (Friday diffdrive testing)
     plt.tight_layout()
     return fig
 
