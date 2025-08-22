@@ -249,6 +249,37 @@ pub fn init_sd_logger(
 }
 
 #[repr(C)]
+pub struct TrajControlLog {
+    pub timestamp_ms: u32,
+    pub target_x: f32,
+    pub target_y: f32,
+    pub target_theta: f32,
+    pub actual_x: f32,
+    pub actual_y: f32,
+    pub actual_theta: f32,
+    pub target_vx: f32,
+    pub target_vy: f32,
+    pub target_vz: f32,
+    pub actual_vx: f32,
+    pub actual_vy: f32,
+    pub actual_vz: f32,
+    pub target_qw: f32,
+    pub target_qx: f32,
+    pub target_qy: f32,
+    pub target_qz: f32,
+    pub actual_qw: f32,
+    pub actual_qx: f32,
+    pub actual_qy: f32,
+    pub actual_qz: f32,
+    //control errors from
+    pub xerror: f32,
+    pub yerror: f32,
+    pub thetaerror: f32,
+    pub ul: f32,
+    pub ur: f32,
+}
+
+#[repr(C)]
 pub struct MotionLog {
     pub timestamp_ms: u32,
     pub target_vx: f32,
@@ -278,12 +309,54 @@ impl SdLogger {
         let _ = self.file.write(header);
     }
 
+    pub fn write_traj_control_header(&mut self) {
+        let header = b"ts,target_x,target_y,target_theta,actual_x,actual_y,actual_theta,target_vx,target_vy,target_vz,actual_vx,actual_vy,actual_vz,target_qw,target_qx,target_qy,target_qz,actual_qw,actual_qx,actual_qy,actual_qz,xerror,yerror,thetaerror,ul,ur\n";
+        let _ = self.file.write(header);
+    }
+
     pub fn log_motion(&mut self, data: &MotionLog) {
         let raw: &[u8; core::mem::size_of::<MotionLog>()] = unsafe { core::mem::transmute(data) };
 
         if let Err(e) = self.file.write(raw) {
             defmt::error!("Write log failed: {:?}", defmt::Debug2Format(&e));
         }
+    }
+
+    pub fn log_traj_control_as_csv(&mut self, data: &TrajControlLog) {
+        let mut line: String<128> = String::new();
+
+        let _ = core::write!(
+            &mut line,
+            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}, {},{},{},{},{},{},{},{},{},{}",
+            data.timestamp_ms,
+            data.target_x,
+            data.target_y,
+            data.target_theta,
+            data.actual_x,
+            data.actual_y,
+            data.actual_theta,
+            data.target_vx,
+            data.target_vy,
+            data.target_vz,
+            data.actual_vx,
+            data.actual_vy,
+            data.actual_vz,
+            data.target_qw,
+            data.target_qx,
+            data.target_qy,
+            data.target_qz,
+            data.actual_qw,
+            data.actual_qx,
+            data.actual_qy,
+            data.actual_qz,
+            //errrs
+            data.xerror,
+            data.yerror,
+            data.thetaerror,
+            data.ul,
+            data.ur,
+        );
+        let _ = self.file.write(line.as_bytes());
     }
 
     pub fn log_motion_as_csv(&mut self, log: &MotionLog) {

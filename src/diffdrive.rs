@@ -1,5 +1,5 @@
 use crate::math::SO2;
-use crate::sdlog::{MotionLog, SdLogger};
+use crate::sdlog::{MotionLog, SdLogger, TrajControlLog};
 use core::f32::consts::PI;
 use embassy_futures::select::{Either, select};
 use embassy_rp::pac::common::W;
@@ -206,7 +206,11 @@ impl DiffdriveController {
         Self { kx, ky, kth }
     }
 
-    pub fn control(&self, robot: &Diffdrive, setpoint: DiffdriveSetpoint) -> DiffdriveAction {
+    pub fn control(
+        &self,
+        robot: &Diffdrive,
+        setpoint: DiffdriveSetpoint,
+    ) -> (DiffdriveAction, f32, f32, f32) {
         // Compute the error of the states
         let xerror: f32 = robot.s.theta.cos() * (setpoint.des.x - robot.s.x)
             + robot.s.theta.sin() * (setpoint.des.y - robot.s.y);
@@ -227,7 +231,8 @@ impl DiffdriveController {
         //ur = ur.clamp(robot.ur_min, robot.ur_max);
         //ul = ul.clamp(robot.ul_min, robot.ul_max);
 
-        DiffdriveAction { ul, ur }
+        // Return the action and the errors as a tuple
+        (DiffdriveAction { ul, ur }, xerror, yerror, therror)
     }
 }
 
@@ -261,7 +266,7 @@ pub async fn diffdrive_control_task(motor: MotorController, mut sdlogger: SdLogg
 
     // Initialize controller
     let controller = DiffdriveController::new(KX, KY, KTHETA);
-    sdlogger.write_csv_header();
+    sdlogger.write_traj_control_header();
     defmt::info!("csv header written");
 
     //Log on SD Card
@@ -380,45 +385,58 @@ pub async fn diffdrive_control_task(motor: MotorController, mut sdlogger: SdLogg
         //trying to give out an rpm value
 
         // Clip actions to permissible range in case they go over limits
-        let log = MotionLog {
-            timestamp_ms: (t_sec * 1000.0) as u32,
-            target_vx: state_des.x,
-            target_vy: state_des.y,
-            target_vz: 0.0, // No vertical movement
-            target_qw: 0.0, // No quaternion rotation
-            target_qx: 0.0, // No quaternion rotation
-            target_qy: 0.0, // No quaternion rotation
-            target_qz: 0.0, // No quaternion rotation
-            actual_vx: robot.s.x,
-            actual_vy: robot.s.y,
-            actual_vz: 0.0, // No vertical movement
-            actual_qw: 0.0, // Quaternion representation of orientation
-            actual_qx: 0.0, // No quaternion rotation
-            actual_qy: 0.0, // No quaternion rotation
-            actual_qz: 0.0, // No quaternion rotation
-            roll: 0.0,
-            pitch: 0.0,
-            yaw: robot.s.theta.rad(),
-            motor_left: 0,  // Placeholder for feedforward left wheel speed
-            motor_right: 0, // Placeholder for feedforward right wheel speed .. why integer?
-        };
-
-        sdlogger.log_motion_as_csv(&log);
 
         let mut ur = 0.0; //rad/s
         let mut ul = 0.0; //rad/s
+        let mut xerror = 0.0;
+        let mut yerror = 0.0;
+        let mut therror = 0.0;
 
         if mocap {
             mocap = false; // reset mocap flag
-            let action = controller.control(&robot, setpoint);
-            ur = action.ur; //rad/s
-            ul = action.ul; //rad/s
+            let controloutput = controller.control(&robot, setpoint);
+            ur = controloutput.0.ul; //rad/s
+            ul = controloutput.0.ur; //rad/s
+            xerror = controloutput.1; // x error
+            yerror = controloutput.2; // y error
+            therror = controloutput.3; // theta error
         } else {
             defmt::info!("no mocap data, drive blind with actions.");
             // Use last known action if no new pose is received
             ur = (2.0 * vd + robot.l * w_rad) / (2.0 * robot.r); //rad/s
             ul = (2.0 * vd - robot.l * w_rad) / (2.0 * robot.r);
         }
+
+        let log: TrajControlLog = TrajControlLog {
+            timestamp_ms: t_sec as u32,
+            target_x: state_des.x,
+            target_y: state_des.y,
+            target_theta: state_des.theta.rad(),
+            actual_x: robot.s.x,
+            actual_y: robot.s.y,
+            actual_theta: robot.s.theta.rad(),
+            target_vx: vd,
+            target_vy: 0.0, // assuming no lateral movement
+            target_vz: 0.0, // assuming no vertical movement
+            actual_vx: 0.0, // will be updated with actual speed
+            actual_vy: 0.0, // will be updated with actual speed
+            actual_vz: 0.0, // will be updated with actual speed
+            target_qw: state_des.theta.cos(),
+            target_qx: 0.0, // assuming no roll
+            target_qy: 0.0, // assuming no pitch
+            target_qz: state_des.theta.sin(),
+            actual_qw: robot.s.theta.cos(),
+            actual_qx: 0.0, // assuming no roll
+            actual_qy: 0.0, // assuming no pitch
+            actual_qz: robot.s.theta.sin(),
+            xerror: xerror,
+            yerror: yerror,
+            thetaerror: therror,
+            ul: ul,
+            ur: ur,
+        };
+
+        sdlogger.log_traj_control_as_csv(&log);
 
         //clip to permissible action range
         ur = (ur / (WHEEL_MAX)).clamp(robot.ur_min, robot.ur_max);
