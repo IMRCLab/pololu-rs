@@ -48,7 +48,7 @@ async fn main(spawner: Spawner) {
     spawner
         .spawn(uart_motioncap_receiving_task(
             devices.uart,
-            UartCfg { robot_id: 8 },
+            UartCfg { robot_id: 7 },
         ))
         .unwrap();
 

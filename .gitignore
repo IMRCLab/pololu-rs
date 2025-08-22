@@ -6,3 +6,7 @@
 */logs
 */build
 */log
+*.png
+*pycache
+*.swp
+/datavis/TR*
