@@ -1,27 +1,27 @@
 use crate::math::SO2;
 use core::f32::consts::PI;
 use defmt::info;
-use embassy_rp::pio_programs::rotary_encoder::{Direction, PioEncoder};
+use embassy_sync::blocking_mutex::raw::NoopRawMutex;
+use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Instant, Ticker};
 
+use crate::diffdrive::{Diffdrive, DiffdriveController, DiffdriveState};
+use crate::encoder::get_wheel_speed_in_rad;
 use crate::motor::MotorController;
+use crate::robot_parameters_default::robot_constants::*;
 use crate::trajectory_signal::{LAST_STATE, STATE_SIG, WHEEL_CMD_CH, WheelCmd};
 
-use portable_atomic::{AtomicBool, AtomicI32, Ordering};
+use portable_atomic::{AtomicBool, Ordering};
 
-use crate::diffdrive::{
-    Diffdrive, DiffdriveController, DiffdriveState, robot_constants_diffdrive::*,
-};
-
-pub static ENC_LEFT_DELTA: AtomicI32 = AtomicI32::new(0);
-pub static ENC_RIGHT_DELTA: AtomicI32 = AtomicI32::new(0);
+// pub static ENC_LEFT_DELTA: AtomicI32 = AtomicI32::new(0);
+// pub static ENC_RIGHT_DELTA: AtomicI32 = AtomicI32::new(0);
 
 pub static STOP_ALL: AtomicBool = AtomicBool::new(false);
 
-//TODO:
-// clean up robot struct and timer
-// add abstraction layer for trajectory selection
-// time to test the position controller with mocap system
+// //TODO:
+// // clean up robot struct and timer
+// // add abstraction layer for trajectory selection
+// // time to test the position controller with mocap system
 
 #[derive(Copy, Clone)]
 pub enum ControlMode {
@@ -29,17 +29,59 @@ pub enum ControlMode {
     DirectDuty,
 }
 
+// // #[embassy_executor::task]
+// // pub async fn encoder_left_task_cascade(
+// //     mut encoder: PioEncoder<'static, embassy_rp::peripherals::PIO0, 0>,
+// // ) {
+// //     loop {
+// //         let dir = encoder.read().await;
+// //         let delta = match dir {
+// //             Direction::Clockwise => 1,
+// //             Direction::CounterClockwise => -1,
+// //         };
+// //         ENC_LEFT_DELTA.fetch_add(delta, Ordering::Relaxed);
+// //     }
+// // }
+
+// // #[embassy_executor::task]
+// // pub async fn encoder_right_task_cascade(
+// //     mut encoder: PioEncoder<'static, embassy_rp::peripherals::PIO0, 1>,
+// // ) {
+// //     loop {
+// //         let dir = encoder.read().await;
+// //         let delta = match dir {
+// //             Direction::Clockwise => 1,
+// //             Direction::CounterClockwise => -1,
+// //         };
+// //         ENC_RIGHT_DELTA.fetch_add(delta, Ordering::Relaxed);
+// //     }
+// // }
+
+// const LUT: [[i8; 4]; 4] = [
+//     /*prev\curr: 00, 01, 10, 11 */
+//     [0, 1, -1, 0], // 00 ->
+//     [-1, 0, 0, 1], // 01 ->
+//     [1, 0, 0, -1], // 10 ->
+//     [0, -1, 1, 0], // 11 ->
+// ];
+
 // #[embassy_executor::task]
 // pub async fn encoder_left_task_cascade(
 //     mut encoder: PioEncoder<'static, embassy_rp::peripherals::PIO0, 0>,
 // ) {
+//     let mut prev = encoder.read_ab().await;
 //     loop {
-//         let dir = encoder.read().await;
-//         let delta = match dir {
-//             Direction::Clockwise => 1,
-//             Direction::CounterClockwise => -1,
-//         };
-//         ENC_LEFT_DELTA.fetch_add(delta, Ordering::Relaxed);
+//         let mut delta: i32 = 0;
+//         let curr = encoder.read_ab().await;
+//         delta += LUT[prev as usize][curr as usize] as i32;
+//         prev = curr;
+//         while let Some(c) = encoder.try_read_ab() {
+//             delta += LUT[prev as usize][c as usize] as i32;
+//             prev = c;
+//         }
+//         if delta != 0 {
+//             ENC_LEFT_DELTA.fetch_add(delta * MOTOR_DIRECTION_LEFT as i32, Ordering::AcqRel);
+//         }
 //     }
 // }
 
@@ -47,63 +89,21 @@ pub enum ControlMode {
 // pub async fn encoder_right_task_cascade(
 //     mut encoder: PioEncoder<'static, embassy_rp::peripherals::PIO0, 1>,
 // ) {
+//     let mut prev = encoder.read_ab().await;
 //     loop {
-//         let dir = encoder.read().await;
-//         let delta = match dir {
-//             Direction::Clockwise => 1,
-//             Direction::CounterClockwise => -1,
-//         };
-//         ENC_RIGHT_DELTA.fetch_add(delta, Ordering::Relaxed);
+//         let mut delta: i32 = 0;
+//         let curr = encoder.read_ab().await;
+//         delta += LUT[prev as usize][curr as usize] as i32;
+//         prev = curr;
+//         while let Some(c) = encoder.try_read_ab() {
+//             delta += LUT[prev as usize][c as usize] as i32;
+//             prev = c;
+//         }
+//         if delta != 0 {
+//             ENC_RIGHT_DELTA.fetch_add(delta * MOTOR_DIRECTION_RIGHT as i32, Ordering::AcqRel);
+//         }
 //     }
 // }
-
-const LUT: [[i8; 4]; 4] = [
-    /*prev\curr: 00, 01, 10, 11 */
-    [0, 1, -1, 0], // 00 ->
-    [-1, 0, 0, 1], // 01 ->
-    [1, 0, 0, -1], // 10 ->
-    [0, -1, 1, 0], // 11 ->
-];
-
-#[embassy_executor::task]
-pub async fn encoder_left_task_cascade(
-    mut encoder: PioEncoder<'static, embassy_rp::peripherals::PIO0, 0>,
-) {
-    let mut prev = encoder.read_ab().await;
-    loop {
-        let mut delta: i32 = 0;
-        let curr = encoder.read_ab().await;
-        delta += LUT[prev as usize][curr as usize] as i32;
-        prev = curr;
-        while let Some(c) = encoder.try_read_ab() {
-            delta += LUT[prev as usize][c as usize] as i32;
-            prev = c;
-        }
-        if delta != 0 {
-            ENC_LEFT_DELTA.fetch_add(delta * MOTOR_DIRECTION_LEFT as i32, Ordering::AcqRel);
-        }
-    }
-}
-
-#[embassy_executor::task]
-pub async fn encoder_right_task_cascade(
-    mut encoder: PioEncoder<'static, embassy_rp::peripherals::PIO0, 1>,
-) {
-    let mut prev = encoder.read_ab().await;
-    loop {
-        let mut delta: i32 = 0;
-        let curr = encoder.read_ab().await;
-        delta += LUT[prev as usize][curr as usize] as i32;
-        prev = curr;
-        while let Some(c) = encoder.try_read_ab() {
-            delta += LUT[prev as usize][c as usize] as i32;
-            prev = c;
-        }
-        if delta != 0 {
-            ENC_RIGHT_DELTA.fetch_add(delta * MOTOR_DIRECTION_RIGHT as i32, Ordering::AcqRel);
-        }
-    }
-}
 
 /// inner loop
 // #[embassy_executor::task]
@@ -157,7 +157,11 @@ pub async fn encoder_right_task_cascade(
 // }
 
 #[embassy_executor::task]
-pub async fn wheel_speed_inner_loop(motor: MotorController) {
+pub async fn wheel_speed_inner_loop(
+    motor: MotorController,
+    left_counter: &'static Mutex<NoopRawMutex, i32>,
+    right_counter: &'static Mutex<NoopRawMutex, i32>,
+) {
     let mut ticker = Ticker::every(Duration::from_millis(20));
     let (mut il, mut ir) = (0.0f32, 0.0f32);
     let (kp, ki) = (0.1, 0.08);
@@ -167,11 +171,6 @@ pub async fn wheel_speed_inner_loop(motor: MotorController) {
     let fc_hz: f32 = 8.0; // 一阶低通截止频率，按需 3~8 Hz 调
     let tau: f32 = 1.0 / (2.0 * core::f32::consts::PI * fc_hz);
     let alpha: f32 = dt / (tau + dt); // EMA 系数，0..1，越大响应越快
-
-    // 可选：中值滤波缓存（3 点）
-    let mut buf_l: [f32; 3] = [0.0; 3];
-    let mut buf_r: [f32; 3] = [0.0; 3];
-    let mut idx: usize = 0;
 
     // 低通状态
     let mut omega_l_lp: f32 = 0.0;
@@ -195,23 +194,22 @@ pub async fn wheel_speed_inner_loop(motor: MotorController) {
             last_cmd = cmd;
         }
 
-        let dl = ENC_LEFT_DELTA.swap(0, Ordering::AcqRel);
-        let dr = ENC_RIGHT_DELTA.swap(0, Ordering::AcqRel);
+        // let dl = ENC_LEFT_DELTA.swap(0, Ordering::AcqRel);
+        // let dr = ENC_RIGHT_DELTA.swap(0, Ordering::AcqRel);
 
-        // 原始角速度（rad/s）
-        let omega_l_raw = (dl as f32) * 2.0 * core::f32::consts::PI / (ENCODER_CPR * dt);
-        let omega_r_raw = (dr as f32) * 2.0 * core::f32::consts::PI / (ENCODER_CPR * dt);
+        // // 原始角速度（rad/s）
+        // let omega_l_raw = (dl as f32) * 2.0 * core::f32::consts::PI / (ENCODER_CPR * dt);
+        // let omega_r_raw = (dr as f32) * 2.0 * core::f32::consts::PI / (ENCODER_CPR * dt);
 
-        // ---------- 可选：3 点中值滤波（先去尖峰，再低通） ----------
-        // 打开下方 6 行注释以启用
-        // buf_l[idx] = omega_l_raw;
-        // buf_r[idx] = omega_r_raw;
-        // idx = (idx + 1) % 3;
-        // let mut tl = buf_l;
-        // tl.sort_by(|a, b| a.total_cmp(b));
-        // let mut tr = buf_r;
-        // tr.sort_by(|a, b| a.total_cmp(b));
-        // let (omega_l_denoised, omega_r_denoised) = (tl[1], tr[1]);
+        // get rpms
+        let (omega_l_raw, omega_r_raw) = get_wheel_speed_in_rad(
+            left_counter,
+            right_counter,
+            ENCODER_CPR,
+            (dt * 1000.0) as u64,
+            dt,
+        )
+        .await;
 
         // 若不启用中值滤波，就直接用原始值进入低通：
         let (omega_l_denoised, omega_r_denoised) = (omega_l_raw, omega_r_raw);
@@ -233,8 +231,6 @@ pub async fn wheel_speed_inner_loop(motor: MotorController) {
         let duty_l = u_l * MOTOR_DIRECTION_LEFT;
         let duty_r = u_r * MOTOR_DIRECTION_RIGHT;
 
-        // 如果想打印 RPM，按下面转换（当前变量仍是 rad/s）
-        // let to_rpm = 60.0 / (2.0 * core::f32::consts::PI);
         defmt::info!("meas rpm L: {}, R: {}", omega_l_lp, omega_r_lp,);
         defmt::info!("duty left: {}, duty right: {}", duty_l, duty_r);
 
@@ -259,8 +255,8 @@ pub async fn diffdrive_outer_loop(mut motor: Option<MotorController>, mode: Cont
 
     let mut t_counter = 0.0;
     let start = Instant::now();
-    let circle_radius = 0.4;
-    let circle_duration = 20.0;
+    let circle_radius = 0.08;
+    let circle_duration = 8.0;
 
     loop {
         ticker.next().await;
@@ -274,8 +270,11 @@ pub async fn diffdrive_outer_loop(mut motor: Option<MotorController>, mode: Cont
         robot.s.theta = SO2::new(pose.yaw);
 
         let t = (Instant::now() - start).as_millis() as f32 / 1000.0;
-        let setpoint = robot.circlereference(t, circle_radius, (2.0 * PI) / circle_duration);
+        let wd = 2.0 * PI / 8.0;
+        let mut setpoint = robot.circlereference(t, circle_radius, wd);
 
+        setpoint.vdes = circle_radius * wd;
+        setpoint.wdes = wd;
         match mode {
             ControlMode::WithInnerSpeedLoop => {
                 info!("mocap");

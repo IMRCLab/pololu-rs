@@ -10,6 +10,7 @@ use embassy_time::Timer;
 
 use pololu3pi2040_rs::{
     button::{button_task_b, button_task_c},
+    // encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     imu::read_imu_task,
     init::init_all,
@@ -123,7 +124,7 @@ async fn main(spawner: Spawner) {
 
         // Step 2: Step up to 0.4 m/s for 4 seconds
         defmt::info!("=== Step 2: Step up to 0.4 m/s for 4 seconds ===");
-        // set_wheel_speed(1.0, 0.0).await;
+        set_wheel_speed(2.5, 0.0).await;
         Timer::after_millis(4000).await;
 
         // Step 3: Set back to zero for 4 seconds

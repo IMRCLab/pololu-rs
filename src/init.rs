@@ -6,7 +6,7 @@ use crate::buzzer::Buzzer;
 use crate::encoder::{EncoderCounters, EncoderPair, init_encoder_counts};
 use crate::led::Led;
 use crate::motor::{MotorController, init_motor};
-use crate::robot_config::RobotConfig;
+use crate::read_robot_config_from_sd::RobotConfig;
 use crate::sdlog::{self, SdLogger};
 use crate::uart::SharedUart;
 use embassy_rp::peripherals::UART0;

@@ -20,41 +20,8 @@ const SAMPLE_MS: u64 = 20;
 const _MIN_RPM: f32 = -2388.0; //calculated from max speed 4 [m/s] and wheel radius 0.016 [m]
 const _MAX_RPM: f32 = 2388.0;
 
-// Zumo robot constants
-#[cfg(feature = "zumo")]
-mod robot_constants {
-    pub const GEAR_RATIO: f32 = 75.81;
-    pub const ENCODER_CPR: f32 = GEAR_RATIO * 12.0 / 4.0; // = 909.72
-    pub const WHEEL_BASE: f32 = 0.099;
-    pub const WHEEL_RADIUS: f32 = 0.02;
-    pub const MOTOR_DIRECTION_LEFT: f32 = -1.0; // Zumo has reversed motors
-    pub const MOTOR_DIRECTION_RIGHT: f32 = -1.0;
-}
-
-// 3Pi robot constants
-#[cfg(feature = "three-pi")]
-mod robot_constants {
-    pub const GEAR_RATIO: f32 = 29.86;
-    pub const ENCODER_CPR: f32 = GEAR_RATIO * 12.0 / 4.0; // = 358.32
-    pub const WHEEL_BASE: f32 = 0.0842;
-    pub const WHEEL_RADIUS: f32 = 0.016;
-    pub const MOTOR_DIRECTION_LEFT: f32 = 1.0; // 3Pi has normal motor directions
-    pub const MOTOR_DIRECTION_RIGHT: f32 = 1.0;
-}
-
-// Default values for testing when no features are active
-#[cfg(not(any(feature = "zumo", feature = "three-pi")))]
-mod robot_constants {
-    pub const GEAR_RATIO: f32 = 75.81; // Default to Zumo values for testing
-    pub const ENCODER_CPR: f32 = GEAR_RATIO * 12.0 / 4.0;
-    pub const WHEEL_BASE: f32 = 0.099;
-    pub const WHEEL_RADIUS: f32 = 0.02;
-    pub const MOTOR_DIRECTION_LEFT: f32 = -1.0; // Default to Zumo behavior
-    pub const MOTOR_DIRECTION_RIGHT: f32 = -1.0;
-}
-
 // Import the selected constants into the module scope
-use robot_constants::*;
+use crate::robot_parameters_default::robot_constants::*;
 
 /// Get the gear ratio for runtime identification
 pub fn get_gear_ratio() -> f32 {
@@ -145,18 +112,18 @@ pub async fn motor_control_task(
         error_sum_left += error_left;
         error_sum_right += error_right;
 
-        let mut duty_left = ((kp * error_left + ki * error_sum_left) / 10000.0).clamp(-1.0, 1.0);
-        let mut duty_right = ((kp * error_right + ki * error_sum_right) / 10000.0).clamp(-1.0, 1.0);
+        let mut duty_left = ((kp * error_left + ki * error_sum_left) / 32768.0).clamp(-1.0, 1.0);
+        let mut duty_right = ((kp * error_right + ki * error_sum_right) / 32768.0).clamp(-1.0, 1.0);
 
-        // info!("Set Speed: {}, {}", duty_left, duty_right);
-        // info!(
-        //     "rpm_left_target: {}, rpm_left_now: {}",
-        //     rpm_left_target, rpm_left_now
-        // );
-        // info!(
-        //     "rpm_right_target: {}, rpm_right_now: {}",
-        //     rpm_right_target, rpm_right_now
-        // );
+        info!("Set Speed: {}, {}", duty_left, duty_right);
+        info!(
+            "rpm_left_target: {}, rpm_left_now: {}",
+            rpm_left_target, rpm_left_now
+        );
+        info!(
+            "rpm_right_target: {}, rpm_right_now: {}",
+            rpm_right_target, rpm_right_now
+        );
 
         if v_left.abs() < 0.1 {
             //slack for zero speed recognition

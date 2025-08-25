@@ -16,7 +16,7 @@ use embedded_sdmmc::{
 use heapless::String;
 use static_cell::StaticCell;
 
-use crate::robot_config::{RobotConfig, load_robot_config_with_dir};
+use crate::read_robot_config_from_sd::{RobotConfig, load_robot_config_with_dir};
 use crate::trajectory_control::{register_trajectory, store_trajectory};
 
 pub type SpiDev<'a> = ExclusiveDevice<Spi<'a, SPI0, spi::Blocking>, Output<'a>, NoDelay>;

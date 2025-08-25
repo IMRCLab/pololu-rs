@@ -20,6 +20,7 @@ bench = false
 [dependencies]
 cortex-m = { version = "0.7.6" }
 cortex-m-rt = "0.7.3"
+pio = "0.3"
 embedded-hal = "1.0.0"
 panic-halt = "1.0.0"
 embedded-hal-async = "1.0.0"

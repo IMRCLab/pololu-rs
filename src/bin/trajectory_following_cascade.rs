@@ -7,13 +7,12 @@ use {defmt_rtt as _, panic_probe as _};
 use embassy_executor::Spawner;
 use embassy_rp::init;
 
+use pololu3pi2040_rs::diffdrive_cascade::{
+    ControlMode, diffdrive_outer_loop, mocap_update_task, wheel_speed_inner_loop,
+};
+use pololu3pi2040_rs::encoder::{EncoderPair, encoder_left_task, encoder_right_task};
 use pololu3pi2040_rs::init::init_all;
 use pololu3pi2040_rs::trajectory_uart::{UartCfg, uart_motioncap_receiving_task};
-
-use pololu3pi2040_rs::diffdrive_cascade::{
-    ControlMode, diffdrive_outer_loop, encoder_left_task_cascade, encoder_right_task_cascade,
-    mocap_update_task, wheel_speed_inner_loop,
-};
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
@@ -33,12 +32,17 @@ async fn main(spawner: Spawner) {
 
     // 启动编码器读取（PioEncoder）——累加到 ENC_LEFT/RIGHT_DELTA
     // Start encoder tasks (will be accumulated to ENC_LEFT/RIGHT_DELTA)
-    let enc = devices.encoders;
+    let EncoderPair {
+        encoder_left,
+        encoder_right,
+    } = devices.encoders;
+    let encoder_count_left = devices.encoder_counts.left;
+    let encoder_count_right = devices.encoder_counts.right;
     spawner
-        .spawn(encoder_left_task_cascade(enc.encoder_left))
+        .spawn(encoder_left_task(encoder_left, encoder_count_left))
         .unwrap();
     spawner
-        .spawn(encoder_right_task_cascade(enc.encoder_right))
+        .spawn(encoder_right_task(encoder_right, encoder_count_right))
         .unwrap();
 
     // 启动 mocap 更新转发（把 STATE_SIG 的数据写回 LAST_STATE，供外环读取）
@@ -48,7 +52,11 @@ async fn main(spawner: Spawner) {
     // 启动内环：5 ms 速度闭环（用 encoder 追踪目标轮速，唯一写 PWM 的地方）
     // Start inner loop.
     spawner
-        .spawn(wheel_speed_inner_loop(devices.motor))
+        .spawn(wheel_speed_inner_loop(
+            devices.motor,
+            encoder_count_left,
+            encoder_count_right,
+        ))
         .unwrap();
 
     // 启动外环：50 ms 轨迹控制（算 ωl/ωr 并通过 WHEEL_CMD_CH 发给内环）

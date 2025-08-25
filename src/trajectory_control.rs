@@ -9,7 +9,7 @@ use libm::{cosf, sinf};
 use static_cell::StaticCell;
 
 use crate::motor::MotorController;
-use crate::robot_config::RobotConfig;
+use crate::read_robot_config_from_sd::RobotConfig;
 use crate::trajectory_reading::{Action, Pose, Trajectory};
 use crate::trajectory_signal::{FIRST_MESSAGE, LAST_STATE, PoseAbs, STATE_SIG};
 

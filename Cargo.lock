@@ -1124,6 +1124,7 @@ dependencies = [
  "log",
  "panic-halt",
  "panic-probe",
+ "pio",
  "portable-atomic",
  "serde",
  "serde-json-core",

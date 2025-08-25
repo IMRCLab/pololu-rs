@@ -1,5 +1,5 @@
 use crate::math::SO2;
-use crate::sdlog::{MotionLog, SdLogger, TrajControlLog};
+use crate::sdlog::{SdLogger, TrajControlLog};
 use core::f32::consts::PI;
 use embassy_futures::select::{Either, select};
 // use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, signal::Signal};
@@ -9,62 +9,11 @@ use libm::{atan2f, cosf, sinf, sqrtf};
 use crate::motor::MotorController;
 use crate::trajectory_signal::{FIRST_MESSAGE, LAST_STATE, PoseAbs, STATE_SIG};
 
-// Robot constants for diffdrive control
-#[cfg(feature = "zumo")]
-pub mod robot_constants_diffdrive {
-    pub const DT_S: f32 = 0.1; // Default to 100ms time step
-    pub const WHEEL_RADIUS: f32 = 0.02;
-    pub const WHEEL_BASE: f32 = 0.099;
-    pub const MOTOR_DIRECTION_LEFT: f32 = -1.0;
-    pub const MOTOR_DIRECTION_RIGHT: f32 = -1.0;
-    pub const KX: f32 = 1.0;
-    pub const KY: f32 = 1.0;
-    pub const KTHETA: f32 = 2.0;
-    pub const GEAR_RATIO: f32 = 75.81;
-    pub const ENCODER_CPR: f32 = -GEAR_RATIO * 12.0;
-    pub const MAX_SPEED: f32 = 0.65; // 65 cm/s, according to datasheet 75:1 Gear Ratio
-    //find out the actual maximum speed of Zumo
-    pub const WHEEL_MAX: f32 = 0.233 * MAX_SPEED / WHEEL_RADIUS; //angular velocity in [rad/s]
-}
-
-#[cfg(feature = "three-pi")]
-pub mod robot_constants_diffdrive {
-    pub const DT_S: f32 = 0.1;
-    pub const WHEEL_RADIUS: f32 = 0.016; // 16mm wheel radius 
-    pub const WHEEL_BASE: f32 = 0.0842; // 84.2mm wheelbase
-    pub const MOTOR_DIRECTION_LEFT: f32 = 1.0;
-    pub const MOTOR_DIRECTION_RIGHT: f32 = 1.0;
-    pub const KX: f32 = 1.0;
-    pub const KY: f32 = 1.0;
-    pub const KTHETA: f32 = 2.0;
-    pub const GEAR_RATIO: f32 = 29.86;
-    pub const ENCODER_CPR: f32 = -GEAR_RATIO * 12.0;
-    pub const MAX_SPEED: f32 = 4.0; // 4.0 m/s, according to datasheet  Gear Ratio
-    //find out the actual maximum speed of Zumo
-    pub const WHEEL_MAX: f32 = 0.233 * MAX_SPEED / WHEEL_RADIUS; //angular velocity in [rad/s]
-}
-
-#[cfg(not(any(feature = "zumo", feature = "three-pi")))]
-pub mod robot_constants_diffdrive {
-    pub const DT_S: f32 = 0.1; // Default to 100ms time step
-    pub const WHEEL_RADIUS: f32 = 0.02;
-    pub const WHEEL_BASE: f32 = 0.099;
-    pub const MOTOR_DIRECTION_LEFT: f32 = -1.0;
-    pub const MOTOR_DIRECTION_RIGHT: f32 = -1.0;
-    pub const KX: f32 = 10.0;
-    pub const KY: f32 = 10.0;
-    pub const KTHETA: f32 = -5.0;
-    pub const GEAR_RATIO: f32 = 75.81;
-    pub const ENCODER_CPR: f32 = -GEAR_RATIO * 12.0;
-    pub const MAX_SPEED: f32 = 0.65; // 65 cm/s, according to datasheet 75:1 Gear Ratio
-    //find out the actual maximum speed of Zumo
-    pub const WHEEL_MAX: f32 = 0.233 * MAX_SPEED / WHEEL_RADIUS; // Maximum wheel speed in m/s scaling is experimentally derived
-}
 //TODO:
 // clean up robot struct and timer
 // add abstraction layer for trajectory selection
 // time to test the position controller with mocap system
-use robot_constants_diffdrive::*;
+use crate::robot_parameters_default::robot_constants::*;
 
 // pub static DIFFDRIVE_TRAJECTORY_READY: Signal<ThreadModeRawMutex, ()> = Signal::new();
 
@@ -430,7 +379,7 @@ pub async fn diffdrive_control_task(motor: MotorController, mut sdlogger: Option
         let t = Instant::now() - start;
         let t_sec = t.as_millis() as f32 / 1000.0;
 
-        // let wd = PI / 4.0; // rad/s, desired angular velocity
+        //let wd = PI / 4.0; // rad/s, desired angular velocity
 
         // let mut setpoint = robot.circlereference(t_counter * DT_S, circle_radius, wd);
         // //the robot should assume it is at the start of the trajectory with its init pose.
