@@ -62,7 +62,7 @@ async fn main(spawner: Spawner) {
     // 启动外环：50 ms 轨迹控制（算 ωl/ωr 并通过 WHEEL_CMD_CH 发给内环）
     // Start outer loop.
     // spawner
-    //     .spawn(diffdrive_outer_loop(None, ControlMode::WithInnerSpeedLoop))
+    //     .spawn(diffdrive_outer_loop(None, ControlMode::WithMocapController))
     //     .unwrap();
     spawner
         .spawn(diffdrive_outer_loop(

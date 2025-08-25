@@ -25,7 +25,7 @@ pub static STOP_ALL: AtomicBool = AtomicBool::new(false);
 
 #[derive(Copy, Clone)]
 pub enum ControlMode {
-    WithInnerSpeedLoop,
+    WithMocapController,
     DirectDuty,
 }
 
@@ -274,7 +274,7 @@ pub async fn diffdrive_outer_loop(mut motor: Option<MotorController>, mode: Cont
         setpoint.vdes = circle_radius * wd;
         setpoint.wdes = wd;
         match mode {
-            ControlMode::WithInnerSpeedLoop => {
+            ControlMode::WithMocapController => {
                 info!("mocap");
                 let (action, _xerror, _yerror, _yawerror) = controller.control(&robot, setpoint);
                 let _ = WHEEL_CMD_CH.try_send(WheelCmd {
