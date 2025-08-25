@@ -1,6 +1,7 @@
 #![no_std]
 #![no_main]
 
+use embassy_time::Timer;
 use {defmt_rtt as _, panic_probe as _};
 
 use embassy_executor::Spawner;
@@ -18,6 +19,8 @@ use pololu3pi2040_rs::diffdrive_cascade::{
 async fn main(spawner: Spawner) {
     let p = init(Default::default());
     let devices = init_all(p);
+
+    Timer::after_millis(3000).await;
 
     // 启动接收 mocap 的 UART 任务（它会更新 STATE_SIG / LAST_STATE）
     // Start uart task for receiving pose information from UART (will update STATE_SIG and LAST_STATE)
@@ -50,13 +53,13 @@ async fn main(spawner: Spawner) {
 
     // 启动外环：50 ms 轨迹控制（算 ωl/ωr 并通过 WHEEL_CMD_CH 发给内环）
     // Start outer loop.
-    spawner
-        .spawn(diffdrive_outer_loop(None, ControlMode::WithInnerSpeedLoop))
-        .unwrap();
     // spawner
-    //     .spawn(diffdrive_outer_loop(
-    //         Some(devices.motor),
-    //         ControlMode::DirectDuty,
-    //     ))
+    //     .spawn(diffdrive_outer_loop(None, ControlMode::WithInnerSpeedLoop))
     //     .unwrap();
+    spawner
+        .spawn(diffdrive_outer_loop(
+            Some(devices.motor),
+            ControlMode::DirectDuty,
+        ))
+        .unwrap();
 }

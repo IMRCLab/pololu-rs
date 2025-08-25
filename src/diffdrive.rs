@@ -21,7 +21,7 @@ pub mod robot_constants_diffdrive {
     pub const KY: f32 = 1.0;
     pub const KTHETA: f32 = 2.0;
     pub const GEAR_RATIO: f32 = 75.81;
-    pub const ENCODER_CPR: f32 = -GEAR_RATIO * 12.0 / 4.0;
+    pub const ENCODER_CPR: f32 = -GEAR_RATIO * 12.0;
     pub const MAX_SPEED: f32 = 0.65; // 65 cm/s, according to datasheet 75:1 Gear Ratio
     //find out the actual maximum speed of Zumo
     pub const WHEEL_MAX: f32 = 0.233 * MAX_SPEED / WHEEL_RADIUS; //angular velocity in [rad/s]
@@ -38,7 +38,7 @@ pub mod robot_constants_diffdrive {
     pub const KY: f32 = 1.0;
     pub const KTHETA: f32 = 2.0;
     pub const GEAR_RATIO: f32 = 29.86;
-    pub const ENCODER_CPR: f32 = -GEAR_RATIO * 12.0 / 4.0;
+    pub const ENCODER_CPR: f32 = -GEAR_RATIO * 12.0;
     pub const MAX_SPEED: f32 = 4.0; // 4.0 m/s, according to datasheet  Gear Ratio
     //find out the actual maximum speed of Zumo
     pub const WHEEL_MAX: f32 = 0.233 * MAX_SPEED / WHEEL_RADIUS; //angular velocity in [rad/s]
@@ -55,7 +55,7 @@ pub mod robot_constants_diffdrive {
     pub const KY: f32 = 10.0;
     pub const KTHETA: f32 = -5.0;
     pub const GEAR_RATIO: f32 = 75.81;
-    pub const ENCODER_CPR: f32 = -GEAR_RATIO * 12.0 / 4.0;
+    pub const ENCODER_CPR: f32 = -GEAR_RATIO * 12.0;
     pub const MAX_SPEED: f32 = 0.65; // 65 cm/s, according to datasheet 75:1 Gear Ratio
     //find out the actual maximum speed of Zumo
     pub const WHEEL_MAX: f32 = 0.233 * MAX_SPEED / WHEEL_RADIUS; // Maximum wheel speed in m/s scaling is experimentally derived
