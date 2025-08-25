@@ -211,14 +211,12 @@ pub async fn wheel_speed_inner_loop(
         )
         .await;
 
-        // 若不启用中值滤波，就直接用原始值进入低通：
         let (omega_l_denoised, omega_r_denoised) = (omega_l_raw, omega_r_raw);
 
-        // ---------- 一阶低通（EMA） ----------
+        // ---------- First Order Low-Pass ----------
         omega_l_lp = omega_l_lp + alpha * (omega_l_denoised - omega_l_lp);
         omega_r_lp = omega_r_lp + alpha * (omega_r_denoised - omega_r_lp);
 
-        // 用滤波后的速度参与控制
         let el = last_cmd.omega_l - omega_l_lp;
         let er = last_cmd.omega_r - omega_r_lp;
 
