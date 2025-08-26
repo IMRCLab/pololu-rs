@@ -6,155 +6,25 @@ use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Instant, Ticker};
 
 use crate::diffdrive::{Diffdrive, DiffdriveController, DiffdriveState};
-use crate::encoder::get_wheel_speed_in_rad;
+use crate::encoder::wheel_speed_from_counts_now;
 use crate::motor::MotorController;
 use crate::robot_parameters_default::robot_constants::*;
 use crate::trajectory_signal::{LAST_STATE, STATE_SIG, WHEEL_CMD_CH, WheelCmd};
 
 use portable_atomic::{AtomicBool, Ordering};
 
-// pub static ENC_LEFT_DELTA: AtomicI32 = AtomicI32::new(0);
-// pub static ENC_RIGHT_DELTA: AtomicI32 = AtomicI32::new(0);
-
 pub static STOP_ALL: AtomicBool = AtomicBool::new(false);
 
-// //TODO:
-// // clean up robot struct and timer
-// // add abstraction layer for trajectory selection
-// // time to test the position controller with mocap system
+// ====================== TODO: ===========================
+// (1) add abstraction layer for trajectory selection
+// (2) time to test the position controller with mocap system
+// ====================== TODO: ===========================
 
 #[derive(Copy, Clone)]
 pub enum ControlMode {
     WithMocapController,
     DirectDuty,
 }
-
-// // #[embassy_executor::task]
-// // pub async fn encoder_left_task_cascade(
-// //     mut encoder: PioEncoder<'static, embassy_rp::peripherals::PIO0, 0>,
-// // ) {
-// //     loop {
-// //         let dir = encoder.read().await;
-// //         let delta = match dir {
-// //             Direction::Clockwise => 1,
-// //             Direction::CounterClockwise => -1,
-// //         };
-// //         ENC_LEFT_DELTA.fetch_add(delta, Ordering::Relaxed);
-// //     }
-// // }
-
-// // #[embassy_executor::task]
-// // pub async fn encoder_right_task_cascade(
-// //     mut encoder: PioEncoder<'static, embassy_rp::peripherals::PIO0, 1>,
-// // ) {
-// //     loop {
-// //         let dir = encoder.read().await;
-// //         let delta = match dir {
-// //             Direction::Clockwise => 1,
-// //             Direction::CounterClockwise => -1,
-// //         };
-// //         ENC_RIGHT_DELTA.fetch_add(delta, Ordering::Relaxed);
-// //     }
-// // }
-
-// const LUT: [[i8; 4]; 4] = [
-//     /*prev\curr: 00, 01, 10, 11 */
-//     [0, 1, -1, 0], // 00 ->
-//     [-1, 0, 0, 1], // 01 ->
-//     [1, 0, 0, -1], // 10 ->
-//     [0, -1, 1, 0], // 11 ->
-// ];
-
-// #[embassy_executor::task]
-// pub async fn encoder_left_task_cascade(
-//     mut encoder: PioEncoder<'static, embassy_rp::peripherals::PIO0, 0>,
-// ) {
-//     let mut prev = encoder.read_ab().await;
-//     loop {
-//         let mut delta: i32 = 0;
-//         let curr = encoder.read_ab().await;
-//         delta += LUT[prev as usize][curr as usize] as i32;
-//         prev = curr;
-//         while let Some(c) = encoder.try_read_ab() {
-//             delta += LUT[prev as usize][c as usize] as i32;
-//             prev = c;
-//         }
-//         if delta != 0 {
-//             ENC_LEFT_DELTA.fetch_add(delta * MOTOR_DIRECTION_LEFT as i32, Ordering::AcqRel);
-//         }
-//     }
-// }
-
-// #[embassy_executor::task]
-// pub async fn encoder_right_task_cascade(
-//     mut encoder: PioEncoder<'static, embassy_rp::peripherals::PIO0, 1>,
-// ) {
-//     let mut prev = encoder.read_ab().await;
-//     loop {
-//         let mut delta: i32 = 0;
-//         let curr = encoder.read_ab().await;
-//         delta += LUT[prev as usize][curr as usize] as i32;
-//         prev = curr;
-//         while let Some(c) = encoder.try_read_ab() {
-//             delta += LUT[prev as usize][c as usize] as i32;
-//             prev = c;
-//         }
-//         if delta != 0 {
-//             ENC_RIGHT_DELTA.fetch_add(delta * MOTOR_DIRECTION_RIGHT as i32, Ordering::AcqRel);
-//         }
-//     }
-// }
-
-/// inner loop
-// #[embassy_executor::task]
-// pub async fn wheel_speed_inner_loop(motor: MotorController) {
-//     let mut ticker = Ticker::every(Duration::from_millis(20));
-//     let (mut il, mut ir) = (0.0f32, 0.0f32);
-//     let (kp, ki) = (0.1, 0.01);
-
-//     let mut last_cmd = WheelCmd {
-//         omega_l: 0.0,
-//         omega_r: 0.0,
-//         stamp: Instant::now(),
-//     };
-
-//     loop {
-//         ticker.next().await;
-
-//         if STOP_ALL.load(Ordering::Relaxed) {
-//             motor.set_speed(0.0, 0.0).await;
-//             break;
-//         }
-
-//         if let Ok(cmd) = WHEEL_CMD_CH.try_receive() {
-//             last_cmd = cmd;
-//         }
-
-//         let dl = ENC_LEFT_DELTA.swap(0, Ordering::AcqRel);
-//         let dr = ENC_RIGHT_DELTA.swap(0, Ordering::AcqRel);
-//         let dt = 0.02;
-
-//         let omega_l_meas = (dl as f32) * 2.0 * core::f32::consts::PI / (ENCODER_CPR * dt);
-//         let omega_r_meas = (dr as f32) * 2.0 * core::f32::consts::PI / (ENCODER_CPR * dt);
-
-//         let el = last_cmd.omega_l - omega_l_meas;
-//         let er = last_cmd.omega_r - omega_r_meas;
-
-//         il = (il + ki * dt * el).clamp(-0.3, 0.3);
-//         ir = (ir + ki * dt * er).clamp(-0.3, 0.3);
-
-//         let u_l = (kp * el + il).clamp(-1.0, 1.0);
-//         let u_r = (kp * er + ir).clamp(-1.0, 1.0);
-
-//         let duty_l = u_l * MOTOR_DIRECTION_LEFT;
-//         let duty_r = u_r * MOTOR_DIRECTION_RIGHT;
-
-//         defmt::info!("rpm meas: {}, rpm meas: {}", omega_l_meas, omega_r_meas);
-//         defmt::info!("duty left: {}, duty right: {}", duty_l, duty_r);
-
-//         motor.set_speed(duty_l, duty_r).await;
-//     }
-// }
 
 #[embassy_executor::task]
 pub async fn wheel_speed_inner_loop(
@@ -164,15 +34,19 @@ pub async fn wheel_speed_inner_loop(
 ) {
     let mut ticker = Ticker::every(Duration::from_millis(20));
     let (mut il, mut ir) = (0.0f32, 0.0f32);
-    let (kp, ki) = (0.1, 0.08);
+    let (mut prev_el, mut prev_er) = (0.0f32, 0.0f32); // previous error
+    let (kp, ki, kd) = (0.01, 0.02, 0.000); // Pololu gains
+    // let (kp, ki, kd) = (0.01, 0.02, 0.000); // Zumo gains (needs to be tuned)
 
-    // ---- 滤波参数 ----
+    // =========== Filter Parameters ==============
     let dt: f32 = 0.02; // 20 ms
-    let fc_hz: f32 = 8.0; // 一阶低通截止频率，按需 3~8 Hz 调
+    let fc_hz: f32 = 3.0;
     let tau: f32 = 1.0 / (2.0 * core::f32::consts::PI * fc_hz);
-    let alpha: f32 = dt / (tau + dt); // EMA 系数，0..1，越大响应越快
+    let alpha: f32 = dt / (tau + dt);
 
-    // 低通状态
+    let mut prev_l = 0i32;
+    let mut prev_r = 0i32;
+
     let mut omega_l_lp: f32 = 0.0;
     let mut omega_r_lp: f32 = 0.0;
 
@@ -190,55 +64,63 @@ pub async fn wheel_speed_inner_loop(
             break;
         }
 
-        if let Ok(cmd) = WHEEL_CMD_CH.try_receive() {
-            last_cmd = cmd;
+        while let Ok(cmd) = WHEEL_CMD_CH.try_receive() {
+            last_cmd = cmd; // drain the channel
         }
 
-        // let dl = ENC_LEFT_DELTA.swap(0, Ordering::AcqRel);
-        // let dr = ENC_RIGHT_DELTA.swap(0, Ordering::AcqRel);
-
-        // // 原始角速度（rad/s）
-        // let omega_l_raw = (dl as f32) * 2.0 * core::f32::consts::PI / (ENCODER_CPR * dt);
-        // let omega_r_raw = (dr as f32) * 2.0 * core::f32::consts::PI / (ENCODER_CPR * dt);
-
-        // get rpms
-        let (omega_l_raw, omega_r_raw) = get_wheel_speed_in_rad(
+        // raw angular velocity of the wheel
+        let ((omega_l_raw, omega_r_raw), (ln, rn)) = wheel_speed_from_counts_now(
             left_counter,
             right_counter,
             ENCODER_CPR,
-            (dt * 1000.0) as u64,
+            prev_l,
+            prev_r,
             dt,
-        )
-        .await;
+        );
+        prev_l = ln;
+        prev_r = rn;
 
-        let (omega_l_denoised, omega_r_denoised) = (omega_l_raw, omega_r_raw);
+        // =========== Low Pass Filter ==============
+        omega_l_lp = omega_l_lp + alpha * (omega_l_raw - omega_l_lp);
+        omega_r_lp = omega_r_lp + alpha * (omega_r_raw - omega_r_lp);
 
-        // ---------- First Order Low-Pass ----------
-        omega_l_lp = omega_l_lp + alpha * (omega_l_denoised - omega_l_lp);
-        omega_r_lp = omega_r_lp + alpha * (omega_r_denoised - omega_r_lp);
-
+        // error
         let el = last_cmd.omega_l - omega_l_lp;
         let er = last_cmd.omega_r - omega_r_lp;
 
-        il = (il + ki * dt * el).clamp(-0.8, 0.8);
-        ir = (ir + ki * dt * er).clamp(-0.8, 0.8);
+        // error integration
+        il = (il + ki * dt * el).clamp(-0.3, 0.3);
+        ir = (ir + ki * dt * er).clamp(-0.3, 0.3);
 
-        let u_l = (kp * el + il).clamp(-1.0, 1.0);
-        let u_r = (kp * er + ir).clamp(-1.0, 1.0);
+        // error differentiation
+        let dl = (el - prev_el) / dt;
+        let dr = (er - prev_er) / dt;
+
+        prev_el = el;
+        prev_er = er;
+
+        // PID (normally the D term is disabled, but just in case)
+        let u_l = (kp * el + il + kd * dl).clamp(-1.0, 1.0);
+        let u_r = (kp * er + ir + kd * dr).clamp(-1.0, 1.0);
 
         let duty_l = u_l * MOTOR_DIRECTION_LEFT;
         let duty_r = u_r * MOTOR_DIRECTION_RIGHT;
 
-        defmt::info!("meas rpm L: {}, R: {}", omega_l_lp, omega_r_lp,);
-        defmt::info!("duty left: {}, duty right: {}", duty_l, duty_r);
+        defmt::info!(
+            "meas ω L: {}, R: {}, duty L: {}, duty R: {}",
+            omega_l_lp,
+            omega_r_lp,
+            duty_l,
+            duty_r
+        );
 
         motor.set_speed(duty_l, duty_r).await;
     }
 }
 
-// outer loop
+// Outer Loop
 #[embassy_executor::task]
-pub async fn diffdrive_outer_loop(mut motor: Option<MotorController>, mode: ControlMode) {
+pub async fn diffdrive_outer_loop(mode: ControlMode) {
     STOP_ALL.store(false, Ordering::Relaxed);
     let mut ticker = Ticker::every(Duration::from_millis((DT_S * 1000.0) as u64));
     let mut robot = Diffdrive::new(
@@ -253,8 +135,8 @@ pub async fn diffdrive_outer_loop(mut motor: Option<MotorController>, mode: Cont
 
     let mut t_counter = 0.0;
     let start = Instant::now();
-    let circle_radius = 0.08;
-    let circle_duration = 8.0;
+    let circle_radius = 0.3;
+    let circle_duration = 7.0;
 
     loop {
         ticker.next().await;
@@ -268,7 +150,105 @@ pub async fn diffdrive_outer_loop(mut motor: Option<MotorController>, mode: Cont
         robot.s.theta = SO2::new(pose.yaw);
 
         let t = (Instant::now() - start).as_millis() as f32 / 1000.0;
-        let wd = 2.0 * PI / 8.0;
+        let wd = 2.0 * PI / circle_duration;
+        let mut setpoint = robot.circlereference(t, circle_radius, wd);
+
+        setpoint.vdes = circle_radius * wd;
+        setpoint.wdes = -wd;
+
+        match mode {
+            ControlMode::WithMocapController => {
+                info!("mocap");
+                let (action, _xerror, _yerror, _yawerror) = controller.control(&robot, setpoint);
+                let _ = WHEEL_CMD_CH.try_send(WheelCmd {
+                    omega_l: action.ul,
+                    omega_r: action.ur,
+                    stamp: Instant::now(),
+                });
+            }
+            ControlMode::DirectDuty => {
+                info!("no mocap");
+                let w_rad = setpoint.wdes;
+                let w_deg = w_rad * 180.0 / PI; // deg/s
+
+                let vd = setpoint.vdes;
+
+                let state_des = DiffdriveState {
+                    x: setpoint.des.x,
+                    y: setpoint.des.y,
+                    theta: setpoint.des.theta,
+                };
+
+                let ur = (2.0 * vd + WHEEL_BASE * w_rad) / (2.0 * WHEEL_RADIUS);
+                let ul = (2.0 * vd - WHEEL_BASE * w_rad) / (2.0 * WHEEL_RADIUS);
+
+                while WHEEL_CMD_CH.try_receive().is_ok() {} // drain the old command
+                let _ = WHEEL_CMD_CH.try_send(WheelCmd {
+                    omega_l: ul,
+                    omega_r: ur,
+                    stamp: Instant::now(),
+                });
+
+                defmt::info!(
+                    "t={}s, posd = ({},{},{}), v={}, w={} rad/s ({} deg/s), u_ff=({},{})",
+                    t,
+                    state_des.x,
+                    state_des.y,
+                    state_des.theta.rad(),
+                    vd,
+                    w_rad,
+                    w_deg,
+                    ul,
+                    ur
+                );
+            }
+        }
+
+        if t_counter > circle_duration / DT_S {
+            let _ = WHEEL_CMD_CH.try_send(WheelCmd {
+                omega_l: 0.0,
+                omega_r: 0.0,
+                stamp: Instant::now(),
+            });
+            STOP_ALL.store(true, Ordering::Relaxed);
+            break;
+        }
+        t_counter += 1.0;
+    }
+}
+
+#[embassy_executor::task]
+pub async fn test_outer_loop(mode: ControlMode) {
+    STOP_ALL.store(false, Ordering::Relaxed);
+    let mut ticker = Ticker::every(Duration::from_millis((DT_S * 1000.0) as u64));
+    let mut robot = Diffdrive::new(
+        WHEEL_RADIUS,
+        WHEEL_BASE,
+        -WHEEL_MAX,
+        WHEEL_MAX,
+        -WHEEL_MAX,
+        WHEEL_MAX,
+    );
+    let controller = DiffdriveController::new(KX, KY, KTHETA);
+
+    let mut t_counter = 0.0;
+    let start = Instant::now();
+    let circle_radius = 0.4;
+    let circle_duration = 10.0;
+
+    loop {
+        ticker.next().await;
+
+        let pose = {
+            let s = LAST_STATE.lock().await;
+            *s
+        };
+        robot.s.x = pose.x;
+        robot.s.y = pose.y;
+        robot.s.theta = SO2::new(pose.yaw);
+
+        let t = (Instant::now() - start).as_millis() as f32 / 1000.0;
+        let wd = 2.0 * PI / circle_duration;
         let mut setpoint = robot.circlereference(t, circle_radius, wd);
 
         setpoint.vdes = circle_radius * wd;
@@ -297,12 +277,20 @@ pub async fn diffdrive_outer_loop(mut motor: Option<MotorController>, mode: Cont
                 };
                 let ur = (2.0 * vd + robot.l * w_rad) / (2.0 * robot.r);
                 let ul = (2.0 * vd - robot.l * w_rad) / (2.0 * robot.r);
+                // info!("robot l: {}, robot_radius: {}", robot.l, robot.r);
 
+                while WHEEL_CMD_CH.try_receive().is_ok() {} // 先清空旧的
                 let _ = WHEEL_CMD_CH.try_send(WheelCmd {
                     omega_l: ul,
                     omega_r: ur,
                     stamp: Instant::now(),
                 });
+
+                // let _ = WHEEL_CMD_CH.try_send(WheelCmd {
+                //     omega_l: ul,
+                //     omega_r: ur,
+                //     stamp: Instant::now(),
+                // });
 
                 // let mut duty_l = (ul / (2.0 * WHEEL_MAX)).clamp(robot.ul_min, robot.ul_max)
                 //     * MOTOR_DIRECTION_LEFT;
@@ -340,10 +328,10 @@ pub async fn diffdrive_outer_loop(mut motor: Option<MotorController>, mode: Cont
                 stamp: Instant::now(),
             });
             STOP_ALL.store(true, Ordering::Relaxed);
-            if let Some(m) = motor.as_mut() {
-                info!("here");
-                m.set_speed(0.0, 0.0).await;
-            }
+            // if let Some(m) = motor.as_mut() {
+            //     info!("here");
+            //     // m.set_speed(0.0, 0.0).await;
+            // }
             break;
         }
         t_counter += 1.0;

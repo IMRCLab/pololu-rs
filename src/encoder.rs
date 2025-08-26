@@ -82,6 +82,8 @@ pub async fn encoder_left_task(
         if delta != 0 {
             let mut g = counter.lock().await;
             *g = g.wrapping_add(delta * (MOTOR_DIRECTION_LEFT as i32));
+
+            // defmt::info!("Left encoder count = {}", *g);
         }
     }
 }
@@ -107,6 +109,8 @@ pub async fn encoder_right_task(
         if delta != 0 {
             let mut g = counter.lock().await;
             *g = g.wrapping_add(delta * (MOTOR_DIRECTION_RIGHT as i32));
+
+            // defmt::info!("Right encoder count = {}", *g);
         }
     }
 }
@@ -188,6 +192,31 @@ pub async fn get_wheel_speed_in_rad(
     let omega_r_raw = (delta_r as f32) * 2.0 * core::f32::consts::PI / (cpr_wheel * dt);
 
     (omega_l_raw, omega_r_raw)
+}
+
+pub fn wheel_speed_from_counts_now(
+    left_counter: &Mutex<NoopRawMutex, i32>,
+    right_counter: &Mutex<NoopRawMutex, i32>,
+    cpr_wheel: f32,
+    prev_left: i32,
+    prev_right: i32,
+    dt: f32, // 秒
+) -> ((f32, f32), (i32, i32)) {
+    // 尽量短时间持锁：只读一次
+    let (left_now, right_now) = {
+        let l = *left_counter.try_lock().as_deref().unwrap_or(&0);
+        let r = *right_counter.try_lock().as_deref().unwrap_or(&0);
+        (l, r)
+    };
+
+    let delta_l = left_now.wrapping_sub(prev_left) as f32;
+    let delta_r = right_now.wrapping_sub(prev_right) as f32;
+
+    let k = 2.0 * core::f32::consts::PI / cpr_wheel; // 每计数对应的角度（rad）
+    let omega_l = k * delta_l / dt;
+    let omega_r = k * delta_r / dt;
+
+    ((omega_l, omega_r), (left_now, right_now))
 }
 
 // fast left position reading

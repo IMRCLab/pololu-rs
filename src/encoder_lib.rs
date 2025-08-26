@@ -16,21 +16,26 @@ pub struct PioEncoderProgram<'a, PIO: Instance> {
 impl<'a, PIO: Instance> PioEncoderProgram<'a, PIO> {
     /// Load the program into the given pio
     pub fn new(common: &mut Common<'a, PIO>) -> Self {
-        // let prg = pio::pio_asm!("wait 1 pin 1", "wait 0 pin 1", "in pins, 2", "push",);
         let prg = pio::pio_asm!(
-            "wait 1 pin 0", // A ↑
-            "in pins, 2",
-            "push",
-            "wait 0 pin 0", // A ↓
-            "in pins, 2",
-            "push",
-            "wait 1 pin 1", // B ↑
-            "in pins, 2",
-            "push",
-            "wait 0 pin 1", // B ↓
-            "in pins, 2",
-            "push",
-            "jmp 0" // loop
+            ".wrap_target"
+            // initialization
+            "in pins, 2"     // ISR = curr (2bit)
+            "mov x, isr"      // X = prev
+            "mov isr, null"
+
+            "loop:"
+            "in pins, 2"     // ISR = curr
+            "mov y, isr"      // Y = curr
+            "mov isr, null"
+            "jmp x!=y changed"
+            "jmp loop"
+
+            "changed:"
+            "mov isr, y"
+            "push"
+            "mov x, y"
+            "jmp loop"
+            ".wrap"
         );
 
         let prg = common.load_program(&prg.program);

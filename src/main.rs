@@ -124,7 +124,7 @@ async fn main(spawner: Spawner) {
 
         // Step 2: Step up to 0.4 m/s for 4 seconds
         defmt::info!("=== Step 2: Step up to 0.4 m/s for 4 seconds ===");
-        set_wheel_speed(2.5, 0.0).await;
+        set_wheel_speed(2.0, 0.0).await;
         Timer::after_millis(4000).await;
 
         // Step 3: Set back to zero for 4 seconds
