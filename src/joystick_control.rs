@@ -87,7 +87,7 @@ pub async fn motor_control_task(
     let mut error_sum_left = 0.0;
     let mut error_sum_right = 0.0;
 
-    let kp = 60.0;
+    let kp = 25.0;
     let ki = 1.0;
 
     loop {

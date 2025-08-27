@@ -67,8 +67,8 @@ pub fn init_all(p: embassy_rp::Peripherals) -> InitDevices<'static> {
 
     // === Motor Initialization ===
     let mut config = PWM_config::default();
-    // config.top = 10000; // ~12.5kHz PWM frequency (125MHz / 10001) - above audible range?
-    config.top = 32768; // ~12.5kHz PWM frequency (125MHz / 32769)
+    config.top = 10000; // ~12.5kHz PWM frequency (125MHz / 10001) - above audible range?
+    // config.top = 32768; // ~12.5kHz PWM frequency (125MHz / 32769)
 
     let pwm = Pwm::new_output_ab(p.PWM_SLICE7, p.PIN_14, p.PIN_15, config.clone());
     let (pwm_a, pwm_b) = pwm.split();

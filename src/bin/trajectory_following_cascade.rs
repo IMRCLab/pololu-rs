@@ -65,9 +65,9 @@ async fn main(spawner: Spawner) {
     //     .spawn(diffdrive_outer_loop(None, ControlMode::WithMocapController))
     //     .unwrap();
     spawner
-        .spawn(diffdrive_outer_loop(
-            Some(devices.motor),
-            ControlMode::DirectDuty,
-        ))
+        .spawn(diffdrive_outer_loop(ControlMode::DirectDuty))
         .unwrap();
+    // spawner
+    //     .spawn(test_outer_loop(ControlMode::DirectDuty))
+    //     .unwrap();
 }
