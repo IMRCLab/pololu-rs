@@ -14,10 +14,21 @@ use pololu3pi2040_rs::trajectory_uart::{UartCfg, uart_motioncap_receiving_task};
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
     let p = init(Default::default());
-    let devices = init_all(p);
+    let mut devices = init_all(p);
 
     let mut led = devices.led;
+    let mut buzzer = devices.buzzer;
     // let mut buzzer = devices.buzzer;
+
+    if let Some(_sd) = devices.sdlogger.as_mut() {
+        //sd.write_csv_header();
+        //defmt::info!("Start Sd card writing test!");
+        //sd.log_motion_as_bin(&motion);
+        //sd.flush(); // This is super important!!!!!!
+        defmt::info!("SD card is here!");
+    } else {
+        defmt::warn!("No SD card / SdLogger disabled, skip logging");
+    }
 
     #[cfg(feature = "zumo")]
     for _ in 0..2 {
@@ -47,15 +58,17 @@ async fn main(spawner: Spawner) {
     spawner
         .spawn(uart_motioncap_receiving_task(
             devices.uart,
-            UartCfg { robot_id: 7 },
+            UartCfg { robot_id: 8 },
+            //pololu 3pi is 8, zumo is 7
         ))
         .unwrap();
 
     // ==================== start diffdrive control task ===========================
+    defmt::info!("starting diffdrive control task...");
     spawner
         .spawn(diffdrive_control_task(devices.motor, devices.sdlogger))
         .unwrap();
-
+    defmt::info!("diffdrive control task started");
     // ========================= blink LED ===============================
     let mut on = false;
     loop {
