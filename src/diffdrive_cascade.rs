@@ -9,7 +9,9 @@ use crate::diffdrive::{Diffdrive, DiffdriveController, DiffdriveState};
 use crate::encoder::wheel_speed_from_counts_now;
 use crate::motor::MotorController;
 use crate::robot_parameters_default::robot_constants::*;
-use crate::trajectory_signal::{LAST_STATE, STATE_SIG, WHEEL_CMD_CH, WheelCmd};
+use crate::trajectory_signal::{
+    FIRST_MESSAGE, LAST_STATE, PoseAbs, STATE_SIG, WHEEL_CMD_CH, WheelCmd,
+};
 
 use portable_atomic::{AtomicBool, Ordering};
 
@@ -138,9 +140,48 @@ pub async fn diffdrive_outer_loop(mode: ControlMode) {
     let circle_radius = 0.3;
     let circle_duration = 7.0;
 
+    let mut first_pose: PoseAbs = PoseAbs {
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+        roll: 0.0,
+        pitch: 0.0,
+        yaw: 0.0,
+    };
+
+    //initialize depending on control mode:
+    match mode {
+        ControlMode::WithMocapController => {
+            //wait for a pose to be received from mocap system
+            info!("waiting for first pose from mocap system...");
+            FIRST_MESSAGE.wait().await;
+            //initialise first pose from mocap:
+            first_pose = {
+                let s = LAST_STATE.lock().await;
+                *s
+            };
+        }
+        ControlMode::DirectDuty => {
+            info!("Using direct duty control, initial pose (0,0,0)");
+        }
+    }
+
     loop {
         ticker.next().await;
 
+        //generate next setpoint
+        let t = (Instant::now() - start).as_millis() as f32 / 1000.0;
+        let wd = 2.0 * PI / circle_duration;
+        let mut setpoint = robot.circlereference(
+            t,
+            circle_radius,
+            wd,
+            first_pose.x,
+            first_pose.y,
+            first_pose.yaw,
+        );
+
+        //get robot pose
         let pose = {
             let s = LAST_STATE.lock().await;
             *s
@@ -148,10 +189,6 @@ pub async fn diffdrive_outer_loop(mode: ControlMode) {
         robot.s.x = pose.x;
         robot.s.y = pose.y;
         robot.s.theta = SO2::new(pose.yaw);
-
-        let t = (Instant::now() - start).as_millis() as f32 / 1000.0;
-        let wd = 2.0 * PI / circle_duration;
-        let mut setpoint = robot.circlereference(t, circle_radius, wd);
 
         setpoint.vdes = circle_radius * wd;
         setpoint.wdes = -wd;
@@ -236,9 +273,48 @@ pub async fn test_outer_loop(mode: ControlMode) {
     let circle_radius = 0.4;
     let circle_duration = 10.0;
 
+    let mut first_pose: PoseAbs = PoseAbs {
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+        roll: 0.0,
+        pitch: 0.0,
+        yaw: 0.0,
+    };
+
+    //initialize depending on control mode:
+    match mode {
+        ControlMode::WithMocapController => {
+            //wait for a pose to be received from mocap system
+            info!("waiting for first pose from mocap system...");
+            FIRST_MESSAGE.wait().await;
+            //initialise first pose from mocap:
+            first_pose = {
+                let s = LAST_STATE.lock().await;
+                *s
+            };
+        }
+        ControlMode::DirectDuty => {
+            info!("Using direct duty control, initial pose (0,0,0)");
+        }
+    }
+
     loop {
         ticker.next().await;
 
+        //generate next setpoint
+        let t = (Instant::now() - start).as_millis() as f32 / 1000.0;
+        let wd = 2.0 * PI / circle_duration;
+        let mut setpoint = robot.circlereference(
+            t,
+            circle_radius,
+            wd,
+            first_pose.x,
+            first_pose.y,
+            first_pose.yaw,
+        );
+
+        //get robot pose
         let pose = {
             let s = LAST_STATE.lock().await;
             *s
@@ -247,12 +323,8 @@ pub async fn test_outer_loop(mode: ControlMode) {
         robot.s.y = pose.y;
         robot.s.theta = SO2::new(pose.yaw);
 
-        let t = (Instant::now() - start).as_millis() as f32 / 1000.0;
-        let wd = 2.0 * PI / circle_duration;
-        let mut setpoint = robot.circlereference(t, circle_radius, wd);
-
         setpoint.vdes = circle_radius * wd;
-        setpoint.wdes = wd;
+        setpoint.wdes = -wd;
         match mode {
             ControlMode::WithMocapController => {
                 info!("mocap");
