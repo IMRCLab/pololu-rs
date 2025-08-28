@@ -32,18 +32,18 @@ async fn main(spawner: Spawner) {
 
     #[cfg(feature = "zumo")]
     for _ in 0..2 {
-        led.on();
+        //led.on();
         buzzer.buzzer_warn(800, 1).await;
         Timer::after(Duration::from_millis(150)).await;
-        led.off();
+        //led.off();
         Timer::after(Duration::from_millis(100)).await;
     }
     #[cfg(feature = "three-pi")]
     for _ in 0..3 {
-        led.on();
+        //led.on();
         buzzer.buzzer_warn(800, 1).await;
         Timer::after(Duration::from_millis(150)).await;
-        led.off();
+        //led.off();
         Timer::after(Duration::from_millis(100)).await;
     }
 
@@ -58,7 +58,7 @@ async fn main(spawner: Spawner) {
     spawner
         .spawn(uart_motioncap_receiving_task(
             devices.uart,
-            UartCfg { robot_id: 8 },
+            UartCfg { robot_id: 7 },
             //pololu 3pi is 8, zumo is 7
         ))
         .unwrap();
@@ -66,18 +66,15 @@ async fn main(spawner: Spawner) {
     // ==================== start diffdrive control task ===========================
     defmt::info!("starting diffdrive control task...");
     spawner
-        .spawn(diffdrive_control_task(devices.motor, devices.sdlogger))
+        .spawn(diffdrive_control_task(devices.motor, devices.sdlogger, led))
         .unwrap();
     defmt::info!("diffdrive control task started");
     // ========================= blink LED ===============================
-    let mut on = false;
-    loop {
-        Timer::after(Duration::from_secs(1)).await;
-        if on {
-            led.off();
-        } else {
-            led.on();
-        }
-        on = !on;
+    for _ in 0..3 {
+        //led.on();
+        buzzer.buzzer_warn(1000, 1).await;
+        Timer::after(Duration::from_millis(150)).await;
+        //led.off();
+        Timer::after(Duration::from_millis(100)).await;
     }
 }

@@ -277,6 +277,8 @@ pub struct TrajControlLog {
     pub thetaerror: f32,
     pub ul: f32,
     pub ur: f32,
+    pub dutyl: f32,
+    pub dutyr: f32,
 }
 
 #[repr(C)]
@@ -310,7 +312,7 @@ impl SdLogger {
     }
 
     pub fn write_traj_control_header(&mut self) {
-        let header = b"ts,target_x,target_y,target_theta,actual_x,actual_y,actual_theta,target_vx,target_vy,target_vz,actual_vx,actual_vy,actual_vz,target_qw,target_qx,target_qy,target_qz,actual_qw,actual_qx,actual_qy,actual_qz,xerror,yerror,thetaerror,ul,ur\n";
+        let header = b"ts,target_x,target_y,target_theta,actual_x,actual_y,actual_theta,target_vx,target_vy,target_vz,actual_vx,actual_vy,actual_vz,target_qw,target_qx,target_qy,target_qz,actual_qw,actual_qx,actual_qy,actual_qz,xerror,yerror,thetaerror,ul,ur,dutyl,dutyr\n";
         let _ = self.file.write(header);
     }
 
@@ -323,11 +325,11 @@ impl SdLogger {
     }
 
     pub fn log_traj_control_as_csv(&mut self, data: &TrajControlLog) {
-        let mut line: String<128> = String::new();
+        let mut line: String<512> = String::new();
 
         let _ = core::write!(
             &mut line,
-            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}, {},{},{},{},{},{},{},{},{},{}",
+            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
             data.timestamp_ms,
             data.target_x,
             data.target_y,
@@ -355,12 +357,14 @@ impl SdLogger {
             data.thetaerror,
             data.ul,
             data.ur,
+            data.dutyl,
+            data.dutyr,
         );
         let _ = self.file.write(line.as_bytes());
     }
 
     pub fn log_motion_as_csv(&mut self, log: &MotionLog) {
-        let mut line: String<128> = String::new();
+        let mut line: String<512> = String::new();
 
         let _ = core::write!(
             &mut line,

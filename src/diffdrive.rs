@@ -6,6 +6,7 @@ use embassy_futures::select::{Either, select};
 use embassy_time::{Duration, Instant, Ticker, Timer};
 use libm::{atan2f, cosf, sinf, sqrtf};
 
+use crate::led::{self, Led};
 use crate::motor::MotorController;
 use crate::trajectory_signal::{FIRST_MESSAGE, LAST_STATE, PoseAbs, STATE_SIG};
 
@@ -259,6 +260,7 @@ impl Diffdrive {
         let t_norm = t / tau;
         let one_minus_t = 1.0 - t_norm;
 
+        // position in local (curve) frame
         let mut x = one_minus_t * one_minus_t * one_minus_t * p.p0x
             + 3.0 * t_norm * one_minus_t * one_minus_t * p.p1x
             + 3.0 * t_norm * t_norm * one_minus_t * p.p2x
@@ -267,6 +269,8 @@ impl Diffdrive {
             + 3.0 * t_norm * one_minus_t * one_minus_t * p.p1y
             + 3.0 * t_norm * t_norm * one_minus_t * p.p2y
             + t_norm * t_norm * t_norm * p.p3y;
+
+        // time-derivatives (your original formulas)
         let xd = (3.0 / tau) * one_minus_t * one_minus_t * (p.p1x - p.p0x)
             + 6.0 * (t / (tau * tau)) * one_minus_t * (p.p2x - p.p1x)
             + (3.0 / tau) * t_norm * t_norm * (p.p3x - p.p2x);
@@ -277,15 +281,28 @@ impl Diffdrive {
             + 6.0 * (t / (tau * tau * tau)) * (p.p3x - 2.0 * p.p2x + p.p1x);
         let ydd: f32 = (6.0 / (tau * tau)) * one_minus_t * (p.p2y - 2.0 * p.p1y + p.p0y)
             + 6.0 * (t / (tau * tau * tau)) * (p.p3y - 2.0 * p.p2y + p.p1y);
+
         let vdes: f32 = sqrtf(xd * xd + yd * yd);
         let wdes: f32 = (ydd * xd - xdd * yd) / (xd * xd + yd * yd);
-        let theta_loc = atan2f(yd, xd);
 
-        //transformation of bezier curve to body coordinates
-        x += p.x_ref + x * cosf(p.theta_ref) - y * sinf(p.theta_ref);
-        y += p.y_ref + x * sinf(p.theta_ref) + y * cosf(p.theta_ref);
-        let theta = SO2::new(p.theta_ref + theta_loc);
-        //add theta from ref to align heading
+        // tangent in local frame
+        let theta_loc = atan2f(yd, xd);
+        // initial tangent at u=0
+
+        //note: affine transformation to align the beziercurve trajectory with the robots initial position and
+        //the tangent of the curve in controlpoint p0 aligning with the robots heading.
+        let theta0 = atan2f(p.p1y - p.p0y, p.p1x - p.p0x);
+        let dtheta = theta0 - p.theta_ref; //calc offset robot heading vs bezier start tangent
+        let theta = theta_loc - (theta0 - p.theta_ref); //add that diff to all thetas in the trajectory
+
+        // rotation + translation (use temps!)
+        let x_rot = x * cosf(dtheta) - y * sinf(dtheta); //turn whole trajectory by theta offset 
+        let y_rot = x * sinf(dtheta) + y * cosf(dtheta);
+        x = p.x_ref + x_rot;
+        y = p.y_ref + y_rot;
+
+        let theta = SO2::new(theta);
+
         let des: DiffdriveState = DiffdriveState { x, y, theta };
         DiffdriveSetpoint { des, vdes, wdes }
     }
@@ -334,7 +351,11 @@ impl DiffdriveController {
 /// Embassy task for diffdrive trajectory following control
 /// This task demonstrates circle and bezier curve trajectory following using the diffdrive model
 #[embassy_executor::task]
-pub async fn diffdrive_control_task(motor: MotorController, mut sdlogger: Option<SdLogger>) {
+pub async fn diffdrive_control_task(
+    motor: MotorController,
+    mut sdlogger: Option<SdLogger>,
+    mut led: led::Led,
+) {
     // Wait for trajectory system to be ready
     //DIFFDRIVE_TRAJECTORY_READY.wait().await;
 
@@ -358,7 +379,7 @@ pub async fn diffdrive_control_task(motor: MotorController, mut sdlogger: Option
     // Initialize controller
     let controller = DiffdriveController::new(KX, KY, KTHETA);
     if let Some(ref mut logger) = sdlogger {
-        logger.write_csv_header();
+        logger.write_traj_control_header();
     }
     defmt::info!("csv header written");
 
@@ -366,10 +387,15 @@ pub async fn diffdrive_control_task(motor: MotorController, mut sdlogger: Option
     // Wait for first mocap pose. not needed for now.
     //FIRST_MESSAGE.wait().await; //--> no mocap needed for diff flatness generated action sequence
     //wait here for s short while:
+    let mut mocap = false;
     Timer::after(Duration::from_millis(1000)).await;
-    defmt::info!("First message received, starting diffdrive control task");
+    defmt::info!("waiting briefly for poses, start trajectory following with or without mocap");
     let mut pose: PoseAbs = {
         let s = LAST_STATE.lock().await;
+        //set mocap to true, if a pose is available here:
+        if s.x != 0.0 || s.y != 0.0 || s.yaw != 0.0 {
+            mocap = true;
+        };
         *s
     };
 
@@ -388,27 +414,26 @@ pub async fn diffdrive_control_task(motor: MotorController, mut sdlogger: Option
     defmt::info!("Starting diffdrive trajectory following");
 
     // Demo trajectories
-    let circle_radius = 0.05; // 20cm radius
-    let circle_duration = 4.0; // 20 seconds
+    //let circle_radius = 0.5; // 50cm radius
+    //let circle_duration = 8.0; // 20 seconds
 
     //set a desired angular velocity for the circle trajectory
-    let wd = PI; // rad/s, desired angular velocity
+    //let wd = PI / 4.0; // rad/s, desired angular velocity
 
-    // Bezier curve example doesn't look great.
-    // let bezier_duration = 30.0; // 30 seconds
-    // let bezier_point = Point {
-    //     p0x: 0.0 ,
-    //     p0y: 0.0,
-    //     p1x: 0.0,
-    //     p1y: 0.5,
-    //     p2x: 0.5,
-    //     p2y: 0.0,
-    //     p3x: 0.5,
-    //     p3y: 0.5,
-    //     x_ref: initial_position_x,
-    //     y_ref: initial_position_y,
-    //     theta_ref: initial_position_yaw,
-    // };
+    let bezier_duration = 8.0; // 30 seconds
+    let bezier_point = Point {
+        p0x: 0.0,
+        p0y: 0.0,
+        p1x: 0.25,
+        p1y: 0.25,
+        p2x: 0.5,
+        p2y: 0.5,
+        p3x: 0.75,
+        p3y: 0.75,
+        x_ref: initial_position_x,
+        y_ref: initial_position_y,
+        theta_ref: initial_position_yaw,
+    };
     // let (cx, cy, phi0, omega) = robot.circle_params_origin_normal_left(
     //     initial_position_x,
     //     initial_position_y,
@@ -422,14 +447,9 @@ pub async fn diffdrive_control_task(motor: MotorController, mut sdlogger: Option
 
     //counter for timestep in trajectory generation
     let mut t_counter = 0.0;
-    let mut mocap = false;
 
     //make q0 of type diffdrive state
-    let mut q0 = DiffdriveState {
-        x: robot.s.x,
-        y: robot.s.y,
-        theta: robot.s.theta,
-    };
+    //led.off();
     loop {
         //TODO: test circle with mocap position controller
         //test diffdrive circle with mocap position controller
@@ -441,47 +461,39 @@ pub async fn diffdrive_control_task(motor: MotorController, mut sdlogger: Option
         //3: trajectory following from sdcard
 
         // Only compute and publish setpoint for speed controller
-        match select(STATE_SIG.wait(), ticker.next()).await {
-            Either::First(new_pose) => {
-                pose = new_pose;
-                robot.s.x = pose.x;
-                robot.s.y = pose.y;
-                robot.s.theta = SO2::new(pose.yaw);
-                defmt::info!("New pose received: ({}, {}, {})", pose.x, pose.y, pose.yaw);
-                mocap = true;
-                continue;
 
-                //note: init pose is set outside of the loop IF mocap is available
-            }
-            Either::Second(_) => {}
-        }
+        // Place pose handling at the beginning of the loop
 
+        // All control logic executes here (only when ticker fires)
         let t = Instant::now() - start;
         let t_sec = t.as_millis() as f32 / 1000.0;
+        let t_ms = t.as_millis() as f32;
+
+        let setpoint = robot.beziercurve(bezier_point.clone(), t_counter * DT_S, bezier_duration);
+        let state_des = setpoint.des;
+        let vd = setpoint.vdes;
+        let wd = setpoint.wdes;
 
         let w_rad = wd; // rad/s
         let w_deg = w_rad * 180.0 / PI; // deg/s
 
-        //let vd = setpoint.vdes; // m/s
+        //let vd = circle_radius * wd; // 0.5 × 0.785 = 0.393 m/s = 39.3 cm/s
 
-        //let wd = PI / 8.0; // 0.785 rad/s angular velocity
-        let vd = circle_radius * wd; // 0.5 × 0.785 = 0.393 m/s = 39.3 cm/s
+        //let phi0 = SO2::new(initial_position_yaw);
 
-        let phi0 = SO2::new(initial_position_yaw);
+        // let mut state_des = DiffdriveState {
+        //     x: initial_position_x
+        //         + circle_radius * (cosf(phi0.rad() + w_rad * t_sec) - cosf(phi0.rad())),
+        //     y: initial_position_y
+        //         + circle_radius * (sinf(phi0.rad() + w_rad * t_sec) - sinf(phi0.rad())),
+        //     theta: SO2::new(phi0.rad() + w_rad * t_sec),
+        // };
 
-        //wrapper to directly set trajectory to be a circle
-
-        let state_des = DiffdriveState {
-            x: initial_position_x - circle_radius * cosf(phi0.rad() + wd * t_sec),
-            y: initial_position_y - circle_radius * sinf(phi0.rad() + wd * t_sec),
-            theta: SO2::new(phi0.rad() + wd * t_sec),
-        };
-
-        let setpoint = DiffdriveSetpoint {
-            des: state_des,
-            vdes: vd,
-            wdes: wd,
-        };
+        // let setpoint = DiffdriveSetpoint {
+        //     des: state_des,
+        //     vdes: vd,
+        //     wdes: wd,
+        // };
 
         let state_des = DiffdriveState {
             x: setpoint.des.x,
@@ -489,36 +501,39 @@ pub async fn diffdrive_control_task(motor: MotorController, mut sdlogger: Option
             theta: setpoint.des.theta,
         };
 
-        // Clip actions to permissible range in case they go over limits
-
-        let mut ur = 0.0; //rad/s
-        let mut ul = 0.0; //rad/s
+        let mut ur = 0.0;
+        let mut ul = 0.0;
         let mut xerror = 0.0;
         let mut yerror = 0.0;
         let mut therror = 0.0;
 
         if mocap {
-            mocap = false; // reset mocap flag
+            //if a pose was received, hand it to the controller
             defmt::info!(
                 "handing to the controller: setpoint wd: {}, vd: {}",
                 setpoint.wdes,
                 setpoint.vdes
             );
             let controloutput = controller.control(&robot, setpoint);
-            ur = controloutput.0.ur; //rad/s
-            ul = controloutput.0.ul; //rad/s
-            xerror = controloutput.1; // x error
-            yerror = controloutput.2; // y error
-            therror = controloutput.3; // theta error
+            ur = controloutput.0.ur;
+            ul = controloutput.0.ul;
+            xerror = controloutput.1;
+            yerror = controloutput.2;
+            therror = controloutput.3;
+            led.on();
         } else {
+            //drive blindly with the last known pose and desired speeds and angles from diff flatness computation.
             defmt::info!("no mocap data, drive blind with actions.");
-            // Use last known action if no new pose is received
-            ur = (2.0 * vd + robot.l * w_rad) / (2.0 * robot.r); //rad/s
+            ur = (2.0 * vd + robot.l * w_rad) / (2.0 * robot.r);
             ul = (2.0 * vd - robot.l * w_rad) / (2.0 * robot.r);
+            led.off();
         }
 
+        let dutyl = (ul / WHEEL_MAX).clamp(-1.0, 1.0);
+        let dutyr = (ur / WHEEL_MAX).clamp(-1.0, 1.0);
+
         let log: TrajControlLog = TrajControlLog {
-            timestamp_ms: t_sec as u32,
+            timestamp_ms: t_ms as u32,
             target_x: state_des.x,
             target_y: state_des.y,
             target_theta: state_des.theta.rad(),
@@ -526,40 +541,32 @@ pub async fn diffdrive_control_task(motor: MotorController, mut sdlogger: Option
             actual_y: robot.s.y,
             actual_theta: robot.s.theta.rad(),
             target_vx: vd,
-            target_vy: 0.0, // assuming no lateral movement
-            target_vz: 0.0, // assuming no vertical movement
-            actual_vx: 0.0, // will be updated with actual speed
-            actual_vy: 0.0, // will be updated with actual speed
-            actual_vz: 0.0, // will be updated with actual speed
+            target_vy: 0.0,
+            target_vz: 0.0,
+            actual_vx: 0.0,
+            actual_vy: 0.0,
+            actual_vz: 0.0,
             target_qw: state_des.theta.cos(),
-            target_qx: 0.0, // assuming no roll
-            target_qy: 0.0, // assuming no pitch
+            target_qx: 0.0,
+            target_qy: 0.0,
             target_qz: state_des.theta.sin(),
             actual_qw: robot.s.theta.cos(),
-            actual_qx: 0.0, // assuming no roll
-            actual_qy: 0.0, // assuming no pitch
+            actual_qx: 0.0,
+            actual_qy: 0.0,
             actual_qz: robot.s.theta.sin(),
             xerror: xerror,
             yerror: yerror,
             thetaerror: therror,
             ul: ul,
             ur: ur,
+            dutyl: dutyl,
+            dutyr: dutyr,
         };
 
         if let Some(ref mut logger) = sdlogger {
             logger.log_traj_control_as_csv(&log);
-            //flush: extremely important to actually write the data to the sd card
             logger.flush();
         }
-
-        //clip to permissible action range
-        let dutyl = (ul / WHEEL_MAX).clamp(-1.0, 1.0);
-        let dutyr = (ur / WHEEL_MAX).clamp(-1.0, 1.0);
-
-        //give the caclulated duty to the motors scaled by 1.66
-        //let mut duty_left = ul_ff * 1.66;
-        //let mut duty_right = ur_ff * 1.66; //example scaling factor, adjust as needed
-        // Clamp the duties to the motor limits
 
         motor
             .set_speed(dutyl * MOTOR_DIRECTION_LEFT, dutyr * MOTOR_DIRECTION_RIGHT)
@@ -586,19 +593,38 @@ pub async fn diffdrive_control_task(motor: MotorController, mut sdlogger: Option
             therror
         );
 
-        //stop after the counter has arrived at circle_duration / DT_S
-
-        if t_counter > circle_duration / DT_S {
-            //motor.set_speed(0.0, 0.0).await;
+        if t_counter > bezier_duration / DT_S {
             motor.set_speed(0.0, 0.0).await;
-
             defmt::info!(
                 "Diffdrive trajectory following complete after {} steps",
                 t_counter
             );
             break;
         }
-        //increase t_counter;
+
+        //capture next pose
+        match select(STATE_SIG.wait(), ticker.next()).await {
+            Either::First(new_pose) => {
+                pose = new_pose;
+                robot.s.x = pose.x;
+                robot.s.y = pose.y;
+                robot.s.theta = SO2::new(pose.yaw);
+                defmt::info!("New pose received: ({}, {}, {})", pose.x, pose.y, pose.yaw);
+                mocap = true;
+                ticker.next().await; //wait for the ticket to pass after the new pose was captured
+            }
+            Either::Second(_) => {
+                // Ticker fired before new pose came in: need to use last pose that we had.
+                mocap = false;
+                defmt::warn!(
+                    "Control tick - using pose: ({}, {}, {})",
+                    pose.x,
+                    pose.y,
+                    pose.yaw
+                );
+            }
+        }
+
         t_counter += 1.0;
     }
 }
