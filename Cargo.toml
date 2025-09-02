@@ -8,13 +8,11 @@ resolver = "2"
 [[bin]]
 name = "teleop_control"
 path = "src/bin/teleop_control.rs"
-test = false
 bench = false
 
 [[bin]]
 name = "trajectory_following"
 path = "src/bin/trajectory_following.rs"
-test = false
 bench = false
 
 [dependencies]
