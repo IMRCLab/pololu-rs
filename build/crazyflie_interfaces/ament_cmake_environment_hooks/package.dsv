@@ -1,4 +1,0 @@
-source;share/crazyflie_interfaces/local_setup.bash
-source;share/crazyflie_interfaces/local_setup.dsv
-source;share/crazyflie_interfaces/local_setup.sh
-source;share/crazyflie_interfaces/local_setup.zsh

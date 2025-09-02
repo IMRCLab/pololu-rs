@@ -1,1 +1,0 @@
-/usr/bin/c++ CMakeFiles/battery.dir/src/battery.cpp.o -o battery  crazyflie_cpp/libcrazyflie_cpp.a /usr/lib/x86_64-linux-gnu/libboost_program_options.so.1.74.0 crazyflie_cpp/crazyflie-link-cpp/libcrazyflieLinkCpp.a -lpthread /usr/lib/x86_64-linux-gnu/libusb-1.0.so

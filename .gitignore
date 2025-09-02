@@ -1,22 +1,11 @@
+**/build/
+**/install/
+**/log/
 
-# colcon build outputs
-build/
-install/
-log/
-
-# Python cache
 __pycache__/
 *.pyc
 *.pyo
 
-# VSCode settings
-.vscode/
-
-# ROS2 launch logs
-*.log
-
-# Colcon test results
 test_results/
-build/
-install/
-log/
+
+.vscode/
