@@ -1,12 +1,7 @@
 name: Build
 
 on:
-  # # every midnight
-  # schedule:
-  #   - cron:  '0 0 * * *'
-  # manual trigger
   workflow_dispatch:
-  # push
   push:
     branches:
       - main
@@ -18,20 +13,35 @@ jobs:
   build:
     runs-on: self-hosted
     container: rust:1.87
+    strategy:
+      matrix:
+        feature: ["", "zumo", "three-pi"]   # "" = 默认 (v0)
     steps:
-    - uses: actions/checkout@v3
-    - name: Install toolchain
-      run: |
-        rustup target add thumbv6m-none-eabi
-        cargo install flip-link
-    - name: Build library
-      run: |
-        cargo build --release --target thumbv6m-none-eabi
-    - name: Run Linter
-      run: |
-        rustup component add clippy
-        cargo clippy --all-targets --all-features
-    - name: Run Code Formatter
-      run: |
-        rustup component add rustfmt
-        cargo fmt --all --check
+      - uses: actions/checkout@v3
+
+      - name: Install toolchain
+        run: |
+          rustup target add thumbv6m-none-eabi
+          cargo install flip-link
+
+      - name: Build library
+        run: |
+          if [ -z "${{ matrix.feature }}" ]; then
+            cargo build --release --target thumbv6m-none-eabi
+          else
+            cargo build --release --target thumbv6m-none-eabi --features ${{ matrix.feature }}
+          fi
+
+      - name: Run Linter
+        run: |
+          rustup component add clippy
+          if [ -z "${{ matrix.feature }}" ]; then
+            cargo clippy --all-targets --target thumbv6m-none-eabi
+          else
+            cargo clippy --all-targets --target thumbv6m-none-eabi --features ${{ matrix.feature }}
+          fi
+
+      - name: Run Code Formatter
+        run: |
+          rustup component add rustfmt
+          cargo fmt --all --check
