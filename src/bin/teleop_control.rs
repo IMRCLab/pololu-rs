@@ -30,7 +30,6 @@ async fn main(spawner: Spawner) {
     // === Robot Configuration Test ===
     // This will show the actual GEAR_RATIO being used at runtime
     let mut led = devices.led;
-    let _motors = &devices.motor;
 
     // Get the actual gear ratio being used
     let gear_ratio = get_gear_ratio();

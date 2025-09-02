@@ -14,11 +14,6 @@ use crate::debug_warn;
 use heapless::Vec;
 
 const PI: f32 = core::f32::consts::PI;
-const SAMPLE_MS: u64 = 20;
-
-#[cfg(feature = "three-pi")]
-const _MIN_RPM: f32 = -2388.0; //calculated from max speed 4 [m/s] and wheel radius 0.016 [m]
-const _MAX_RPM: f32 = 2388.0;
 
 // Import the selected constants into the module scope
 use crate::robot_parameters_default::robot_constants::*;
@@ -53,7 +48,8 @@ pub static CONTROL_CMD: Mutex<ThreadModeRawMutex, ControlCommand> = Mutex::new(C
 pub static CONTROL_CMD_UNICYCLE: Mutex<ThreadModeRawMutex, ControlCommandUnicycle> =
     Mutex::new(ControlCommandUnicycle { v: 0.0, omega: 0.0 });
 
-/// === Joy Stick Control Task (without pd controller) ===
+/* ===================================== Unused ========================================== */
+/* ================ Joy Stick Speed Control Task (without pd controller) ================= */
 #[embassy_executor::task]
 pub async fn motor_task(motor: MotorController) {
     loop {
@@ -70,84 +66,7 @@ pub async fn motor_task(motor: MotorController) {
     }
 }
 
-/// === Joy Stick Control Task ===
-#[embassy_executor::task]
-pub async fn motor_control_task(
-    motor: MotorController,
-    left_counter: &'static Mutex<NoopRawMutex, i32>,
-    right_counter: &'static Mutex<NoopRawMutex, i32>,
-) {
-    // initial filter coefficient 0.0
-    let mut filtered_rpm_left = 0.0;
-    let mut filtered_rpm_right = 0.0;
-
-    // Filterr coefficient alpha ∈ (0,1), smaller value means smoother/better
-    let alpha = 0.1;
-
-    let mut error_sum_left = 0.0;
-    let mut error_sum_right = 0.0;
-
-    let kp = 25.0;
-    let ki = 1.0;
-
-    loop {
-        let cmd = CONTROL_CMD_UNICYCLE.lock().await.clone();
-        let v = cmd.v; // m/s
-        let omega = cmd.omega; //rad/s
-
-        let v_left = v - omega * WHEEL_BASE / 2.0;
-        let v_right = v + omega * WHEEL_BASE / 2.0;
-
-        let rpm_left_target = v_left / (2.0 * core::f32::consts::PI * WHEEL_RADIUS) * 60.0;
-        let rpm_right_target = v_right / (2.0 * core::f32::consts::PI * WHEEL_RADIUS) * 60.0;
-
-        let (rpm_left_now, rpm_right_now) =
-            get_rpms(left_counter, right_counter, ENCODER_CPR, SAMPLE_MS).await;
-        filtered_rpm_left = alpha * rpm_left_now + (1.0 - alpha) * filtered_rpm_left;
-        filtered_rpm_right = alpha * rpm_right_now + (1.0 - alpha) * filtered_rpm_right;
-
-        let error_left = rpm_left_target - filtered_rpm_left;
-        let error_right = rpm_right_target - filtered_rpm_right;
-
-        error_sum_left += error_left;
-        error_sum_right += error_right;
-
-        let mut duty_left = ((kp * error_left + ki * error_sum_left) / 32768.0).clamp(-1.0, 1.0);
-        let mut duty_right = ((kp * error_right + ki * error_sum_right) / 32768.0).clamp(-1.0, 1.0);
-
-        info!("Set Speed: {}, {}", duty_left, duty_right);
-        info!(
-            "rpm_left_target: {}, rpm_left_now: {}",
-            rpm_left_target, rpm_left_now
-        );
-        info!(
-            "rpm_right_target: {}, rpm_right_now: {}",
-            rpm_right_target, rpm_right_now
-        );
-
-        if v_left.abs() < 0.1 {
-            //slack for zero speed recognition
-            duty_left = 0.0;
-            error_sum_left = 0.0; // Reset error when speed is close to zero
-        }
-        if v_right.abs() < 0.1 {
-            //slack for zero speed recognition
-            duty_right = 0.0;
-            error_sum_right = 0.0; // Reset error when speed is close to zero
-        }
-
-        // Apply robot-specific motor direction corrections
-        motor
-            .set_speed(
-                duty_left * MOTOR_DIRECTION_LEFT,
-                duty_right * MOTOR_DIRECTION_RIGHT,
-            )
-            .await;
-
-        Timer::after(Duration::from_millis(SAMPLE_MS)).await;
-    }
-}
-
+/* ===================== simple uart teleop command receiving task ======================= */
 #[embassy_executor::task]
 pub async fn robot_command_task(uart: SharedUart<'static>) {
     let mut buffer: Vec<u8, 32> = Vec::new();
@@ -214,81 +133,101 @@ pub async fn robot_command_task(uart: SharedUart<'static>) {
         }
     }
 }
+/* ===================== simple uart teleop command receiving task ======================= */
+/* ===================================== Unused ========================================== */
+
 /*
+
+
+
+
+/* ================================== currently used ===================================== */
+/* ========================== Joy Stick Speed Control Task =============================== */
+*/
 #[embassy_executor::task]
-pub async fn robot_command_control_task(uart: SharedUart<'static>) {
-    let mut buffer: Vec<u8, 32> = Vec::new();
+pub async fn motor_control_task(
+    motor: MotorController,
+    left_counter: &'static Mutex<NoopRawMutex, i32>,
+    right_counter: &'static Mutex<NoopRawMutex, i32>,
+) {
+    // initial filter coefficient 0.0
+    let mut filtered_rpm_left = 0.0;
+    let mut filtered_rpm_right = 0.0;
+
+    // Filterr coefficient alpha ∈ (0,1), smaller value means smoother/better
+    let alpha = 0.1;
+
+    let mut error_sum_left = 0.0;
+    let mut error_sum_right = 0.0;
+
+    let kp = 25.0;
+    let ki = 1.0;
 
     loop {
-        // Set Timer
-        let timeout = Timer::after(Duration::from_millis(500));
-        let byte_future = async {
-            let mut uart = uart.lock().await;
-            let mut b = [0u8; 1];
-            match uart.read(&mut b).await {
-                Ok(_) => Some(b[0]),
-                Err(_) => None,
-            }
-        };
+        let cmd = CONTROL_CMD_UNICYCLE.lock().await.clone();
+        let v = cmd.v; // m/s
+        let omega = cmd.omega; //rad/s
 
-        match select(timeout, byte_future).await {
-            Either::First(_) => {
-                // Timeout, Stop Pololu
-                {
-                    let mut lock = CONTROL_CMD_UNICYCLE.lock().await;
-                    *lock = ControlCommandUnicycle { v: 0.0, omega: 0.0 };
-                    defmt::warn!("UART timeout, stop motors");
-                }
-                buffer.clear();
-                continue;
-            }
+        let v_left = v - omega * WHEEL_BASE / 2.0;
+        let v_right = v + omega * WHEEL_BASE / 2.0;
 
-            Either::Second(Some(byte)) => {
-                if buffer.is_empty() && !(byte == 9 || byte == 15 || byte == 17) {
-                    continue;
-                }
+        let rpm_left_target = v_left / (2.0 * PI * WHEEL_RADIUS) * 60.0;
+        let rpm_right_target = v_right / (2.0 * PI * WHEEL_RADIUS) * 60.0;
 
-                buffer.push(byte).ok();
+        let (rpm_left_now, rpm_right_now) = get_rpms(
+            left_counter,
+            right_counter,
+            ENCODER_CPR,
+            JOYSTICK_CONTROL_DT,
+        )
+        .await;
+        filtered_rpm_left = alpha * rpm_left_now + (1.0 - alpha) * filtered_rpm_left;
+        filtered_rpm_right = alpha * rpm_right_now + (1.0 - alpha) * filtered_rpm_right;
 
-                if buffer.len() == 2 && buffer[1] != 0x3C {
-                    buffer.clear();
-                    continue;
-                }
+        let error_left = rpm_left_target - filtered_rpm_left;
+        let error_right = rpm_right_target - filtered_rpm_right;
 
-                let expected_len = buffer[0] as usize + 1;
-                if buffer.len() == expected_len {
-                    if let Some(pkt) = CmdLegacyPacketMix::from_bytes(&buffer) {
-                        let v = pkt.right_direction as f32;
-                        let omega = pkt.left_direction;
+        error_sum_left += error_left;
+        error_sum_right += error_right;
 
-                        //scale v in CmdLegacyPacketMix with 0.00001 and omega with PI / (180.0 * 0.5)
-                        let cmd = ControlCommandUnicycle {
-                            v: v * 0.00001, // scale 0 - 20000 "thrust" to 0 - 0.2 m/s
-                            omega: omega * PI / (180.0 * 0.5), // turn about the steering angle within half a second
-                        };
+        let mut duty_left = ((kp * error_left + ki * error_sum_left) / 10000.0).clamp(-1.0, 1.0);
+        let mut duty_right = ((kp * error_right + ki * error_sum_right) / 10000.0).clamp(-1.0, 1.0);
 
-                        {
-                            let mut lock = CONTROL_CMD_UNICYCLE.lock().await;
-                            *lock = cmd;
-                        }
-                        // defmt::info!(
-                        //     "Whole command: field1={}, field2={}, v={}, omega={}",
-                        //     pkt.left_pwm_duty, pkt.right_pwm_duty, cmd.v, cmd.omega
-                        // );
-                        defmt::info!("Updated Control: {}, {}", cmd.v, cmd.omega);
-                    }
-                    buffer.clear();
-                }
-            }
+        // info!("Set Speed: {}, {}", duty_left, duty_right);
+        // info!(
+        //     "rpm_left_target: {}, rpm_left_now: {}",
+        //     rpm_left_target, rpm_left_now
+        // );
+        // info!(
+        //     "rpm_right_target: {}, rpm_right_now: {}",
+        //     rpm_right_target, rpm_right_now
+        // );
 
-            Either::Second(None) => {
-                continue;
-            }
+        if v_left.abs() < 0.1 {
+            //slack for zero speed recognition
+            duty_left = 0.0;
+            error_sum_left = 0.0; // Reset error when speed is close to zero
         }
+        if v_right.abs() < 0.1 {
+            //slack for zero speed recognition
+            duty_right = 0.0;
+            error_sum_right = 0.0; // Reset error when speed is close to zero
+        }
+
+        // Apply robot-specific motor direction corrections
+        motor
+            .set_speed(
+                duty_left * MOTOR_DIRECTION_LEFT,
+                duty_right * MOTOR_DIRECTION_RIGHT,
+            )
+            .await;
+
+        Timer::after(Duration::from_millis(JOYSTICK_CONTROL_DT)).await;
     }
 }
-*/
+/* ========================== Joy Stick Speed Control Task =============================== */
 
+/* ============== uart teleop command receiving task with nonlinear mapping ============== */
 #[embassy_executor::task]
 pub async fn robot_command_control_task(uart: SharedUart<'static>) {
     let mut buffer: Vec<u8, 32> = Vec::new();
@@ -317,6 +256,8 @@ pub async fn robot_command_control_task(uart: SharedUart<'static>) {
 
             Either::Second(Some(byte)) => {
                 if buffer.is_empty() && !(byte == 2 || byte == 8 || byte == 9) {
+                    // correct teleop command buffer length should be 9.
+                    // header(1 byte) + float(4 bytes) + float(4 bytes)
                     continue;
                 }
 
@@ -336,7 +277,8 @@ pub async fn robot_command_control_task(uart: SharedUart<'static>) {
                             let abs_raw = raw.abs();
 
                             let normalized = ((abs_raw - 1000.0) / 19000.0).clamp(0.0, 1.0);
-                            let speed = 0.4 * (libm::expf(2.0 * normalized) - 1.0)
+                            let speed_upper_limits = MAX_SPEED;
+                            let speed = speed_upper_limits * (libm::expf(2.0 * normalized) - 1.0)
                                 / (libm::expf(2.0) - 1.0);
                             sign * speed
                         };
@@ -347,9 +289,8 @@ pub async fn robot_command_control_task(uart: SharedUart<'static>) {
                                 let sign = if raw_omega >= 0.0 { 1.0 } else { -1.0 };
                                 let abs_omega = raw_omega.abs();
 
-                                let max_omega = 5.0; //experimental
-                                let scaled_omega = max_omega
-                                    * (libm::expf(abs_omega / max_omega) - 1.0)
+                                let scaled_omega = MAX_OMEGA
+                                    * (libm::expf(abs_omega / MAX_OMEGA) - 1.0)
                                     / (libm::expf(1.0) - 1.0);
                                 sign * scaled_omega
                             },
@@ -372,3 +313,4 @@ pub async fn robot_command_control_task(uart: SharedUart<'static>) {
         }
     }
 }
+/* ============== uart teleop command receiving task with nonlinear mapping ============== */
