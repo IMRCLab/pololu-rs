@@ -1,3 +1,7 @@
-[submodule "src/mocap_to_robots/deps/crazyflie_tools"]
-	path = src/mocap_to_robots/deps/crazyflie_tools
-	url = https://github.com/whoenig/crazyflie_tools.git
+
+[submodule "src/crazyswarm2"]
+	path = src/crazyswarm2
+	url = https://github.com/IMRCLab/crazyswarm2
+[submodule "src/motion_capture_tracking"]
+	path = src/motion_capture_tracking
+	url = https://github.com/IMRCLab/motion_capture_tracking
