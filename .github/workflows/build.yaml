@@ -17,7 +17,7 @@ on:
 jobs:
   build:
     runs-on: self-hosted
-    container: rust:1.88
+    container: rust:1.87
     steps:
     - uses: actions/checkout@v3
     - name: Install toolchain
@@ -26,7 +26,7 @@ jobs:
         cargo install flip-link
     - name: Build library
       run: |
-        cargo build --release
+        cargo build --release --target thumbv6m-none-eabi
     - name: Run Linter
       run: |
         rustup component add clippy
