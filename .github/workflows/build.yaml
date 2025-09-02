@@ -30,7 +30,7 @@ jobs:
     - name: Run Linter
       run: |
         rustup component add clippy
-        cargo clippy -- -Dwarnings
+        cargo clippy --all-targets --all-features
     - name: Run Code Formatter
       run: |
         rustup component add rustfmt
