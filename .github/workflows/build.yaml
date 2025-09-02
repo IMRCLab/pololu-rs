@@ -36,9 +36,9 @@ jobs:
         run: |
           rustup component add clippy
           if [ -z "${{ matrix.feature }}" ]; then
-            cargo clippy --all-targets --target thumbv6m-none-eabi
+            cargo clippy --target thumbv6m-none-eabi --bins --examples --lib
           else
-            cargo clippy --all-targets --target thumbv6m-none-eabi --features ${{ matrix.feature }}
+            cargo clippy --target thumbv6m-none-eabi --bins --examples --lib --features ${{ matrix.feature }}
           fi
 
       - name: Run Code Formatter
