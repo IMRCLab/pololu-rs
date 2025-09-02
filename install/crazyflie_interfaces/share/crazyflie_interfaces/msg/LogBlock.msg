@@ -1,1 +1,3 @@
-/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_interfaces/msg/LogBlock.msg
+string topic_name
+int16 frequency
+string[] variables

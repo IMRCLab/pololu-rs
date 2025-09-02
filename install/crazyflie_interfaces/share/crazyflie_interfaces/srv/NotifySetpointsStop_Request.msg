@@ -1,1 +1,2 @@
-/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_interfaces/rosidl_cmake/srv/NotifySetpointsStop_Request.msg
+uint8 group_mask
+uint32 remain_valid_millisecs

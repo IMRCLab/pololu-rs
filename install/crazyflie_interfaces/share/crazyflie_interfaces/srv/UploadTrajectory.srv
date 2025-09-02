@@ -1,1 +1,4 @@
-/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_interfaces/srv/UploadTrajectory.srv
+uint8 trajectory_id
+uint32 piece_offset
+TrajectoryPolynomialPiece[] pieces
+---

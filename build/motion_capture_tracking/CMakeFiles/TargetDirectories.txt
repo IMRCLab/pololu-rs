@@ -20,8 +20,6 @@
 /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/librigidbodytracker/CMakeFiles/install/local.dir
 /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/librigidbodytracker/CMakeFiles/install/strip.dir
 /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/CMakeFiles/libmotioncapture.dir
-/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/CMakeFiles/motioncapture.dir
-/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/CMakeFiles/motioncapture_example.dir
 /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/CMakeFiles/test.dir
 /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/CMakeFiles/edit_cache.dir
 /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/CMakeFiles/rebuild_cache.dir
@@ -38,16 +36,6 @@
 /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/deps/vicon-datastream-sdk/CMakeFiles/install.dir
 /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/deps/vicon-datastream-sdk/CMakeFiles/install/local.dir
 /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/deps/vicon-datastream-sdk/CMakeFiles/install/strip.dir
-/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/packetClient.dir
-/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/sampleClient.dir
-/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/minimalClient.dir
-/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/test.dir
-/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/edit_cache.dir
-/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/rebuild_cache.dir
-/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/list_install_components.dir
-/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/install.dir
-/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/install/local.dir
-/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/install/strip.dir
 /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/deps/qualisys_cpp_sdk/CMakeFiles/qualisys_cpp_sdk.dir
 /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/deps/qualisys_cpp_sdk/CMakeFiles/test.dir
 /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/deps/qualisys_cpp_sdk/CMakeFiles/edit_cache.dir
@@ -143,10 +131,3 @@
 /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/deps/vrpn/java_vrpn/CMakeFiles/install.dir
 /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/deps/vrpn/java_vrpn/CMakeFiles/install/local.dir
 /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/deps/vrpn/java_vrpn/CMakeFiles/install/strip.dir
-/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/deps/pybind11/CMakeFiles/test.dir
-/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/deps/pybind11/CMakeFiles/edit_cache.dir
-/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/deps/pybind11/CMakeFiles/rebuild_cache.dir
-/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/deps/pybind11/CMakeFiles/list_install_components.dir
-/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/deps/pybind11/CMakeFiles/install.dir
-/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/deps/pybind11/CMakeFiles/install/local.dir
-/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/deps/pybind11/CMakeFiles/install/strip.dir

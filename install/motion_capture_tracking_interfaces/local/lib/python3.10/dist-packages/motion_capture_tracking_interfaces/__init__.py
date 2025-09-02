@@ -1,1 +1,0 @@
-/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking_interfaces/rosidl_generator_py/motion_capture_tracking_interfaces/__init__.py

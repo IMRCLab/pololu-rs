@@ -1,1 +1,11 @@
-/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie/urdf/crazyflie_description.urdf
+<?xml version="1.0"?>
+<robot name="$NAME">
+  <link name="$NAME">
+    <origin rpy="0 0 0" xyz="0.0 0 0" />
+    <visual>
+        <geometry>
+          <mesh filename="package://crazyflie/urdf/cf2_assembly_with_props.dae" scale="1.0 1.0 1.0"/>
+        </geometry>
+    </visual>
+  </link>
+</robot>

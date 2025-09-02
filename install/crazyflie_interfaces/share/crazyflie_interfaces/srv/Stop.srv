@@ -1,1 +1,2 @@
-/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_interfaces/srv/Stop.srv
+uint8 group_mask
+---

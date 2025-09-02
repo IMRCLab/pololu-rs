@@ -7,8 +7,6 @@ file(REMOVE_RECURSE
   "CMakeFiles/libmotioncapture.dir/src/motioncapture.cpp.o.d"
   "CMakeFiles/libmotioncapture.dir/src/optitrack.cpp.o"
   "CMakeFiles/libmotioncapture.dir/src/optitrack.cpp.o.d"
-  "CMakeFiles/libmotioncapture.dir/src/optitrack_closed_source.cpp.o"
-  "CMakeFiles/libmotioncapture.dir/src/optitrack_closed_source.cpp.o.d"
   "CMakeFiles/libmotioncapture.dir/src/qualisys.cpp.o"
   "CMakeFiles/libmotioncapture.dir/src/qualisys.cpp.o.d"
   "CMakeFiles/libmotioncapture.dir/src/vicon.cpp.o"

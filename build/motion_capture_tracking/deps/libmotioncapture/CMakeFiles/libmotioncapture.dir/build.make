@@ -125,24 +125,10 @@ deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/optitrack.cpp.s: cmake
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/libmotioncapture.dir/src/optitrack.cpp.s"
 	cd /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/src/optitrack.cpp -o CMakeFiles/libmotioncapture.dir/src/optitrack.cpp.s
 
-deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/optitrack_closed_source.cpp.o: deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/flags.make
-deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/optitrack_closed_source.cpp.o: /home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/src/optitrack_closed_source.cpp
-deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/optitrack_closed_source.cpp.o: deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/optitrack_closed_source.cpp.o"
-	cd /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/optitrack_closed_source.cpp.o -MF CMakeFiles/libmotioncapture.dir/src/optitrack_closed_source.cpp.o.d -o CMakeFiles/libmotioncapture.dir/src/optitrack_closed_source.cpp.o -c /home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/src/optitrack_closed_source.cpp
-
-deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/optitrack_closed_source.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/libmotioncapture.dir/src/optitrack_closed_source.cpp.i"
-	cd /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/src/optitrack_closed_source.cpp > CMakeFiles/libmotioncapture.dir/src/optitrack_closed_source.cpp.i
-
-deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/optitrack_closed_source.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/libmotioncapture.dir/src/optitrack_closed_source.cpp.s"
-	cd /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/src/optitrack_closed_source.cpp -o CMakeFiles/libmotioncapture.dir/src/optitrack_closed_source.cpp.s
-
 deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/qualisys.cpp.o: deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/flags.make
 deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/qualisys.cpp.o: /home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/src/qualisys.cpp
 deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/qualisys.cpp.o: deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/qualisys.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/qualisys.cpp.o"
 	cd /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/qualisys.cpp.o -MF CMakeFiles/libmotioncapture.dir/src/qualisys.cpp.o.d -o CMakeFiles/libmotioncapture.dir/src/qualisys.cpp.o -c /home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/src/qualisys.cpp
 
 deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/qualisys.cpp.i: cmake_force
@@ -156,7 +142,7 @@ deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/qualisys.cpp.s: cmake_
 deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/vrpn.cpp.o: deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/flags.make
 deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/vrpn.cpp.o: /home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/src/vrpn.cpp
 deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/vrpn.cpp.o: deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/vrpn.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/vrpn.cpp.o"
 	cd /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/vrpn.cpp.o -MF CMakeFiles/libmotioncapture.dir/src/vrpn.cpp.o.d -o CMakeFiles/libmotioncapture.dir/src/vrpn.cpp.o -c /home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/src/vrpn.cpp
 
 deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/vrpn.cpp.i: cmake_force
@@ -170,7 +156,7 @@ deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/vrpn.cpp.s: cmake_forc
 deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/fzmotion.cpp.o: deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/flags.make
 deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/fzmotion.cpp.o: /home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/src/fzmotion.cpp
 deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/fzmotion.cpp.o: deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building CXX object deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/fzmotion.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/fzmotion.cpp.o"
 	cd /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture && /usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/fzmotion.cpp.o -MF CMakeFiles/libmotioncapture.dir/src/fzmotion.cpp.o.d -o CMakeFiles/libmotioncapture.dir/src/fzmotion.cpp.o -c /home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/src/fzmotion.cpp
 
 deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/fzmotion.cpp.i: cmake_force
@@ -187,7 +173,6 @@ libmotioncapture_OBJECTS = \
 "CMakeFiles/libmotioncapture.dir/src/mock.cpp.o" \
 "CMakeFiles/libmotioncapture.dir/src/vicon.cpp.o" \
 "CMakeFiles/libmotioncapture.dir/src/optitrack.cpp.o" \
-"CMakeFiles/libmotioncapture.dir/src/optitrack_closed_source.cpp.o" \
 "CMakeFiles/libmotioncapture.dir/src/qualisys.cpp.o" \
 "CMakeFiles/libmotioncapture.dir/src/vrpn.cpp.o" \
 "CMakeFiles/libmotioncapture.dir/src/fzmotion.cpp.o"
@@ -199,13 +184,12 @@ deps/libmotioncapture/liblibmotioncapture.a: deps/libmotioncapture/CMakeFiles/li
 deps/libmotioncapture/liblibmotioncapture.a: deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/mock.cpp.o
 deps/libmotioncapture/liblibmotioncapture.a: deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/vicon.cpp.o
 deps/libmotioncapture/liblibmotioncapture.a: deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/optitrack.cpp.o
-deps/libmotioncapture/liblibmotioncapture.a: deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/optitrack_closed_source.cpp.o
 deps/libmotioncapture/liblibmotioncapture.a: deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/qualisys.cpp.o
 deps/libmotioncapture/liblibmotioncapture.a: deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/vrpn.cpp.o
 deps/libmotioncapture/liblibmotioncapture.a: deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/src/fzmotion.cpp.o
 deps/libmotioncapture/liblibmotioncapture.a: deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/build.make
 deps/libmotioncapture/liblibmotioncapture.a: deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Linking CXX static library liblibmotioncapture.a"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Linking CXX static library liblibmotioncapture.a"
 	cd /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture && $(CMAKE_COMMAND) -P CMakeFiles/libmotioncapture.dir/cmake_clean_target.cmake
 	cd /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture && $(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/libmotioncapture.dir/link.txt --verbose=$(VERBOSE)
 

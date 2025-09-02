@@ -1,1 +1,4 @@
-/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking_interfaces/ament_cmake_index/share/ament_index/resource_index/rosidl_interfaces/motion_capture_tracking_interfaces
+msg/NamedPose.idl
+msg/NamedPose.msg
+msg/NamedPoseArray.idl
+msg/NamedPoseArray.msg

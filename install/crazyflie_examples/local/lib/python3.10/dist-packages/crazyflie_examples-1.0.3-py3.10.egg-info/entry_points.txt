@@ -1,1 +1,12 @@
-/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_examples/ament_cmake_python/crazyflie_examples/crazyflie_examples.egg-info/entry_points.txt
+[console_scripts]
+arming = crazyflie_examples.arming:main
+cmd_full_state = crazyflie_examples.cmd_full_state:main
+figure8 = crazyflie_examples.figure8:main
+group_mask = crazyflie_examples.group_mask:main
+hello_world = crazyflie_examples.hello_world:main
+infinite_flight = crazyflie_examples.infinite_flight:main
+multi_trajectory = crazyflie_examples.multi_trajectory:main
+nice_hover = crazyflie_examples.nice_hover:main
+set_param = crazyflie_examples.set_param:main
+swap = crazyflie_examples.swap:main
+

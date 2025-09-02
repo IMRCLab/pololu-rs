@@ -1,1 +1,1 @@
-/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie/ament_cmake_index/share/ament_index/resource_index/package_run_dependencies/crazyflie
+rclcpp;tf2_ros;std_srvs;sensor_msgs;crazyflie_interfaces;geometry_msgs;nav_msgs;motion_capture_tracking_interfaces;eigen;boost;libusb-1.0-dev;ros_environment;tf_transformations;ament_lint_auto;ament_lint_common

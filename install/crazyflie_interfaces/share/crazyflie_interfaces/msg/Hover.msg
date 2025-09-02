@@ -1,1 +1,5 @@
-/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_interfaces/msg/Hover.msg
+std_msgs/Header header
+float32 vx
+float32 vy
+float32 yaw_rate
+float32 z_distance

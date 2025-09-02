@@ -198,30 +198,30 @@ crazyflie_examples_uninstall/fast:
 .PHONY : crazyflie_examples_uninstall/fast
 
 #=============================================================================
-# Target rules for targets named ament_cmake_python_symlink_crazyflie_examples
+# Target rules for targets named ament_cmake_python_copy_crazyflie_examples
 
 # Build rule for target.
-ament_cmake_python_symlink_crazyflie_examples: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 ament_cmake_python_symlink_crazyflie_examples
-.PHONY : ament_cmake_python_symlink_crazyflie_examples
+ament_cmake_python_copy_crazyflie_examples: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 ament_cmake_python_copy_crazyflie_examples
+.PHONY : ament_cmake_python_copy_crazyflie_examples
 
 # fast build rule for target.
-ament_cmake_python_symlink_crazyflie_examples/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ament_cmake_python_symlink_crazyflie_examples.dir/build.make CMakeFiles/ament_cmake_python_symlink_crazyflie_examples.dir/build
-.PHONY : ament_cmake_python_symlink_crazyflie_examples/fast
+ament_cmake_python_copy_crazyflie_examples/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ament_cmake_python_copy_crazyflie_examples.dir/build.make CMakeFiles/ament_cmake_python_copy_crazyflie_examples.dir/build
+.PHONY : ament_cmake_python_copy_crazyflie_examples/fast
 
 #=============================================================================
-# Target rules for targets named ament_cmake_python_symlink_crazyflie_examples_setup
+# Target rules for targets named ament_cmake_python_copy_crazyflie_examples_setup
 
 # Build rule for target.
-ament_cmake_python_symlink_crazyflie_examples_setup: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 ament_cmake_python_symlink_crazyflie_examples_setup
-.PHONY : ament_cmake_python_symlink_crazyflie_examples_setup
+ament_cmake_python_copy_crazyflie_examples_setup: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 ament_cmake_python_copy_crazyflie_examples_setup
+.PHONY : ament_cmake_python_copy_crazyflie_examples_setup
 
 # fast build rule for target.
-ament_cmake_python_symlink_crazyflie_examples_setup/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ament_cmake_python_symlink_crazyflie_examples_setup.dir/build.make CMakeFiles/ament_cmake_python_symlink_crazyflie_examples_setup.dir/build
-.PHONY : ament_cmake_python_symlink_crazyflie_examples_setup/fast
+ament_cmake_python_copy_crazyflie_examples_setup/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ament_cmake_python_copy_crazyflie_examples_setup.dir/build.make CMakeFiles/ament_cmake_python_copy_crazyflie_examples_setup.dir/build
+.PHONY : ament_cmake_python_copy_crazyflie_examples_setup/fast
 
 #=============================================================================
 # Target rules for targets named ament_cmake_python_build_crazyflie_examples_egg
@@ -264,8 +264,8 @@ help:
 	@echo "... test"
 	@echo "... ament_cmake_python_build_crazyflie_examples_egg"
 	@echo "... ament_cmake_python_build_crazyflie_examples_scripts"
-	@echo "... ament_cmake_python_symlink_crazyflie_examples"
-	@echo "... ament_cmake_python_symlink_crazyflie_examples_setup"
+	@echo "... ament_cmake_python_copy_crazyflie_examples"
+	@echo "... ament_cmake_python_copy_crazyflie_examples_setup"
 	@echo "... crazyflie_examples_uninstall"
 	@echo "... uninstall"
 .PHONY : help

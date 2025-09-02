@@ -1,1 +1,3 @@
-/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_interfaces/rosidl_cmake/srv/Takeoff_Request.msg
+uint8 group_mask
+float32 height
+builtin_interfaces/Duration duration

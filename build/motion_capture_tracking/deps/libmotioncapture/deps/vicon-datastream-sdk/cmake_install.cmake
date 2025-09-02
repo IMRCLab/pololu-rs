@@ -43,6 +43,13 @@ if(NOT DEFINED CMAKE_OBJDUMP)
 endif()
 
 if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/include/vicon-datastream-sdk" TYPE FILE FILES
+    "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/deps/vicon-datastream-sdk/Vicon/CrossMarket/DataStream/ViconDataStreamSDK_CPP/DataStreamClient.h"
+    "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking/deps/libmotioncapture/deps/vicon-datastream-sdk/Vicon/CrossMarket/DataStream/ViconDataStreamSDK_CPP/IDataStreamClientBase.h"
+    )
+endif()
+
+if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
   file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib" TYPE STATIC_LIBRARY FILES "/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/deps/vicon-datastream-sdk/libViconDataStreamSDK_CPP.a")
 endif()
 
@@ -67,5 +74,12 @@ if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT
   if(CMAKE_INSTALL_CONFIG_NAME MATCHES "^()$")
     file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/cmake/vicon-datastream-sdk" TYPE FILE FILES "/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/deps/vicon-datastream-sdk/CMakeFiles/Export/5428a4105c4ee63c37f975b722639a51/vicon-datastream-sdkTargets-noconfig.cmake")
   endif()
+endif()
+
+if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/cmake/vicon-datastream-sdk" TYPE FILE FILES
+    "/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/deps/vicon-datastream-sdk/vicon-datastream-sdkConfig.cmake"
+    "/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/deps/libmotioncapture/deps/vicon-datastream-sdk/vicon-datastream-sdkConfigVersion.cmake"
+    )
 endif()
 

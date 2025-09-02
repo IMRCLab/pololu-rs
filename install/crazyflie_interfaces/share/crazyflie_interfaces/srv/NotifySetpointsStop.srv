@@ -1,1 +1,3 @@
-/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_interfaces/srv/NotifySetpointsStop.srv
+uint8 group_mask
+uint32 remain_valid_millisecs
+---

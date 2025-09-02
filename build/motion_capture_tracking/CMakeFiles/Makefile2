@@ -83,8 +83,6 @@ clean: deps/libmotioncapture/clean
 
 # Recursive "all" directory target.
 deps/libmotioncapture/all: deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/all
-deps/libmotioncapture/all: deps/libmotioncapture/CMakeFiles/motioncapture.dir/all
-deps/libmotioncapture/all: deps/libmotioncapture/CMakeFiles/motioncapture_example.dir/all
 .PHONY : deps/libmotioncapture/all
 
 # Recursive "preinstall" directory target.
@@ -93,48 +91,10 @@ deps/libmotioncapture/preinstall:
 
 # Recursive "clean" directory target.
 deps/libmotioncapture/clean: deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/clean
-deps/libmotioncapture/clean: deps/libmotioncapture/CMakeFiles/motioncapture.dir/clean
-deps/libmotioncapture/clean: deps/libmotioncapture/CMakeFiles/motioncapture_example.dir/clean
 deps/libmotioncapture/clean: deps/libmotioncapture/deps/vicon-datastream-sdk/clean
-deps/libmotioncapture/clean: deps/libmotioncapture/deps/NatNetSDKCrossplatform/clean
 deps/libmotioncapture/clean: deps/libmotioncapture/deps/qualisys_cpp_sdk/clean
 deps/libmotioncapture/clean: deps/libmotioncapture/deps/vrpn/clean
-deps/libmotioncapture/clean: deps/libmotioncapture/deps/pybind11/clean
 .PHONY : deps/libmotioncapture/clean
-
-#=============================================================================
-# Directory level rules for directory deps/libmotioncapture/deps/NatNetSDKCrossplatform
-
-# Recursive "all" directory target.
-deps/libmotioncapture/deps/NatNetSDKCrossplatform/all: deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/packetClient.dir/all
-deps/libmotioncapture/deps/NatNetSDKCrossplatform/all: deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/sampleClient.dir/all
-deps/libmotioncapture/deps/NatNetSDKCrossplatform/all: deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/minimalClient.dir/all
-.PHONY : deps/libmotioncapture/deps/NatNetSDKCrossplatform/all
-
-# Recursive "preinstall" directory target.
-deps/libmotioncapture/deps/NatNetSDKCrossplatform/preinstall:
-.PHONY : deps/libmotioncapture/deps/NatNetSDKCrossplatform/preinstall
-
-# Recursive "clean" directory target.
-deps/libmotioncapture/deps/NatNetSDKCrossplatform/clean: deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/packetClient.dir/clean
-deps/libmotioncapture/deps/NatNetSDKCrossplatform/clean: deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/sampleClient.dir/clean
-deps/libmotioncapture/deps/NatNetSDKCrossplatform/clean: deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/minimalClient.dir/clean
-.PHONY : deps/libmotioncapture/deps/NatNetSDKCrossplatform/clean
-
-#=============================================================================
-# Directory level rules for directory deps/libmotioncapture/deps/pybind11
-
-# Recursive "all" directory target.
-deps/libmotioncapture/deps/pybind11/all:
-.PHONY : deps/libmotioncapture/deps/pybind11/all
-
-# Recursive "preinstall" directory target.
-deps/libmotioncapture/deps/pybind11/preinstall:
-.PHONY : deps/libmotioncapture/deps/pybind11/preinstall
-
-# Recursive "clean" directory target.
-deps/libmotioncapture/deps/pybind11/clean:
-.PHONY : deps/libmotioncapture/deps/pybind11/clean
 
 #=============================================================================
 # Directory level rules for directory deps/libmotioncapture/deps/qualisys_cpp_sdk
@@ -421,12 +381,12 @@ CMakeFiles/motion_capture_tracking_node.dir/all: deps/libmotioncapture/deps/vrpn
 CMakeFiles/motion_capture_tracking_node.dir/all: deps/libmotioncapture/deps/vrpn/quat/CMakeFiles/quat.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/motion_capture_tracking_node.dir/build.make CMakeFiles/motion_capture_tracking_node.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/motion_capture_tracking_node.dir/build.make CMakeFiles/motion_capture_tracking_node.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles --progress-num=29,30 "Built target motion_capture_tracking_node"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles --progress-num=26,27 "Built target motion_capture_tracking_node"
 .PHONY : CMakeFiles/motion_capture_tracking_node.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/motion_capture_tracking_node.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles 63
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles 62
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/motion_capture_tracking_node.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles 0
 .PHONY : CMakeFiles/motion_capture_tracking_node.dir/rule
@@ -447,7 +407,7 @@ CMakeFiles/motion_capture_tracking_node.dir/clean:
 deps/librigidbodytracker/CMakeFiles/librigidbodytracker.dir/all:
 	$(MAKE) $(MAKESILENT) -f deps/librigidbodytracker/CMakeFiles/librigidbodytracker.dir/build.make deps/librigidbodytracker/CMakeFiles/librigidbodytracker.dir/depend
 	$(MAKE) $(MAKESILENT) -f deps/librigidbodytracker/CMakeFiles/librigidbodytracker.dir/build.make deps/librigidbodytracker/CMakeFiles/librigidbodytracker.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles --progress-num=25,26 "Built target librigidbodytracker"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles --progress-num=24,25 "Built target librigidbodytracker"
 .PHONY : deps/librigidbodytracker/CMakeFiles/librigidbodytracker.dir/all
 
 # Build rule for subdir invocation for target.
@@ -473,7 +433,7 @@ deps/librigidbodytracker/CMakeFiles/librigidbodytracker.dir/clean:
 deps/librigidbodytracker/CMakeFiles/playclouds.dir/all: deps/librigidbodytracker/CMakeFiles/librigidbodytracker.dir/all
 	$(MAKE) $(MAKESILENT) -f deps/librigidbodytracker/CMakeFiles/playclouds.dir/build.make deps/librigidbodytracker/CMakeFiles/playclouds.dir/depend
 	$(MAKE) $(MAKESILENT) -f deps/librigidbodytracker/CMakeFiles/playclouds.dir/build.make deps/librigidbodytracker/CMakeFiles/playclouds.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles --progress-num=38,39 "Built target playclouds"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles --progress-num=28,29 "Built target playclouds"
 .PHONY : deps/librigidbodytracker/CMakeFiles/playclouds.dir/all
 
 # Build rule for subdir invocation for target.
@@ -499,7 +459,7 @@ deps/librigidbodytracker/CMakeFiles/playclouds.dir/clean:
 deps/librigidbodytracker/CMakeFiles/standalone.dir/all: deps/librigidbodytracker/CMakeFiles/librigidbodytracker.dir/all
 	$(MAKE) $(MAKESILENT) -f deps/librigidbodytracker/CMakeFiles/standalone.dir/build.make deps/librigidbodytracker/CMakeFiles/standalone.dir/depend
 	$(MAKE) $(MAKESILENT) -f deps/librigidbodytracker/CMakeFiles/standalone.dir/build.make deps/librigidbodytracker/CMakeFiles/standalone.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles --progress-num=52,53 "Built target standalone"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles --progress-num=40,41 "Built target standalone"
 .PHONY : deps/librigidbodytracker/CMakeFiles/standalone.dir/all
 
 # Build rule for subdir invocation for target.
@@ -554,12 +514,12 @@ deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/all: deps/libmotioncapture
 deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/all: deps/libmotioncapture/deps/vrpn/quat/CMakeFiles/quat.dir/all
 	$(MAKE) $(MAKESILENT) -f deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/build.make deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/depend
 	$(MAKE) $(MAKESILENT) -f deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/build.make deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles --progress-num=16,17,18,19,20,21,22,23,24 "Built target libmotioncapture"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles --progress-num=16,17,18,19,20,21,22,23 "Built target libmotioncapture"
 .PHONY : deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/all
 
 # Build rule for subdir invocation for target.
 deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles 59
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles 58
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles 0
 .PHONY : deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/rule
@@ -572,66 +532,6 @@ libmotioncapture: deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/rule
 deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/clean:
 	$(MAKE) $(MAKESILENT) -f deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/build.make deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/clean
 .PHONY : deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/clean
-
-#=============================================================================
-# Target rules for target deps/libmotioncapture/CMakeFiles/motioncapture.dir
-
-# All Build rule for target.
-deps/libmotioncapture/CMakeFiles/motioncapture.dir/all: deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/all
-deps/libmotioncapture/CMakeFiles/motioncapture.dir/all: deps/libmotioncapture/deps/vicon-datastream-sdk/CMakeFiles/ViconDataStreamSDK_CPP.dir/all
-deps/libmotioncapture/CMakeFiles/motioncapture.dir/all: deps/libmotioncapture/deps/qualisys_cpp_sdk/CMakeFiles/qualisys_cpp_sdk.dir/all
-deps/libmotioncapture/CMakeFiles/motioncapture.dir/all: deps/libmotioncapture/deps/vrpn/CMakeFiles/vrpn.dir/all
-deps/libmotioncapture/CMakeFiles/motioncapture.dir/all: deps/libmotioncapture/deps/vrpn/quat/CMakeFiles/quat.dir/all
-	$(MAKE) $(MAKESILENT) -f deps/libmotioncapture/CMakeFiles/motioncapture.dir/build.make deps/libmotioncapture/CMakeFiles/motioncapture.dir/depend
-	$(MAKE) $(MAKESILENT) -f deps/libmotioncapture/CMakeFiles/motioncapture.dir/build.make deps/libmotioncapture/CMakeFiles/motioncapture.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles --progress-num=31,32 "Built target motioncapture"
-.PHONY : deps/libmotioncapture/CMakeFiles/motioncapture.dir/all
-
-# Build rule for subdir invocation for target.
-deps/libmotioncapture/CMakeFiles/motioncapture.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles 61
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 deps/libmotioncapture/CMakeFiles/motioncapture.dir/all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles 0
-.PHONY : deps/libmotioncapture/CMakeFiles/motioncapture.dir/rule
-
-# Convenience name for target.
-motioncapture: deps/libmotioncapture/CMakeFiles/motioncapture.dir/rule
-.PHONY : motioncapture
-
-# clean rule for target.
-deps/libmotioncapture/CMakeFiles/motioncapture.dir/clean:
-	$(MAKE) $(MAKESILENT) -f deps/libmotioncapture/CMakeFiles/motioncapture.dir/build.make deps/libmotioncapture/CMakeFiles/motioncapture.dir/clean
-.PHONY : deps/libmotioncapture/CMakeFiles/motioncapture.dir/clean
-
-#=============================================================================
-# Target rules for target deps/libmotioncapture/CMakeFiles/motioncapture_example.dir
-
-# All Build rule for target.
-deps/libmotioncapture/CMakeFiles/motioncapture_example.dir/all: deps/libmotioncapture/CMakeFiles/libmotioncapture.dir/all
-deps/libmotioncapture/CMakeFiles/motioncapture_example.dir/all: deps/libmotioncapture/deps/vicon-datastream-sdk/CMakeFiles/ViconDataStreamSDK_CPP.dir/all
-deps/libmotioncapture/CMakeFiles/motioncapture_example.dir/all: deps/libmotioncapture/deps/qualisys_cpp_sdk/CMakeFiles/qualisys_cpp_sdk.dir/all
-deps/libmotioncapture/CMakeFiles/motioncapture_example.dir/all: deps/libmotioncapture/deps/vrpn/CMakeFiles/vrpn.dir/all
-deps/libmotioncapture/CMakeFiles/motioncapture_example.dir/all: deps/libmotioncapture/deps/vrpn/quat/CMakeFiles/quat.dir/all
-	$(MAKE) $(MAKESILENT) -f deps/libmotioncapture/CMakeFiles/motioncapture_example.dir/build.make deps/libmotioncapture/CMakeFiles/motioncapture_example.dir/depend
-	$(MAKE) $(MAKESILENT) -f deps/libmotioncapture/CMakeFiles/motioncapture_example.dir/build.make deps/libmotioncapture/CMakeFiles/motioncapture_example.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles --progress-num=33,34 "Built target motioncapture_example"
-.PHONY : deps/libmotioncapture/CMakeFiles/motioncapture_example.dir/all
-
-# Build rule for subdir invocation for target.
-deps/libmotioncapture/CMakeFiles/motioncapture_example.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles 61
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 deps/libmotioncapture/CMakeFiles/motioncapture_example.dir/all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles 0
-.PHONY : deps/libmotioncapture/CMakeFiles/motioncapture_example.dir/rule
-
-# Convenience name for target.
-motioncapture_example: deps/libmotioncapture/CMakeFiles/motioncapture_example.dir/rule
-.PHONY : motioncapture_example
-
-# clean rule for target.
-deps/libmotioncapture/CMakeFiles/motioncapture_example.dir/clean:
-	$(MAKE) $(MAKESILENT) -f deps/libmotioncapture/CMakeFiles/motioncapture_example.dir/build.make deps/libmotioncapture/CMakeFiles/motioncapture_example.dir/clean
-.PHONY : deps/libmotioncapture/CMakeFiles/motioncapture_example.dir/clean
 
 #=============================================================================
 # Target rules for target deps/libmotioncapture/deps/vicon-datastream-sdk/CMakeFiles/ViconDataStreamSDK_CPP.dir
@@ -686,91 +586,13 @@ deps/libmotioncapture/deps/vicon-datastream-sdk/CMakeFiles/ViconDataStreamSDK_CP
 .PHONY : deps/libmotioncapture/deps/vicon-datastream-sdk/CMakeFiles/ViconDataStreamSDK_CPPTest.dir/clean
 
 #=============================================================================
-# Target rules for target deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/packetClient.dir
-
-# All Build rule for target.
-deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/packetClient.dir/all:
-	$(MAKE) $(MAKESILENT) -f deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/packetClient.dir/build.make deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/packetClient.dir/depend
-	$(MAKE) $(MAKESILENT) -f deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/packetClient.dir/build.make deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/packetClient.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles --progress-num=35,36,37 "Built target packetClient"
-.PHONY : deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/packetClient.dir/all
-
-# Build rule for subdir invocation for target.
-deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/packetClient.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles 3
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/packetClient.dir/all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles 0
-.PHONY : deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/packetClient.dir/rule
-
-# Convenience name for target.
-packetClient: deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/packetClient.dir/rule
-.PHONY : packetClient
-
-# clean rule for target.
-deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/packetClient.dir/clean:
-	$(MAKE) $(MAKESILENT) -f deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/packetClient.dir/build.make deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/packetClient.dir/clean
-.PHONY : deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/packetClient.dir/clean
-
-#=============================================================================
-# Target rules for target deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/sampleClient.dir
-
-# All Build rule for target.
-deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/sampleClient.dir/all:
-	$(MAKE) $(MAKESILENT) -f deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/sampleClient.dir/build.make deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/sampleClient.dir/depend
-	$(MAKE) $(MAKESILENT) -f deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/sampleClient.dir/build.make deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/sampleClient.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles --progress-num=50,51 "Built target sampleClient"
-.PHONY : deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/sampleClient.dir/all
-
-# Build rule for subdir invocation for target.
-deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/sampleClient.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles 2
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/sampleClient.dir/all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles 0
-.PHONY : deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/sampleClient.dir/rule
-
-# Convenience name for target.
-sampleClient: deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/sampleClient.dir/rule
-.PHONY : sampleClient
-
-# clean rule for target.
-deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/sampleClient.dir/clean:
-	$(MAKE) $(MAKESILENT) -f deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/sampleClient.dir/build.make deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/sampleClient.dir/clean
-.PHONY : deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/sampleClient.dir/clean
-
-#=============================================================================
-# Target rules for target deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/minimalClient.dir
-
-# All Build rule for target.
-deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/minimalClient.dir/all:
-	$(MAKE) $(MAKESILENT) -f deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/minimalClient.dir/build.make deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/minimalClient.dir/depend
-	$(MAKE) $(MAKESILENT) -f deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/minimalClient.dir/build.make deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/minimalClient.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles --progress-num=27,28 "Built target minimalClient"
-.PHONY : deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/minimalClient.dir/all
-
-# Build rule for subdir invocation for target.
-deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/minimalClient.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles 2
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/minimalClient.dir/all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles 0
-.PHONY : deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/minimalClient.dir/rule
-
-# Convenience name for target.
-minimalClient: deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/minimalClient.dir/rule
-.PHONY : minimalClient
-
-# clean rule for target.
-deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/minimalClient.dir/clean:
-	$(MAKE) $(MAKESILENT) -f deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/minimalClient.dir/build.make deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/minimalClient.dir/clean
-.PHONY : deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/minimalClient.dir/clean
-
-#=============================================================================
 # Target rules for target deps/libmotioncapture/deps/qualisys_cpp_sdk/CMakeFiles/qualisys_cpp_sdk.dir
 
 # All Build rule for target.
 deps/libmotioncapture/deps/qualisys_cpp_sdk/CMakeFiles/qualisys_cpp_sdk.dir/all:
 	$(MAKE) $(MAKESILENT) -f deps/libmotioncapture/deps/qualisys_cpp_sdk/CMakeFiles/qualisys_cpp_sdk.dir/build.make deps/libmotioncapture/deps/qualisys_cpp_sdk/CMakeFiles/qualisys_cpp_sdk.dir/depend
 	$(MAKE) $(MAKESILENT) -f deps/libmotioncapture/deps/qualisys_cpp_sdk/CMakeFiles/qualisys_cpp_sdk.dir/build.make deps/libmotioncapture/deps/qualisys_cpp_sdk/CMakeFiles/qualisys_cpp_sdk.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles --progress-num=40,41,42,43,44 "Built target qualisys_cpp_sdk"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles --progress-num=30,31,32,33,34 "Built target qualisys_cpp_sdk"
 .PHONY : deps/libmotioncapture/deps/qualisys_cpp_sdk/CMakeFiles/qualisys_cpp_sdk.dir/all
 
 # Build rule for subdir invocation for target.
@@ -1550,7 +1372,7 @@ deps/libmotioncapture/deps/vrpn/CMakeFiles/ContinuousSubmit.dir/clean:
 deps/libmotioncapture/deps/vrpn/CMakeFiles/vrpn.dir/all: deps/libmotioncapture/deps/vrpn/quat/CMakeFiles/quat.dir/all
 	$(MAKE) $(MAKESILENT) -f deps/libmotioncapture/deps/vrpn/CMakeFiles/vrpn.dir/build.make deps/libmotioncapture/deps/vrpn/CMakeFiles/vrpn.dir/depend
 	$(MAKE) $(MAKESILENT) -f deps/libmotioncapture/deps/vrpn/CMakeFiles/vrpn.dir/build.make deps/libmotioncapture/deps/vrpn/CMakeFiles/vrpn.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles --progress-num=54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82 "Built target vrpn"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles --progress-num=42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70 "Built target vrpn"
 .PHONY : deps/libmotioncapture/deps/vrpn/CMakeFiles/vrpn.dir/all
 
 # Build rule for subdir invocation for target.
@@ -1576,7 +1398,7 @@ deps/libmotioncapture/deps/vrpn/CMakeFiles/vrpn.dir/clean:
 deps/libmotioncapture/deps/vrpn/quat/CMakeFiles/quat.dir/all:
 	$(MAKE) $(MAKESILENT) -f deps/libmotioncapture/deps/vrpn/quat/CMakeFiles/quat.dir/build.make deps/libmotioncapture/deps/vrpn/quat/CMakeFiles/quat.dir/depend
 	$(MAKE) $(MAKESILENT) -f deps/libmotioncapture/deps/vrpn/quat/CMakeFiles/quat.dir/build.make deps/libmotioncapture/deps/vrpn/quat/CMakeFiles/quat.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles --progress-num=45,46,47,48,49 "Built target quat"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking/CMakeFiles --progress-num=35,36,37,38,39 "Built target quat"
 .PHONY : deps/libmotioncapture/deps/vrpn/quat/CMakeFiles/quat.dir/all
 
 # Build rule for subdir invocation for target.

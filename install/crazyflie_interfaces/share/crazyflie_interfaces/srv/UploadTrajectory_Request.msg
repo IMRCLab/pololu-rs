@@ -1,1 +1,3 @@
-/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_interfaces/rosidl_cmake/srv/UploadTrajectory_Request.msg
+uint8 trajectory_id
+uint32 piece_offset
+TrajectoryPolynomialPiece[] pieces

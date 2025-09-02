@@ -276,32 +276,6 @@ libmotioncapture/fast:
 .PHONY : libmotioncapture/fast
 
 #=============================================================================
-# Target rules for targets named motioncapture
-
-# Build rule for target.
-motioncapture: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 motioncapture
-.PHONY : motioncapture
-
-# fast build rule for target.
-motioncapture/fast:
-	$(MAKE) $(MAKESILENT) -f deps/libmotioncapture/CMakeFiles/motioncapture.dir/build.make deps/libmotioncapture/CMakeFiles/motioncapture.dir/build
-.PHONY : motioncapture/fast
-
-#=============================================================================
-# Target rules for targets named motioncapture_example
-
-# Build rule for target.
-motioncapture_example: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 motioncapture_example
-.PHONY : motioncapture_example
-
-# fast build rule for target.
-motioncapture_example/fast:
-	$(MAKE) $(MAKESILENT) -f deps/libmotioncapture/CMakeFiles/motioncapture_example.dir/build.make deps/libmotioncapture/CMakeFiles/motioncapture_example.dir/build
-.PHONY : motioncapture_example/fast
-
-#=============================================================================
 # Target rules for targets named ViconDataStreamSDK_CPP
 
 # Build rule for target.
@@ -326,45 +300,6 @@ ViconDataStreamSDK_CPPTest: cmake_check_build_system
 ViconDataStreamSDK_CPPTest/fast:
 	$(MAKE) $(MAKESILENT) -f deps/libmotioncapture/deps/vicon-datastream-sdk/CMakeFiles/ViconDataStreamSDK_CPPTest.dir/build.make deps/libmotioncapture/deps/vicon-datastream-sdk/CMakeFiles/ViconDataStreamSDK_CPPTest.dir/build
 .PHONY : ViconDataStreamSDK_CPPTest/fast
-
-#=============================================================================
-# Target rules for targets named packetClient
-
-# Build rule for target.
-packetClient: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 packetClient
-.PHONY : packetClient
-
-# fast build rule for target.
-packetClient/fast:
-	$(MAKE) $(MAKESILENT) -f deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/packetClient.dir/build.make deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/packetClient.dir/build
-.PHONY : packetClient/fast
-
-#=============================================================================
-# Target rules for targets named sampleClient
-
-# Build rule for target.
-sampleClient: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 sampleClient
-.PHONY : sampleClient
-
-# fast build rule for target.
-sampleClient/fast:
-	$(MAKE) $(MAKESILENT) -f deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/sampleClient.dir/build.make deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/sampleClient.dir/build
-.PHONY : sampleClient/fast
-
-#=============================================================================
-# Target rules for targets named minimalClient
-
-# Build rule for target.
-minimalClient: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 minimalClient
-.PHONY : minimalClient
-
-# fast build rule for target.
-minimalClient/fast:
-	$(MAKE) $(MAKESILENT) -f deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/minimalClient.dir/build.make deps/libmotioncapture/deps/NatNetSDKCrossplatform/CMakeFiles/minimalClient.dir/build
-.PHONY : minimalClient/fast
 
 #=============================================================================
 # Target rules for targets named qualisys_cpp_sdk
@@ -855,15 +790,10 @@ help:
 	@echo "... cbs_group_constraint"
 	@echo "... libmotioncapture"
 	@echo "... librigidbodytracker"
-	@echo "... minimalClient"
 	@echo "... motion_capture_tracking_node"
-	@echo "... motioncapture"
-	@echo "... motioncapture_example"
-	@echo "... packetClient"
 	@echo "... playclouds"
 	@echo "... qualisys_cpp_sdk"
 	@echo "... quat"
-	@echo "... sampleClient"
 	@echo "... standalone"
 	@echo "... vrpn"
 	@echo "... src/motion_capture_tracking_node.o"

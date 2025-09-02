@@ -43,7 +43,23 @@ if(NOT DEFINED CMAKE_OBJDUMP)
 endif()
 
 if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
-  include("/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_examples/ament_cmake_symlink_install/ament_cmake_symlink_install.cmake")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/crazyflie_examples/environment" TYPE FILE FILES "/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_examples/ament_cmake_environment_hooks/pythonpath.sh")
+endif()
+
+if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/crazyflie_examples/environment" TYPE FILE FILES "/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_examples/ament_cmake_environment_hooks/pythonpath.dsv")
+endif()
+
+if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/local/lib/python3.10/dist-packages/crazyflie_examples-1.0.3-py3.10.egg-info" TYPE DIRECTORY FILES "/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_examples/ament_cmake_python/crazyflie_examples/crazyflie_examples.egg-info/")
+endif()
+
+if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/crazyflie_examples/" TYPE DIRECTORY FILES "/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_examples/ament_cmake_python/crazyflie_examples/scripts/" USE_SOURCE_PERMISSIONS)
+endif()
+
+if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/local/lib/python3.10/dist-packages/crazyflie_examples" TYPE DIRECTORY FILES "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_examples/crazyflie_examples/" REGEX "/[^/]*\\.pyc$" EXCLUDE REGEX "/\\_\\_pycache\\_\\_$" EXCLUDE)
 endif()
 
 if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
@@ -52,6 +68,73 @@ if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT
         "/usr/bin/python3" "-m" "compileall"
         "/home/vincent/Ground_Robots/mocap_broadcast_ros/install/crazyflie_examples/local/lib/python3.10/dist-packages/crazyflie_examples"
       )
+endif()
+
+if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/crazyflie_examples/" TYPE DIRECTORY FILES
+    "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_examples/config"
+    "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_examples/data"
+    "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_examples/launch"
+    )
+endif()
+
+if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/ament_index/resource_index/package_run_dependencies" TYPE FILE FILES "/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_examples/ament_cmake_index/share/ament_index/resource_index/package_run_dependencies/crazyflie_examples")
+endif()
+
+if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/ament_index/resource_index/parent_prefix_path" TYPE FILE FILES "/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_examples/ament_cmake_index/share/ament_index/resource_index/parent_prefix_path/crazyflie_examples")
+endif()
+
+if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/crazyflie_examples/environment" TYPE FILE FILES "/opt/ros/humble/share/ament_cmake_core/cmake/environment_hooks/environment/ament_prefix_path.sh")
+endif()
+
+if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/crazyflie_examples/environment" TYPE FILE FILES "/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_examples/ament_cmake_environment_hooks/ament_prefix_path.dsv")
+endif()
+
+if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/crazyflie_examples/environment" TYPE FILE FILES "/opt/ros/humble/share/ament_cmake_core/cmake/environment_hooks/environment/path.sh")
+endif()
+
+if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/crazyflie_examples/environment" TYPE FILE FILES "/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_examples/ament_cmake_environment_hooks/path.dsv")
+endif()
+
+if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/crazyflie_examples" TYPE FILE FILES "/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_examples/ament_cmake_environment_hooks/local_setup.bash")
+endif()
+
+if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/crazyflie_examples" TYPE FILE FILES "/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_examples/ament_cmake_environment_hooks/local_setup.sh")
+endif()
+
+if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/crazyflie_examples" TYPE FILE FILES "/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_examples/ament_cmake_environment_hooks/local_setup.zsh")
+endif()
+
+if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/crazyflie_examples" TYPE FILE FILES "/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_examples/ament_cmake_environment_hooks/local_setup.dsv")
+endif()
+
+if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/crazyflie_examples" TYPE FILE FILES "/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_examples/ament_cmake_environment_hooks/package.dsv")
+endif()
+
+if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/ament_index/resource_index/packages" TYPE FILE FILES "/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_examples/ament_cmake_index/share/ament_index/resource_index/packages/crazyflie_examples")
+endif()
+
+if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/crazyflie_examples/cmake" TYPE FILE FILES
+    "/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_examples/ament_cmake_core/crazyflie_examplesConfig.cmake"
+    "/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_examples/ament_cmake_core/crazyflie_examplesConfig-version.cmake"
+    )
+endif()
+
+if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/crazyflie_examples" TYPE FILE FILES "/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_examples/package.xml")
 endif()
 
 if(CMAKE_INSTALL_COMPONENT)

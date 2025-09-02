@@ -1,1 +1,12 @@
-/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_interfaces/rosidl_generator_cpp/crazyflie_interfaces/srv/set_group_mask.hpp
+// generated from rosidl_generator_cpp/resource/idl.hpp.em
+// generated code does not contain a copyright notice
+
+#ifndef CRAZYFLIE_INTERFACES__SRV__SET_GROUP_MASK_HPP_
+#define CRAZYFLIE_INTERFACES__SRV__SET_GROUP_MASK_HPP_
+
+#include "crazyflie_interfaces/srv/detail/set_group_mask__struct.hpp"
+#include "crazyflie_interfaces/srv/detail/set_group_mask__builder.hpp"
+#include "crazyflie_interfaces/srv/detail/set_group_mask__traits.hpp"
+#include "crazyflie_interfaces/srv/detail/set_group_mask__type_support.hpp"
+
+#endif  // CRAZYFLIE_INTERFACES__SRV__SET_GROUP_MASK_HPP_

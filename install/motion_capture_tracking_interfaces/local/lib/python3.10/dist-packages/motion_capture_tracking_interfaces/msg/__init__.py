@@ -1,1 +1,2 @@
-/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking_interfaces/rosidl_generator_py/motion_capture_tracking_interfaces/msg/__init__.py
+from motion_capture_tracking_interfaces.msg._named_pose import NamedPose  # noqa: F401
+from motion_capture_tracking_interfaces.msg._named_pose_array import NamedPoseArray  # noqa: F401

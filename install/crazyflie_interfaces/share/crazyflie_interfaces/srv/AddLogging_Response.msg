@@ -1,1 +1,2 @@
-/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_interfaces/rosidl_cmake/srv/AddLogging_Response.msg
+
+bool success

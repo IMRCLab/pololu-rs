@@ -1,1 +1,2 @@
-/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking_interfaces/msg/NamedPoseArray.msg
+std_msgs/Header header
+NamedPose[] poses

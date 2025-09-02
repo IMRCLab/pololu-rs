@@ -1,1 +1,2 @@
-/home/vincent/Ground_Robots/mocap_broadcast_ros/src/crazyswarm2/crazyflie_interfaces/msg/ConnectionStatisticsArray.msg
+std_msgs/Header header
+ConnectionStatistics[] stats

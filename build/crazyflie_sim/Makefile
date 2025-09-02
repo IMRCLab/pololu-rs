@@ -198,30 +198,30 @@ crazyflie_sim_uninstall/fast:
 .PHONY : crazyflie_sim_uninstall/fast
 
 #=============================================================================
-# Target rules for targets named ament_cmake_python_symlink_crazyflie_sim
+# Target rules for targets named ament_cmake_python_copy_crazyflie_sim
 
 # Build rule for target.
-ament_cmake_python_symlink_crazyflie_sim: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 ament_cmake_python_symlink_crazyflie_sim
-.PHONY : ament_cmake_python_symlink_crazyflie_sim
+ament_cmake_python_copy_crazyflie_sim: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 ament_cmake_python_copy_crazyflie_sim
+.PHONY : ament_cmake_python_copy_crazyflie_sim
 
 # fast build rule for target.
-ament_cmake_python_symlink_crazyflie_sim/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ament_cmake_python_symlink_crazyflie_sim.dir/build.make CMakeFiles/ament_cmake_python_symlink_crazyflie_sim.dir/build
-.PHONY : ament_cmake_python_symlink_crazyflie_sim/fast
+ament_cmake_python_copy_crazyflie_sim/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ament_cmake_python_copy_crazyflie_sim.dir/build.make CMakeFiles/ament_cmake_python_copy_crazyflie_sim.dir/build
+.PHONY : ament_cmake_python_copy_crazyflie_sim/fast
 
 #=============================================================================
-# Target rules for targets named ament_cmake_python_symlink_crazyflie_sim_setup
+# Target rules for targets named ament_cmake_python_copy_crazyflie_sim_setup
 
 # Build rule for target.
-ament_cmake_python_symlink_crazyflie_sim_setup: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 ament_cmake_python_symlink_crazyflie_sim_setup
-.PHONY : ament_cmake_python_symlink_crazyflie_sim_setup
+ament_cmake_python_copy_crazyflie_sim_setup: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 ament_cmake_python_copy_crazyflie_sim_setup
+.PHONY : ament_cmake_python_copy_crazyflie_sim_setup
 
 # fast build rule for target.
-ament_cmake_python_symlink_crazyflie_sim_setup/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ament_cmake_python_symlink_crazyflie_sim_setup.dir/build.make CMakeFiles/ament_cmake_python_symlink_crazyflie_sim_setup.dir/build
-.PHONY : ament_cmake_python_symlink_crazyflie_sim_setup/fast
+ament_cmake_python_copy_crazyflie_sim_setup/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ament_cmake_python_copy_crazyflie_sim_setup.dir/build.make CMakeFiles/ament_cmake_python_copy_crazyflie_sim_setup.dir/build
+.PHONY : ament_cmake_python_copy_crazyflie_sim_setup/fast
 
 #=============================================================================
 # Target rules for targets named ament_cmake_python_build_crazyflie_sim_egg
@@ -264,8 +264,8 @@ help:
 	@echo "... test"
 	@echo "... ament_cmake_python_build_crazyflie_sim_egg"
 	@echo "... ament_cmake_python_build_crazyflie_sim_scripts"
-	@echo "... ament_cmake_python_symlink_crazyflie_sim"
-	@echo "... ament_cmake_python_symlink_crazyflie_sim_setup"
+	@echo "... ament_cmake_python_copy_crazyflie_sim"
+	@echo "... ament_cmake_python_copy_crazyflie_sim_setup"
 	@echo "... crazyflie_sim_uninstall"
 	@echo "... uninstall"
 .PHONY : help

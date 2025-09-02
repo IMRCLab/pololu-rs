@@ -1,1 +1,1 @@
-/home/vincent/Ground_Robots/mocap_broadcast_ros/build/motion_capture_tracking_interfaces/ament_cmake_index/share/ament_index/resource_index/package_run_dependencies/motion_capture_tracking_interfaces
+builtin_interfaces;geometry_msgs;std_msgs;rosidl_default_runtime;ament_lint_common

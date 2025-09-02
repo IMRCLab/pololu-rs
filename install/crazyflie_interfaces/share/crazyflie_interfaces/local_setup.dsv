@@ -1,1 +1,4 @@
-/home/vincent/Ground_Robots/mocap_broadcast_ros/build/crazyflie_interfaces/ament_cmake_environment_hooks/local_setup.dsv
+source;share/crazyflie_interfaces/environment/ament_prefix_path.sh
+source;share/crazyflie_interfaces/environment/library_path.sh
+source;share/crazyflie_interfaces/environment/path.sh
+source;share/crazyflie_interfaces/environment/pythonpath.sh

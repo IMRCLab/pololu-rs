@@ -1,1 +1,2 @@
-/home/vincent/Ground_Robots/mocap_broadcast_ros/src/motion_capture_tracking/motion_capture_tracking_interfaces/msg/NamedPose.msg
+string name
+geometry_msgs/Pose pose
