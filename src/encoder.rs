@@ -219,12 +219,12 @@ pub fn wheel_speed_from_counts_now(
     ((omega_l, omega_r), (left_now, right_now))
 }
 
-// fast left position reading
-pub fn read_left_count(counter: &'static Mutex<NoopRawMutex, i32>) -> i32 {
-    counter.try_lock().map(|g| *g).unwrap_or(0)
-}
+// // fast left position reading
+// pub fn read_left_count(counter: &'static Mutex<NoopRawMutex, i32>) -> i32 {
+//     counter.try_lock().map(|g| *g).unwrap_or(0)
+// }
 
-/// fast left position reading
-pub fn read_right_count(counter: &'static Mutex<NoopRawMutex, i32>) -> i32 {
-    counter.try_lock().map(|g| *g).unwrap_or(0)
-}
+// // fast right position reading
+// pub fn read_right_count(counter: &'static Mutex<NoopRawMutex, i32>) -> i32 {
+//     counter.try_lock().map(|g| *g).unwrap_or(0)
+// }
