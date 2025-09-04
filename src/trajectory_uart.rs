@@ -98,7 +98,7 @@ pub async fn uart_motioncap_receiving_task(uart: SharedUart<'static>, cfg: UartC
         if len == LEN_START {
             if is_start_event(&frame) {
                 START_EVENT.signal(());
-                info!("start event received");
+                info!("start event received"); // This won't be triggered since the ros node is not sending this start event.
             }
             continue;
         }

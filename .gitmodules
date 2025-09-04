@@ -1,0 +1,4 @@
+[submodule "pololu3pi2040-rs"]
+	path = pololu3pi2040-rs
+	url = git@github.com:IMRCLab/pololu3pi2040-rs.git
+	branch = ground_robots_ros
