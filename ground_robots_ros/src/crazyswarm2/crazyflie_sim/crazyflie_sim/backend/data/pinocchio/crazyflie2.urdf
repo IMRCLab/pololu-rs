@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<robot name="crazflie">
+    
+    <link name="world"></link>
+    
+    <joint name="freefly" type="floating">
+        <parent link="world"/>
+        <child link="base"/>
+        <axis xyz="1 1 1"/>
+        <limit effort="1000.0" lower="-100.0" upper="100.0" velocity="100.0"/>
+    </joint>
+
+    <link name="base">
+        <inertial>
+            <mass value="0.034"/>
+            <origin xyz="0 0 0"/>
+            <inertia ixx="16.571710e-6" iyy="16.655602e-6" izz="29.261652e-6" ixy="0.0" ixz="0.0" iyx="0.0" iyz="0.0" izx="0.0" izy="0.0"/>
+        </inertial>
+
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <sphere radius="0.1"/>
+            </geometry>
+        </collision>      
+    </link>
+</robot>

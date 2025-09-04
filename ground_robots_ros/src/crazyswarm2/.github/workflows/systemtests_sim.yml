@@ -1,0 +1,77 @@
+name: System Tests Simulation 
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  # manual trigger
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: threadripper
+    steps:
+      - name: Build firmware
+        id: step1
+        run: |
+          ls crazyflie-firmware || git clone --recursive https://github.com/bitcraze/crazyflie-firmware.git
+          cd crazyflie-firmware
+          git pull
+          git submodule sync
+          git submodule update --init --recursive
+          make cf2_defconfig
+          make bindings_python  
+          cd build
+          python3 setup.py install --user   
+      - name: Create workspace
+        id: step2
+        run: |
+          cd ros2_ws/src || mkdir -p ros2_ws/src
+      - name: Checkout motion capture package
+        id: step3
+        run: |
+          cd ros2_ws/src
+          ls motion_capture_tracking || git clone --branch ros2 --recursive https://github.com/IMRCLab/motion_capture_tracking.git
+          cd motion_capture_tracking
+          git pull
+          git submodule sync
+          git submodule update --recursive --init
+      - name: Checkout Crazyswarm2
+        id: step4
+        uses: actions/checkout@v4
+        with:
+          path: ros2_ws/src/crazyswarm2
+          submodules: 'recursive'
+      - name: Build workspace
+        id: step5
+        run: |
+          source /opt/ros/humble/setup.bash
+          cd ros2_ws
+          colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
+
+      - name: Flight test
+        id: step6
+        run: |
+          cd ros2_ws
+          source /opt/ros/humble/setup.bash
+          . install/local_setup.bash
+          export PYTHONPATH="${PYTHONPATH}:/home/github/actions-runner/_work/crazyswarm2/crazyswarm2/crazyflie-firmware/build/"
+          export ROS_LOCALHOST_ONLY=1
+          export ROS_DOMAIN_ID=99
+          python3 src/crazyswarm2/systemtests/test_flights.py --sim -v    #-v is verbose argument of unittest
+
+      - name: Upload files
+        id: step7
+        if: '!cancelled()'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pdf_rosbags_and_logs
+          path: |
+            ros2_ws/results
+            
+
+
+
+            
+          

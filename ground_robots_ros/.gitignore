@@ -1,0 +1,11 @@
+**/build/
+**/install/
+**/log/
+
+__pycache__/
+*.pyc
+*.pyo
+
+test_results/
+
+.vscode/

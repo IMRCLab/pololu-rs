@@ -1,0 +1,47 @@
+/teleop:
+  ros__parameters:
+    frequency: 10  # set to 0, to disable manual flight modes
+    #uri1: "radio://*/80/2M/00E6E6E6E6?safelink=0&autoping=0"
+    uri1: "radio://*/80/2M/E7C2C2C208?safelink=0&autoping=0"
+    #uri1: "radio://*/80/2M/00E6E6E6E7?safelink=0&autoping=0"
+    uri2: "radio://*/80/2M/E7C2C2C210?safelink=0&autoping=0"
+    uri3: "radio://*/80/2M/E7C2C2C20A?safelink=0&autoping=0"
+    uri4: "radio://*/80/2M/E7C2C2C2C2?safelink=0&autoping=0"
+    joy1:
+      yawrate:
+        axis: 4  # Right stick X-axis for left/right turning
+        max: 20.0 # deg/s
+        deadband: 1.0 # 5% deadband for turning
+      thrust:
+        axis: 2  # Left stick Y-axis for forward/backward
+        max: 20000.0 # ---> mapped to 0 - maxspeed in [m/s]
+        deadband: 2000.0 # 10% deadband for thrust
+    joy2:
+      yawrate:
+        axis: 4  # Right stick X-axis for left/right turning
+        max: 20.0 # deg/s
+        deadband: 1.0 # 5% deadband for turning
+      thrust:
+        axis: 2  # Left stick Y-axis for forward/backward
+        max: 20000.0 
+        deadband: 2000.0 # 10% deadband for thrust
+    joy3:
+      yawrate:
+        axis: 4  # Right stick X-axis for left/right turning
+        max: 20.0 # deg/s
+        deadband: 1.0 # 5% deadband for turning
+      thrust:
+        axis: 2  # Left stick Y-axis for forward/backward
+        max: 20000.0 
+        deadband: 2000.0 # 10% deadband for thrust
+    joy4:
+      yawrate:
+        axis: 4  # Right stick X-axis for left/right turning
+        max: 20.0 # deg/s
+        deadband: 1.0 # 5% deadband for turning
+      thrust:
+        axis: 2  # Left stick Y-axis for forward/backward
+        max: 20000.0 
+        deadband: 2000.0 # 10% deadband for thrust
+
+
