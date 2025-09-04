@@ -1,6 +1,0 @@
-include README.md LICENSE version
-recursive-include deps *
-graft src
-graft examples
-graft include/libmotioncapture
-global-include CMakeLists.txt *.cmake

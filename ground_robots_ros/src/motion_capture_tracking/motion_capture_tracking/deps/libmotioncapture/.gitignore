@@ -1,7 +1,0 @@
-build/*
-.vscode/
-dist/
-
-*.so
-*.egg-info/
-*.whl
