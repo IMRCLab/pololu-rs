@@ -46,10 +46,20 @@ case $TARGET in
         echo "Running: cargo run --release --bin teleop_control $FEATURES"
         $CARGO_CMD run --release --bin teleop_control $FEATURES
         ;;
-    "trajectory")
+    "trajectory_following")
         echo "Target: trajectory_following binary"
         echo "Running: cargo run --release --bin trajectory_following $FEATURES"
         $CARGO_CMD run --release --bin trajectory_following $FEATURES
+        ;;
+    "trajectory_following_diffdrive")
+        echo "Target: trajectory_following_diffdrive binary"
+        echo "Running: cargo run --release --bin trajectory_following_diffdrive $FEATURES"
+        $CARGO_CMD run --release --bin trajectory_following_diffdrive $FEATURES
+        ;;
+    "trajectory_following_cascade")
+        echo "Target: trajectory_following_cascade binary"
+        echo "Running: cargo run --release --bin trajectory_following_cascade $FEATURES"
+        $CARGO_CMD run --release --bin trajectory_following_cascade $FEATURES
         ;;
     "build")
         echo "Target: build only (no flash)"

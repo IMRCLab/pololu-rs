@@ -15,7 +15,7 @@ jobs:
     container: rust:1.87
     strategy:
       matrix:
-        feature: ["", "zumo", "three-pi"]   # "" = 默认 (v0)
+        feature: ["", "zumo", "three-pi"]   # "" = (v0)
     steps:
       - uses: actions/checkout@v3
 

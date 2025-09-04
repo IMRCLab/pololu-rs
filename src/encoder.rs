@@ -200,9 +200,9 @@ pub fn wheel_speed_from_counts_now(
     cpr_wheel: f32,
     prev_left: i32,
     prev_right: i32,
-    dt: f32, // 秒
+    dt: f32, // in sec
 ) -> ((f32, f32), (i32, i32)) {
-    // 尽量短时间持锁：只读一次
+    // lock as short as possible
     let (left_now, right_now) = {
         let l = *left_counter.try_lock().as_deref().unwrap_or(&0);
         let r = *right_counter.try_lock().as_deref().unwrap_or(&0);
@@ -212,7 +212,7 @@ pub fn wheel_speed_from_counts_now(
     let delta_l = left_now.wrapping_sub(prev_left) as f32;
     let delta_r = right_now.wrapping_sub(prev_right) as f32;
 
-    let k = 2.0 * core::f32::consts::PI / cpr_wheel; // 每计数对应的角度（rad）
+    let k = 2.0 * core::f32::consts::PI / cpr_wheel;
     let omega_l = k * delta_l / dt;
     let omega_r = k * delta_r / dt;
 
