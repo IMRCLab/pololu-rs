@@ -332,35 +332,15 @@ Provide with `set_speed` function to set direction and speed for both motors.
 
 
 ## Encoder
-Use Pio Module to build the encoder driver. Provide the user with position reading function and rotation speed (RPM) reading function. A asynchronous reading task is implemented in `encoder/encoder.rs`.
-
-### Known Issues:
-* **Poor Encoder Readings**: Bad encoder readings are not good enough for reliable closed loop control
-  - Encoder noise affects PI controller stability
-  - May require hardware improvements or better filtering algorithms
-  - Currently mitigated with complementary filtering but impacts response time
+Use PIO Module to build the encoder driver. Provide the user with position reading function and rotation speed (RPM) reading function. A asynchronous reading task is implemented in `encoder/encoder.rs`.
+Since the original PIO Encoder Module in the embassy library is too simple and only catches one falling edge in one phase (leads to the unstable rpm reading problem), a new PIO is provided for reading both falling edges and rising edges in both phases of the quadrature encoders.
 
 
 ## Motor Control Issues
 
 ### Closed-Loop Control Challenges:
-* **Complementary Filter Trade-off**: Need low alpha values in complementary filter to reduce encoder noise
-  - Low alpha values (currently α=0.3) required for stable control
-  - This leads to slow response time for command changes
-
-* **Zero Command Drift Problem**: Robot sometimes receives non-zero target RPM when control commands are zero
-  - Zero angular and linear velocity inputs should result in zero RPM targets
-  - Robot will fade to zero target rpm ... no idea why yet. Try commenting out I control part
-
-### considerable TODO:
-* Consider hardware encoder improvements (better resolution, shielding)
-* Implement advanced filtering (Kalman filter, moving average)
-* Investigate encoder mounting and mechanical coupling issues
-* Add dead-zone handling for very small velocity commands to prevent drift (bad hotfix solution, better look for actual issue)
-
+* **Sensitive Inner Loop**: The speed controller is sensitive to the gains when using angular velocity in rad/s to calculate the errors.
+* **Jitter**: If the inner loop is set to spawn at a high frequency(100Hz), the motors start to jitter and might break due to overheat.
 
 ## IMU
 Provide `read_imu_task` function to read and estimate the euler angles. The task should be registered in main using spawn.
-
-### TODO:
- * Yaw is always drifting. Needs to be fixed.
