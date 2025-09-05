@@ -6,6 +6,7 @@ use crate::buzzer::Buzzer;
 use crate::encoder::{EncoderCounters, EncoderPair, init_encoder_counts};
 use crate::led::Led;
 use crate::motor::{MotorController, init_motor};
+use crate::read_robot_config_from_sd::RobotConfig;
 use crate::sdlog::{self, SdLogger};
 use crate::uart::SharedUart;
 use embassy_rp::peripherals::UART0;
@@ -45,7 +46,8 @@ pub struct InitDevices<'a> {
     pub encoder_counts: EncoderCounters,
     pub imu: ImuPack<'a, I2c<'a, I2C0, i2c::Async>>,
     pub uart: SharedUart<'static>,
-    pub sdlogger: SdLogger,
+    pub sdlogger: Option<SdLogger>,
+    pub config: Option<RobotConfig>,
 }
 
 /// init all used components
@@ -65,7 +67,8 @@ pub fn init_all(p: embassy_rp::Peripherals) -> InitDevices<'static> {
 
     // === Motor Initialization ===
     let mut config = PWM_config::default();
-    config.top = 32768;
+    config.top = 10000; // ~12.5kHz PWM frequency (125MHz / 10001) - above audible range?
+    // config.top = 32768; // ~12.5kHz PWM frequency (125MHz / 32769)
 
     let pwm = Pwm::new_output_ab(p.PWM_SLICE7, p.PIN_14, p.PIN_15, config.clone());
     let (pwm_a, pwm_b) = pwm.split();
@@ -107,7 +110,14 @@ pub fn init_all(p: embassy_rp::Peripherals) -> InitDevices<'static> {
     let uart = UART_CELL.init(Mutex::new(uart));
 
     // === SD Logger ===
-    let sdlogger = sdlog::init_sd_logger(p.SPI0, p.PIN_18, p.PIN_19, p.PIN_20, p.PIN_21);
+    let (sdlogger, config) =
+        match sdlog::init_sd_logger(p.SPI0, p.PIN_18, p.PIN_19, p.PIN_20, p.PIN_21) {
+            Ok((logger, cfg)) => (Some(logger), Some(cfg)),
+            Err(_e) => {
+                defmt::info!("SD card initialization failed!!");
+                (None, Some(RobotConfig::default()))
+            }
+        };
 
     InitDevices {
         led,
@@ -119,5 +129,6 @@ pub fn init_all(p: embassy_rp::Peripherals) -> InitDevices<'static> {
         imu,
         uart,
         sdlogger,
+        config,
     }
 }

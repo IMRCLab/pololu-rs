@@ -1,3 +1,4 @@
+// use embassy_futures::join::join;
 use embassy_rp::gpio::Output;
 use embassy_rp::pwm::{PwmOutput, SetDutyCycle};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
@@ -29,6 +30,7 @@ impl<'a> Motor<'a> {
 
 type SharedMotor = &'static Mutex<ThreadModeRawMutex, Motor<'static>>;
 
+#[derive(Copy, Clone)]
 pub struct MotorController {
     left: SharedMotor,
     right: SharedMotor,

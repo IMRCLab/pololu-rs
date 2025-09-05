@@ -1,10 +1,13 @@
 use embassy_rp::peripherals::{PIN_8, PIN_9, PIN_12, PIN_13, PIO0};
 use embassy_rp::pio::{Common, StateMachine};
-use embassy_rp::pio_programs::rotary_encoder::{Direction, PioEncoder, PioEncoderProgram};
+// use embassy_rp::pio_programs::rotary_encoder::{Direction, PioEncoder, PioEncoderProgram};
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Timer};
 use static_cell::StaticCell;
+
+use crate::encoder_lib::{PioEncoder, PioEncoderProgram};
+use crate::robot_parameters_default::robot_constants::*;
 
 /// Encoder struct for both encoders
 pub struct EncoderPair<'a> {
@@ -49,78 +52,179 @@ impl<'a> EncoderPair<'a> {
     }
 }
 
+const LUT: [[i8; 4]; 4] = [
+    /*prev\curr: 00, 01, 10, 11 */
+    [0, 1, -1, 0], // 00 ->
+    [-1, 0, 0, 1], // 01 ->
+    [1, 0, 0, -1], // 10 ->
+    [0, -1, 1, 0], // 11 ->
+];
+
+// Left encoder task (read AB and drain the FIFO)
 #[embassy_executor::task]
 pub async fn encoder_left_task(
     mut encoder: PioEncoder<'static, PIO0, 0>,
     counter: &'static Mutex<NoopRawMutex, i32>,
 ) {
+    let mut prev = encoder.read_ab().await;
     loop {
-        let dir = encoder.read().await;
-        let delta = match dir {
-            Direction::Clockwise => 1,
-            Direction::CounterClockwise => -1,
-        };
-        let mut guard = counter.lock().await;
-        *guard += delta;
+        let mut delta: i32 = 0;
+        let curr = encoder.read_ab().await;
+        delta += LUT[prev as usize][curr as usize] as i32;
+        prev = curr;
 
-        // defmt::info!("Left Encoder Count = {}", *guard);
+        // fast clean FIFO
+        while let Some(c) = encoder.try_read_ab() {
+            delta += LUT[prev as usize][c as usize] as i32;
+            prev = c;
+        }
+
+        if delta != 0 {
+            let mut g = counter.lock().await;
+            *g = g.wrapping_add(delta * (MOTOR_DIRECTION_LEFT as i32));
+
+            // defmt::info!("Left encoder count = {}", *g);
+        }
     }
 }
 
+// Left encoder task (read AB and drain the FIFO)
 #[embassy_executor::task]
 pub async fn encoder_right_task(
     mut encoder: PioEncoder<'static, PIO0, 1>,
     counter: &'static Mutex<NoopRawMutex, i32>,
 ) {
+    let mut prev = encoder.read_ab().await;
     loop {
-        let dir = encoder.read().await;
-        let delta = match dir {
-            Direction::Clockwise => 1,
-            Direction::CounterClockwise => -1,
-        };
-        let mut guard = counter.lock().await;
-        *guard += delta;
+        let mut delta: i32 = 0;
+        let curr = encoder.read_ab().await;
+        delta += LUT[prev as usize][curr as usize] as i32;
+        prev = curr;
 
-        // defmt::info!("Right Encoder Count = {}", *guard);
+        while let Some(c) = encoder.try_read_ab() {
+            delta += LUT[prev as usize][c as usize] as i32;
+            prev = c;
+        }
+
+        if delta != 0 {
+            let mut g = counter.lock().await;
+            *g = g.wrapping_add(delta * (MOTOR_DIRECTION_RIGHT as i32));
+
+            // defmt::info!("Right encoder count = {}", *g);
+        }
     }
 }
 
 // Asychronously acquiring left RPM
 pub async fn get_left_rpm(
     counter: &'static Mutex<NoopRawMutex, i32>,
-    ppr: u32,
+    cpr_wheel: f32,
     interval_ms: u64,
 ) -> f32 {
     let before = *counter.lock().await;
     Timer::after(Duration::from_millis(interval_ms)).await;
     let after = *counter.lock().await;
 
-    let delta = after - before;
-    let rps = delta as f32 / (ppr as f32 * 4.0) / (interval_ms as f32 / 1000.0);
+    let delta = after.wrapping_sub(before) as f32;
+    let rps = delta / cpr_wheel / (interval_ms as f32 / 1000.0);
     rps * 60.0
 }
 
 // Asychronously acquiring right RPM
 pub async fn get_right_rpm(
     counter: &'static Mutex<NoopRawMutex, i32>,
-    ppr: u32,
+    cpr_wheel: f32,
     interval_ms: u64,
 ) -> f32 {
     let before = *counter.lock().await;
     Timer::after(Duration::from_millis(interval_ms)).await;
     let after = *counter.lock().await;
 
-    let delta = after - before;
-    let rps = delta as f32 / (ppr as f32 * 4.0) / (interval_ms as f32 / 1000.0);
+    let delta = after.wrapping_sub(before) as f32;
+    let rps = delta / cpr_wheel / (interval_ms as f32 / 1000.0);
     rps * 60.0
 }
 
-// fast left position reading
-pub fn read_left_count(counter: &'static Mutex<NoopRawMutex, i32>) -> i32 {
-    counter.try_lock().map(|g| *g).unwrap_or(0)
+pub async fn get_rpms(
+    left_counter: &'static Mutex<NoopRawMutex, i32>,
+    right_counter: &'static Mutex<NoopRawMutex, i32>,
+    cpr_wheel: f32,
+    interval_ms: u64,
+) -> (f32, f32) {
+    let left_before = *left_counter.lock().await;
+    let right_before = *right_counter.lock().await;
+
+    Timer::after(Duration::from_millis(interval_ms)).await;
+
+    let left_after = *left_counter.lock().await;
+    let right_after = *right_counter.lock().await;
+
+    let delta_l = left_after.wrapping_sub(left_before) as f32;
+    let delta_r = right_after.wrapping_sub(right_before) as f32;
+
+    let win_s = interval_ms as f32 / 1000.0;
+    let rps_l = delta_l / cpr_wheel / win_s;
+    let rps_r = delta_r / cpr_wheel / win_s;
+
+    (rps_l * 60.0, rps_r * 60.0)
 }
 
-// fast right position reading
-pub fn read_right_count(counter: &'static Mutex<NoopRawMutex, i32>) -> i32 {
-    counter.try_lock().map(|g| *g).unwrap_or(0)
+pub async fn get_wheel_speed_in_rad(
+    left_counter: &'static Mutex<NoopRawMutex, i32>,
+    right_counter: &'static Mutex<NoopRawMutex, i32>,
+    cpr_wheel: f32,
+    interval_ms: u64,
+    dt: f32, // equal to interval_ms but in second, just for saving one divide calculation
+) -> (f32, f32) {
+    let left_before = *left_counter.lock().await;
+    let right_before = *right_counter.lock().await;
+
+    Timer::after(Duration::from_millis(interval_ms)).await;
+
+    let left_after = *left_counter.lock().await;
+    let right_after = *right_counter.lock().await;
+
+    let delta_l = left_after.wrapping_sub(left_before) as f32;
+    let delta_r = right_after.wrapping_sub(right_before) as f32;
+
+    // original rotation speed in rad/s
+    let omega_l_raw = (delta_l as f32) * 2.0 * core::f32::consts::PI / (cpr_wheel * dt);
+    let omega_r_raw = (delta_r as f32) * 2.0 * core::f32::consts::PI / (cpr_wheel * dt);
+
+    (omega_l_raw, omega_r_raw)
 }
+
+pub fn wheel_speed_from_counts_now(
+    left_counter: &Mutex<NoopRawMutex, i32>,
+    right_counter: &Mutex<NoopRawMutex, i32>,
+    cpr_wheel: f32,
+    prev_left: i32,
+    prev_right: i32,
+    dt: f32, // in sec
+) -> ((f32, f32), (i32, i32)) {
+    // lock as short as possible
+    let (left_now, right_now) = {
+        let l = *left_counter.try_lock().as_deref().unwrap_or(&0);
+        let r = *right_counter.try_lock().as_deref().unwrap_or(&0);
+        (l, r)
+    };
+
+    let delta_l = left_now.wrapping_sub(prev_left) as f32;
+    let delta_r = right_now.wrapping_sub(prev_right) as f32;
+
+    let k = 2.0 * core::f32::consts::PI / cpr_wheel;
+    let omega_l = k * delta_l / dt;
+    let omega_r = k * delta_r / dt;
+
+    ((omega_l, omega_r), (left_now, right_now))
+}
+
+// // fast left position reading
+// pub fn read_left_count(counter: &'static Mutex<NoopRawMutex, i32>) -> i32 {
+//     counter.try_lock().map(|g| *g).unwrap_or(0)
+// }
+
+// // fast right position reading
+// pub fn read_right_count(counter: &'static Mutex<NoopRawMutex, i32>) -> i32 {
+//     counter.try_lock().map(|g| *g).unwrap_or(0)
+// }

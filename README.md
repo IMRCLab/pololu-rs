@@ -118,8 +118,94 @@ There are two major frameworks: [embedded-hal](https://github.com/rp-rs/rp-hal-b
 
 ## Flash
 
-* Press "B" + Reset
-* `cargo run --release` will flash and run the firmware
+### Important Notice!!!!!!!!!!!
+The newest version `1.89.0` of `rustc` is released on 4th Aug 2025. However, the flashing with `elf2uf2-rs -d` might suffers some temporary issues. For example, an error `unregonized ABI` occurs because of the generated elf header doesn't match the requirements of the elf2uf2 runner. (The generated 8th bit of the header is `03`, which indicates that the OS/ABI type is `UNIX - GNU`, but actually should be `00`, which indicates `UNIX - System V`).
+
+There are 2 ways to solve this issue:
+- If you really need the newest rustc, then each time after you build the project you should enter you target folder and do:
+```
+printf '\x00' | dd of=teleop_control bs=1 seek=7 count=1 conv=notrunc
+```
+This will change the 8th bit from `03` to `00` and then you can flash this as usual (don't build it again).
+
+- The other way is to downgrade rustc to `1.87.0` by using:
+```
+rustup toolchain install 1.87.0
+rustup default 1.87.0
+rustup component add rust-src --toolchain 1.87.0
+rustup target add thumbv6m-none-eabi --toolchain 1.87.0
+```
+This will solve all problems.
+
+### Using the `./run` Script (Recommended)
+
+The project includes a convenient `./run` script for building and flashing different robot configurations:
+
+```bash
+# Make executable (first time only)
+chmod +x run
+
+```
+Then: 
+* Press "B" + Reset on the Robot
+
+```bash
+# Examples:
+./run                    # Default config, main binary
+./run zumo              # Zumo config, main binary
+./run zumo teleop       # Zumo config, teleop_control binary
+./run 3pi trajectory    # 3Pi config, trajectory_following binary
+```
+
+### Manual Cargo Commands
+
+* Press "B" + Reset on the Robot
+* `cargo run --release` will flash and run the firmware with default configuration
+* `cargo run --release --features zumo` for Zumo robot
+* `cargo run --release --features 3pi` for 3Pi robot
+
+See [README_BUILD_SYSTEM.md](README_BUILD_SYSTEM.md) for complete documentation.
+
+## Multi-Robot Support
+
+This firmware supports both **Zumo** and **3Pi** robots with different physical parameters and configurations:
+
+### Robot Configurations
+
+#### Zumo Robot (`--features zumo`)
+- **Gear Ratio**: 75.81
+- **Wheel Radius**: 0.02m
+- **Wheel Base**: 0.099m
+- **Motor Direction**: Reversed (`-duty_left`, `-duty_right`)
+- **Encoder CPR**:  227.81 (75.81 × 12.0/4.0)
+
+#### 3Pi Robot (`--features 3pi`)
+- **Gear Ratio**: 29.86
+- **Wheel Radius**: 0.016m
+- **Wheel Base**: 0.0842m
+- **Motor Direction**: Normal (`duty_left`, `duty_right`)
+- **Encoder CPR**: 89.56 (29.86 × 12.0/4.0)
+
+#### Default/Testing (no features)
+- **Configuration**: Currently set to Zumo parameters for testing
+- **Use Case**: Development and testing without robot-specific compilation
+
+### Parameter Comparison Table
+
+| Parameter | Zumo Robot | 3Pi Robot | Default/Testing |
+|-----------|------------|-----------|-----------------|
+| Gear Ratio | 75.81 | 29.86 | 75.81 |
+| Wheel Radius | 0.02m | 0.016m | 0.02m |
+| Wheel Base | 0.099m | 0.0842m | 0.099m |
+| Motor Direction | Reversed | Normal | Reversed |
+| Encoder CPR | 227.81 | 89.56 | 227.81 |
+
+### Quick Start Examples:
+```bash
+./run zumo teleop       # Flash teleop control to Zumo
+./run 3pi trajectory    # Flash trajectory following to 3Pi  
+./run                   # Use default config for testing
+```
 
 ## USB Logging
 
@@ -133,13 +219,25 @@ tio /dev/ttyACM0
 - `src/`: Source code
   - `main.rs`: The entry point of the project.
   - `init.rs`: Initialization for all devices.
-  - `lib.rs`: Integrated libraries.
+  - `lib.rs`: Integrated libraries with feature-based module selection.
   - `led.rs`: Default LED driver.
   - `buzzer.rs`: Buzzer driver.
+  - `diffdrive.rs`: differential flatness computation for trajectory generation and following
   - `motor.rs`: Driver of both motors.
   - `encoder.rs`: Encoder driver for both encoders using PIO.
   - `uart.rs`: UART0 driver.
   - `packet.rs`: Defines the packet according to [Crazyflie_Packet](https://github.com/IMRCLab/crazyflie-link-cpp/blob/startTraj_example/examples/PacketUtils.hpp).
+
+  **Robot-specific adaptions in joystick_control.rs**
+  - `joystick_control.rs`: Default/testing configuration (currently Zumo parameters)
+  - `trajectory_control.rs`: Trajectory following controller.
+  - `trajectory_read.rs`: Read trajectory from preset json file.
+  - `trajectory_signal.rs`: Event/Update signals definition.
+  - `trajectory_uart.rs`: Receive poses from Mocap.
+  - `bin/`: Binary targets
+    - `teleop_control.rs`: Teleop control application
+    - `trajectory_following.rs`: Trajectory following application
+    - `trajectory_following_diffdrive.rs`: Trajectory following with differential flatness actions application
   - `imu/`: IMU library.
     - `lis3mdl.rs`: Driver for the 3-axis magnetometer.
     - `lsm6dso.rs`: Driver for the combined 3-axis accelerometer and 3-axis gyrometer.
@@ -148,6 +246,10 @@ tio /dev/ttyACM0
     - `madgwick.rs`: Madgwick filter to estimate Roll/Pitch/Yaw (under developing).
 - `memory.x`: Defines the memory layout of RP2040 (SRAM and Flash).
 - `.cargo/config.toml`: Specifies the target platform as `thumbv6m-none-eabi` for RP2040.
+- `Cargo.toml`: Declares project metadata, Rust edition, dependencies, and feature flags for robot selection.
+- `build.rs`: A custom build script to ensure the `memory.x` linker script is properly included during compilation.
+- `run`: Build script for easy robot and binary selection (see [README_BUILD_SYSTEM.md](README_BUILD_SYSTEM.md)).
+- `README_BUILD_SYSTEM.md`: Comprehensive documentation for the build system and robot configurations. `thumbv6m-none-eabi` for RP2040.
 - `Cargo.toml`: Declares project metadata, Rust edition, and dependencies.
 - `build.rs`: A custom build script to ensure the `memory.x` linker script is properly included during compilation.
 
@@ -166,8 +268,10 @@ Yellow(SWDIO) -> SWDIO
 Green(SWCLK)  -> SWCLK
 Black(GND)    -> GND 
 ``` 
-Then connect the Pololu with the USB-C cabel to your PC, and the debug probe as well.
-* Press "B" + Reset to set the Pololu into bootloader mode.(not necessary if you set up correctly)
+Then connect the Pololu with the USB-C cabel to your PC, and the debug probe as well and uncomment in config.toml
+
+```runner = "probe-rs run --chip RP2040 --protocol swd" ```
+
 * If you would like to directly observed the debug information in the terminal, run:
 ```
 cargo run --release
@@ -176,6 +280,19 @@ cargo run --release
 ```
 cargo run --release > file_name.csv
 ```
+
+**OR** 
+
+flash in bootloader mode and without debug information in the terminal by uncommenting 
+
+```runner = "elf2uf2-rs -d"```
+
+in config.toml and then press "B" and "Reset" on the robot
+and flash with
+```
+cargo run --release
+```
+or use the recommended [build system](README_BUILD_SYSTEM.md)
 
 ### Print New Debug Information 
 The code only print a test value(constant). When new debug information is needed, use:
@@ -215,11 +332,15 @@ Provide with `set_speed` function to set direction and speed for both motors.
 
 
 ## Encoder
-Use Pio Module to build the encoder driver. Provide the user with position reading function and rotation speed (RPM) reading function. A asynchronous reading task is implemented in `encoder/encoder.rs`.
+Use PIO Module to build the encoder driver. Provide the user with position reading function and rotation speed (RPM) reading function. A asynchronous reading task is implemented in `encoder/encoder.rs`.
+Since the original PIO Encoder Module in the embassy library is too simple and only catches one falling edge in one phase (leads to the unstable rpm reading problem), a new PIO is provided for reading both falling edges and rising edges in both phases of the quadrature encoders.
 
+
+## Motor Control Issues
+
+### Closed-Loop Control Challenges:
+* **Sensitive Inner Loop**: The speed controller is sensitive to the gains when using angular velocity in rad/s to calculate the errors.
+* **Jitter**: If the inner loop is set to spawn at a high frequency(100Hz), the motors start to jitter and might break due to overheat.
 
 ## IMU
 Provide `read_imu_task` function to read and estimate the euler angles. The task should be registered in main using spawn.
-
-### TODO:
- * Yaw is always drifting. Needs to be fixed.

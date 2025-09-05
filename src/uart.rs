@@ -3,7 +3,9 @@ use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::mutex::Mutex;
 use heapless::Vec;
 
-use crate::packet::{CmdLegacyPacketF32, CmdLegacyPacketMix, CmdLegacyPacketU16};
+use crate::packet::{
+    CmdLegacyPacketF32, CmdLegacyPacketMix, CmdLegacyPacketU16, MocapPosesPacketF32Test,
+};
 
 pub type SharedUart<'a> = &'a Mutex<ThreadModeRawMutex, Uart<'a, Async>>;
 
@@ -24,7 +26,7 @@ pub async fn uart_receive_task(uart: SharedUart<'static>) {
         // The first byte ( seems to be the length of data packet)
         if buffer.is_empty() {
             // legal length of different packets
-            if byte != 9 && byte != 13 && byte != 17 {
+            if byte != 9 && byte != 13 && byte != 17 && byte != 18 {
                 continue;
             }
         }
@@ -38,6 +40,7 @@ pub async fn uart_receive_task(uart: SharedUart<'static>) {
         }
 
         let expected_len = buffer[0] as usize + 1;
+        // let expected_len = 19;
         if buffer.len() == expected_len {
             match expected_len {
                 10 => {
@@ -77,6 +80,20 @@ pub async fn uart_receive_task(uart: SharedUart<'static>) {
                         );
                     } else {
                         defmt::warn!("Invalid F32 packet");
+                    }
+                }
+                19 => {
+                    if let Some(pkt) = MocapPosesPacketF32Test::from_bytes(&buffer) {
+                        defmt::info!(
+                            "Pose Packet: robot_id={}, PosX={} PosY={} Pos_Z={} Quat={}",
+                            pkt.robot_id,
+                            pkt.pos_x,
+                            pkt.pos_y,
+                            pkt.pos_z,
+                            pkt.quat
+                        );
+                    } else {
+                        defmt::warn!("Invalid Pose packet");
                     }
                 }
                 _ => {

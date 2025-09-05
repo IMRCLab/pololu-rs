@@ -1,0 +1,73 @@
+#!/bin/bash
+
+# Build script for selecting robot type
+# Usage: ./build.sh [robot_type] [target]
+# robot_type: zumo, 3pi, or empty for default
+# target: teleop, trajectory, or empty for main binary
+
+ROBOT_TYPE=${1:-}
+TARGET=${2:-}
+
+# Determine features and binary
+if [[ -z "$ROBOT_TYPE" ]]; then
+    # No robot type specified - use default joystick_control
+    echo "Building with default configuration..."
+    FEATURES=""
+    ROBOT_DESC="default"
+else
+    # Robot type specified - validate and use specific joystick_control
+    if [[ "$ROBOT_TYPE" != "zumo" && "$ROBOT_TYPE" != "3pi" ]]; then
+        echo "Error: Invalid robot type '$ROBOT_TYPE'. Use 'zumo', '3pi', or leave empty for default"
+        exit 1
+    fi
+    echo "Building for robot: $ROBOT_TYPE"
+    
+    # Map robot type to feature name
+    if [[ "$ROBOT_TYPE" == "3pi" ]]; then
+        FEATURES="--features three-pi"
+    else
+        FEATURES="--features $ROBOT_TYPE"
+    fi
+    ROBOT_DESC="$ROBOT_TYPE"
+fi
+
+# Build command
+CARGO_CMD="cargo"
+
+case $TARGET in
+    "")
+        # No target specified - use main binary
+        echo "Target: main binary"
+        echo "Running: cargo run --release --bin pololu3pi2040-rs $FEATURES"
+        $CARGO_CMD run --release --bin pololu3pi2040-rs $FEATURES
+        ;;
+    "teleop")
+        echo "Target: teleop_control binary"
+        echo "Running: cargo run --release --bin teleop_control $FEATURES"
+        $CARGO_CMD run --release --bin teleop_control $FEATURES
+        ;;
+    "trajectory_following")
+        echo "Target: trajectory_following binary"
+        echo "Running: cargo run --release --bin trajectory_following $FEATURES"
+        $CARGO_CMD run --release --bin trajectory_following $FEATURES
+        ;;
+    "trajectory_following_diffdrive")
+        echo "Target: trajectory_following_diffdrive binary"
+        echo "Running: cargo run --release --bin trajectory_following_diffdrive $FEATURES"
+        $CARGO_CMD run --release --bin trajectory_following_diffdrive $FEATURES
+        ;;
+    "trajectory_following_cascade")
+        echo "Target: trajectory_following_cascade binary"
+        echo "Running: cargo run --release --bin trajectory_following_cascade $FEATURES"
+        $CARGO_CMD run --release --bin trajectory_following_cascade $FEATURES
+        ;;
+    "build")
+        echo "Target: build only (no flash)"
+        echo "Running: cargo build --release $FEATURES"
+        $CARGO_CMD build --release $FEATURES
+        ;;
+    *)
+        echo "Error: Invalid target '$TARGET'. Use 'teleop', 'trajectory', 'build', or leave empty for main binary"
+        exit 1
+        ;;
+esac

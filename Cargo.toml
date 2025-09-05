@@ -6,13 +6,21 @@ authors = ["Wolfgang Hoenig <hoenig@tu-berlin.de>"]
 resolver = "2"
 
 [[bin]]
-name = "pololu3pi2040-rs"
+name = "teleop_control"
+path = "src/bin/teleop_control.rs"
+test = false
+bench = false
+
+[[bin]]
+name = "trajectory_following"
+path = "src/bin/trajectory_following.rs"
 test = false
 bench = false
 
 [dependencies]
 cortex-m = { version = "0.7.6" }
 cortex-m-rt = "0.7.3"
+pio = "0.3"
 embedded-hal = "1.0.0"
 panic-halt = "1.0.0"
 embedded-hal-async = "1.0.0"
@@ -23,6 +31,7 @@ embedded-storage = "0.3.1"
 embassy-executor = { version = "0.7", features = ["task-arena-size-4096", "arch-cortex-m", "executor-thread", "executor-interrupt"] }
 embassy-sync = { version = "0.6" }
 embassy-time = { version = "0.4", features = [] }
+embassy-futures = { version = "0.1.0"}
 embassy-rp = { version = "0.6.0", features = ["unstable-pac", "time-driver", "critical-section-impl", "rp2040"] }
 embedded-hal-bus = { version = "0.1", features = ["async"] }
 embedded-sdmmc = "0.8.0"
@@ -37,7 +46,9 @@ panic-probe = { version = "1.0.0", features = ["print-defmt"] }
 
 static_cell = "2.1"
 portable-atomic = { version = "1.5", features = ["critical-section"] }
-heapless = "0.8"
+heapless = { version = "0.8", default-features = false, features = ["serde"] }
+serde = { version = "1", default-features = false, features = ["derive"] }
+serde-json-core = "0.5"
 
 libm = "0.2"
 
@@ -50,3 +61,11 @@ opt-level = 'z'
 debug = 2
 lto = true
 opt-level = "z"
+
+[features]
+default = ["v0"]
+zumo = []
+three-pi = []
+v0 = []  # Silent mode
+v1 = []  # Basic control info (RPM, targets, control inputs)
+v2 = []  # Full debug mode for everything you might want to print

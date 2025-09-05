@@ -1,1 +1,13 @@
 /target
+*.log
+*.csv
+/Debug
+*/install
+*/logs
+*/build
+*/log
+*.png
+**/__pycache__/
+*.swp
+/datavis/TR*
+/datavis/TR[0-9][0-9]

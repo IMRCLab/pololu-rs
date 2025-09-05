@@ -10,9 +10,11 @@ use embassy_time::Timer;
 
 use pololu3pi2040_rs::{
     button::{button_task_b, button_task_c},
+    // encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     imu::read_imu_task,
     init::init_all,
+    joystick_control::{CONTROL_CMD_UNICYCLE, ControlCommandUnicycle, motor_control_task},
     sdlog::*,
     uart::uart_receive_task,
 };
@@ -21,7 +23,7 @@ use pololu3pi2040_rs::{
 async fn main(spawner: Spawner) {
     let p = init(Default::default());
 
-    let devices = init_all(p);
+    let mut devices = init_all(p);
 
     // === LED Initialization ===
     let mut led = devices.led;
@@ -34,9 +36,6 @@ async fn main(spawner: Spawner) {
     let buttons = devices.buttons;
     spawner.spawn(button_task_b(buttons.btn_b)).unwrap();
     spawner.spawn(button_task_c(buttons.btn_c)).unwrap();
-
-    // === Motor Task ===
-    let motors = devices.motor;
 
     // === Encoder Task ===
     let EncoderPair {
@@ -52,6 +51,17 @@ async fn main(spawner: Spawner) {
         .spawn(encoder_right_task(encoder_right, encoder_count_right))
         .unwrap();
 
+    // === Motor Control Task ===
+    // Start the PI controller task instead of direct motor control
+    let motors = devices.motor;
+    spawner
+        .spawn(motor_control_task(
+            motors,
+            encoder_count_left,
+            encoder_count_right,
+        ))
+        .unwrap();
+
     // === IMU Task ===
     let imu = devices.imu;
     spawner.spawn(read_imu_task(imu)).unwrap();
@@ -61,7 +71,6 @@ async fn main(spawner: Spawner) {
     spawner.spawn(uart_receive_task(uart_rec)).unwrap();
 
     // === SdLogger ===
-    let mut sdlogger = devices.sdlogger;
     let motion = MotionLog {
         timestamp_ms: 12345,
         target_vx: 0.2,
@@ -85,23 +94,44 @@ async fn main(spawner: Spawner) {
         motor_right: 1300,
     };
 
-    // sdlogger.write_csv_header();
-    defmt::info!("Start Sd card writing test!");
-    sdlogger.log_motion_as_bin(&motion);
-    sdlogger.flush(); // This is super important!!!!!!
-    defmt::info!("Finish Sd card writing test!");
+    if let Some(sd) = devices.sdlogger.as_mut() {
+        sd.write_csv_header();
+        defmt::info!("Start Sd card writing test!");
+        sd.log_motion_as_bin(&motion);
+        sd.flush(); // This is super important!!!!!!
+        defmt::info!("Finish Sd card writing test!");
+    } else {
+        defmt::warn!("No SD card / SdLogger disabled, skip logging");
+    }
 
-    // === Control Logic ===
+    // === Control Logic - Step Function Tests ===
+    defmt::info!("Starting step function tests for wheel speed control");
+
+    // Helper function to set wheel speed commands
+    let set_wheel_speed = |v: f32, omega: f32| async move {
+        let mut lock = CONTROL_CMD_UNICYCLE.lock().await;
+        *lock = ControlCommandUnicycle { v, omega };
+        defmt::info!("Set command: v={} m/s, omega={} rad/s", v, omega);
+    };
+
     loop {
-        led.blink(100, 3).await;
+        led.blink(100, 1).await;
 
-        motors.set_speed(0.5, 0.5).await; // forward
-        Timer::after_millis(1000).await;
+        // Step 1: Keep speed at zero for 2 seconds
+        defmt::info!("=== Step 1: Zero speed for 2 seconds ===");
+        set_wheel_speed(0.0, 0.0).await;
+        Timer::after_millis(2000).await;
 
-        motors.set_speed(-0.5, -0.5).await; // backward
-        Timer::after_millis(1000).await;
+        // Step 2: Step up to 0.4 m/s for 4 seconds
+        defmt::info!("=== Step 2: Step up to 0.4 m/s for 4 seconds ===");
+        set_wheel_speed(2.0, 0.0).await;
+        Timer::after_millis(4000).await;
 
-        motors.set_speed(0.0, 0.0).await; // stop
-        Timer::after_millis(1000).await;
+        // Step 3: Set back to zero for 4 seconds
+        defmt::info!("=== Step 3: Back to zero for 4 seconds ===");
+        set_wheel_speed(0.0, 0.0).await;
+        Timer::after_millis(4000).await;
+
+        defmt::info!("=== Test cycle complete, restarting... ===");
     }
 }
