@@ -143,25 +143,19 @@ impl DiffdriveCascade {
         // left circle, so rotate CCW for 90 degrees.
         let (nlx, nly) = (-uy, ux);
 
-        // 圆心：在通过 p0 的法线上，距离 p0 为 r，取左侧
         // Circle center is on the orthogonal lines, distance is the radius
         let cx = x0 + r * nlx;
         let cy = y0 + r * nly;
 
-        // 初始相位：圆心指向 p0 的极角
         // initial phase, the angle between the center to p0 and the x axis
         let phi0 = atan2f(y0 - cy, x0 - cx);
 
-        // 起始切向（phi 增大方向 = 逆时针）的单位切向量
         // t_hat = (-sin phi0, cos phi0)
         let (tx, ty) = (-sinf(phi0), cosf(phi0));
 
-        // 初始朝向单位向量
         // initial direction vector
         let (hx, hy) = (cosf(theta0), sinf(theta0));
 
-        // 选择角速度正负，使起始切向与朝向尽量一致
-        // 若点积 < 0，反向（顺时针）走
         // choose the sign for the angular velocity and make sure it aligns with the
         let s = if hx * tx + hy * ty >= 0.0 { 1.0 } else { -1.0 };
         let omega_signed = s * omega_abs;
