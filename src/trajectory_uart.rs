@@ -166,8 +166,8 @@ fn decode_abs_pose(payload: &[u8], robot_id: u8) -> Option<PoseAbs> {
     let (roll, pitch, yaw) = rpy_from_quaternion(&q);
 
     info!(
-        "x:{}, y:{}, z:{}, roll:{}, pitch:{}, yaw:{}",
-        x, y, z, roll, pitch, yaw,
+        "robot Id: {}, x:{}, y:{}, z:{}, roll:{}, pitch:{}, yaw:{}",
+        payload[1], x, y, z, roll, pitch, yaw,
     );
 
     Some(PoseAbs {

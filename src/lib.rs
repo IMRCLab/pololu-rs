@@ -43,7 +43,6 @@ macro_rules! debug_warn {
 pub mod button;
 pub mod buzzer;
 pub mod diffdrive;
-pub mod diffdrive_cascade;
 pub mod encoder;
 pub mod encoder_lib;
 pub mod imu;
