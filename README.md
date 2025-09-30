@@ -1,5 +1,5 @@
 # pololu3pi2040
-This is a firmware written in Rust for the [Pololu 3pi+ 2040 robot](https://www.pololu.com/category/300/3pi-plus-2040-robot). It's a differential-drive robot that can move with up to 4 m/s very fast and has a RP2040 (RPI Pico)-based hardware.
+This is a firmware written in Rust for the [Pololu 3pi+ 2040 robot](https://www.pololu.com/category/300/3pi-plus-2040-robot) and [Pololu Zumo 2040 robot](https://www.pololu.com/category/308/zumo-2040-robot). It's a differential-drive robot that can move with up to 4 m/s very fast and has a RP2040 (RPI Pico)-based hardware.
 
 ## Hardware
 
@@ -177,14 +177,14 @@ This firmware supports both **Zumo** and **3Pi** robots with different physical 
 - **Wheel Radius**: 0.02m
 - **Wheel Base**: 0.099m
 - **Motor Direction**: Reversed (`-duty_left`, `-duty_right`)
-- **Encoder CPR**:  227.81 (75.81 × 12.0/4.0)
+- **Encoder CPR**:  1203.72 (100.31 × 12.0)
 
 #### 3Pi Robot (`--features 3pi`)
 - **Gear Ratio**: 29.86
 - **Wheel Radius**: 0.016m
 - **Wheel Base**: 0.0842m
 - **Motor Direction**: Normal (`duty_left`, `duty_right`)
-- **Encoder CPR**: 89.56 (29.86 × 12.0/4.0)
+- **Encoder CPR**: 183.0 (15.25 × 12.0)
 
 #### Default/Testing (no features)
 - **Configuration**: Currently set to Zumo parameters for testing
@@ -192,13 +192,13 @@ This firmware supports both **Zumo** and **3Pi** robots with different physical 
 
 ### Parameter Comparison Table
 
-| Parameter | Zumo Robot | 3Pi Robot | Default/Testing |
-|-----------|------------|-----------|-----------------|
-| Gear Ratio | 75.81 | 29.86 | 75.81 |
-| Wheel Radius | 0.02m | 0.016m | 0.02m |
-| Wheel Base | 0.099m | 0.0842m | 0.099m |
-| Motor Direction | Reversed | Normal | Reversed |
-| Encoder CPR | 227.81 | 89.56 | 227.81 |
+| Parameter       | Zumo Robot | 3Pi Robot | Default/Testing |
+| --------------- | ---------- | --------- | --------------- |
+| Gear Ratio      | 100.31     | 15.25     | 75.81           |
+| Wheel Radius    | 0.02m      | 0.016m    | 0.02m           |
+| Wheel Base      | 0.099m     | 0.0842m   | 0.099m          |
+| Motor Direction | Reversed   | Normal    | Reversed        |
+| Encoder CPR     | 227.81     | 89.56     | 227.81          |
 
 ### Quick Start Examples:
 ```bash
@@ -236,7 +236,7 @@ tio /dev/ttyACM0
   - `trajectory_uart.rs`: Receive poses from Mocap.
   - `bin/`: Binary targets
     - `teleop_control.rs`: Teleop control application
-    - `trajectory_following.rs`: Trajectory following application
+    - `trajectory_following_cascade.rs`: Cascade Trajectory following application
     - `trajectory_following_diffdrive.rs`: Trajectory following with differential flatness actions application
   - `imu/`: IMU library.
     - `lis3mdl.rs`: Driver for the 3-axis magnetometer.
@@ -303,9 +303,6 @@ info!("New Sensor Data: {}", value);
 ## Logging with sd card
 The SD card logging is built based on [Crazyflie micro sd card deck](https://www.bitcraze.io/products/micro-sd-card-deck/). The deck uses spi protocol to log data in and read data out from the micro sd card. There are mutiple available file format including `csv`, `txt` and `binary file` and different logging functions and some preset structs is provided for testing which can be modified later on according to individual use cases.
 
-### TODO:
-When the sd card deck initialization function is called but no sd card is inserted in the deck, a segmentation fault will raises. Therefore, we need to modify the intialization function so that even no sd card is in the deck but the code can still run.
-
 
 ## Uart
 ### Packet Type
@@ -336,11 +333,11 @@ Use PIO Module to build the encoder driver. Provide the user with position readi
 Since the original PIO Encoder Module in the embassy library is too simple and only catches one falling edge in one phase (leads to the unstable rpm reading problem), a new PIO is provided for reading both falling edges and rising edges in both phases of the quadrature encoders.
 
 
-## Motor Control Issues
-
-### Closed-Loop Control Challenges:
-* **Sensitive Inner Loop**: The speed controller is sensitive to the gains when using angular velocity in rad/s to calculate the errors.
-* **Jitter**: If the inner loop is set to spawn at a high frequency(100Hz), the motors start to jitter and might break due to overheat.
-
 ## IMU
 Provide `read_imu_task` function to read and estimate the euler angles. The task should be registered in main using spawn.
+
+
+## Robot Configuration File
+Since there is 2 different robot types, we need to specify the parameters for different robots. There are 2 ways to set them:
+- By using the `./run` script with the corresponding feature. 
+- By editing the [`ROBOTCFG.CFG`]() and copy it to the onboard SD Card, the robot will automatically detect the file and load the params. (Be careful that this will overide the values set by the feature selecting in the `./run` script)

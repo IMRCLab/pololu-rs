@@ -21,7 +21,7 @@ chmod +x run
 ./run                    # Default config, main binary
 ./run zumo              # Zumo config, main binary
 ./run zumo teleop       # Zumo config, teleop_control binary
-./run 3pi trajectory    # 3Pi config, trajectory_following binary
+./run 3pi trajectory_cascade    # 3Pi config, trajectory_following binary
 ```
 
 ### Using Cargo Directly
@@ -38,7 +38,7 @@ cargo run --release --features 3pi
 
 # Specific binaries
 cargo run --release --bin teleop_control --features zumo
-cargo run --release --bin trajectory_following --features 3pi
+cargo run --release --bin trajectory_following_cascade --features 3pi
 ```
 
 ## � Complete `./run` Script Reference
@@ -54,28 +54,28 @@ cargo run --release --bin trajectory_following --features 3pi
 
 ### All Available Commands
 
-| Command | Robot Config | Binary | Description |
-|---------|-------------|--------|-------------|
-| `./run` | Default | Main | Default joystick_control.rs, main binary |
-| `./run zumo` | Zumo | Main | Zumo-specific config, main binary |
-| `./run 3pi` | 3Pi | Main | 3Pi-specific config, main binary |
-| `./run zumo teleop` | Zumo | teleop_control | Zumo config, teleop binary |
-| `./run 3pi teleop` | 3Pi | teleop_control | 3Pi config, teleop binary |
-| `./run zumo trajectory` | Zumo | trajectory_following | Zumo config, trajectory binary |
-| `./run 3pi trajectory` | 3Pi | trajectory_following | 3Pi config, trajectory binary |
-| `./run zumo build` | Zumo | - | Build only (no flash) |
-| `./run 3pi build` | 3Pi | - | Build only (no flash) |
+| Command                                   | Robot Config | Binary                       | Description                              |
+| ----------------------------------------- | ------------ | ---------------------------- | ---------------------------------------- |
+| `./run`                                   | Default      | Main                         | Default joystick_control.rs, main binary |
+| `./run zumo`                              | Zumo         | Main                         | Zumo-specific config, main binary        |
+| `./run 3pi`                               | 3Pi          | Main                         | 3Pi-specific config, main binary         |
+| `./run zumo teleop`                       | Zumo         | teleop_control               | Zumo config, teleop binary               |
+| `./run 3pi teleop`                        | 3Pi          | teleop_control               | 3Pi config, teleop binary                |
+| `./run zumo trajectory_following_cascade` | Zumo         | trajectory_following_cascade | Zumo config, trajectory binary           |
+| `./run 3pi trajectory_following_cascade`  | 3Pi          | trajectory_following_cascade | 3Pi config, trajectory binary            |
+| `./run zumo build`                        | Zumo         | -                            | Build only (no flash)                    |
+| `./run 3pi build`                         | 3Pi          | -                            | Build only (no flash)                    |
 
 ### Equivalent Cargo Commands
 
-| `./run` Command | Equivalent Cargo Command |
-|-----------------|-------------------------|
-| `./run` | `cargo run --release` |
-| `./run zumo` | `cargo run --release --features zumo` |
-| `./run 3pi` | `cargo run --release --features 3pi` |
-| `./run zumo teleop` | `cargo run --release --bin teleop_control --features zumo` |
-| `./run 3pi trajectory` | `cargo run --release --bin trajectory_following --features 3pi` |
-| `./run zumo build` | `cargo build --release --features zumo` |
+| `./run` Command                | Equivalent Cargo Command                                                |
+| ------------------------------ | ----------------------------------------------------------------------- |
+| `./run`                        | `cargo run --release`                                                   |
+| `./run zumo`                   | `cargo run --release --features zumo`                                   |
+| `./run 3pi`                    | `cargo run --release --features 3pi`                                    |
+| `./run zumo teleop`            | `cargo run --release --bin teleop_control --features zumo`              |
+| `./run 3pi trajectory_cascade` | `cargo run --release --bin trajectory_following_cascade --features 3pi` |
+| `./run zumo build`             | `cargo build --release --features zumo`                                 |
 
 ## 🔍 Technical Implementation
 
@@ -118,12 +118,12 @@ zumo = []       # Empty feature flag for Zumo
 
 ### Key Differences Between Robot Modules
 
-| Aspect | Zumo | 3Pi | Default |
-|--------|------|-----|---------|
-| **Module File** | `joystick_control_zumo.rs` | `joystick_control_3pi.rs` | `joystick_control.rs` |
-| **Motor Control** | `motor.set_speed(-duty_left, -duty_right)` | `motor.set_speed(duty_left, duty_right)` | Zumo parameters |
-| **Encoder CPR** | 909.72 | 358.32 | 909.72 |
-| **Physical Constants** | Zumo values | 3Pi values | Zumo values |
+| Aspect                 | Zumo                                       | 3Pi                                      | Default               |
+| ---------------------- | ------------------------------------------ | ---------------------------------------- | --------------------- |
+| **Module File**        | `joystick_control_zumo.rs`                 | `joystick_control_3pi.rs`                | `joystick_control.rs` |
+| **Motor Control**      | `motor.set_speed(-duty_left, -duty_right)` | `motor.set_speed(duty_left, duty_right)` | Zumo parameters       |
+| **Encoder CPR**        | 909.72                                     | 358.32                                   | 909.72                |
+| **Physical Constants** | Zumo values                                | 3Pi values                               | Zumo values           |
 
 ## 🛠️ Development Workflows
 

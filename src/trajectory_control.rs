@@ -788,7 +788,7 @@ pub async fn diffdrive_outer_loop_read_traj_from_json(
             y: y_d,
             yaw: theta_d,
         } = states[i];
-        let Action { v: vd, omega: wd } = actions[i - 1]; // only n-1 actions(n states, i starts from 1)
+        let Action { v: vd, omega: wd } = actions[i]; // only n-1 actions(n states, i starts from 1)
         let setpoint = DiffdriveSetpointCascade {
             des: DiffdriveStateCascade {
                 x: first_pose.x + x_d,
