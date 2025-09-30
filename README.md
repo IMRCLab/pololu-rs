@@ -340,4 +340,4 @@ Provide `read_imu_task` function to read and estimate the euler angles. The task
 ## Robot Configuration File
 Since there is 2 different robot types, we need to specify the parameters for different robots. There are 2 ways to set them:
 - By using the `./run` script with the corresponding feature. 
-- By editing the [`ROBOTCFG.CFG`]() and copy it to the onboard SD Card, the robot will automatically detect the file and load the params. (Be careful that this will overide the values set by the feature selecting in the `./run` script)
+- By editing the [`ROBOTCFG.CFG`](https://github.com/IMRCLab/pololu3pi2040-rs/blob/feat/trajectory_following/cfg/ROBOTCFG.CFG) and copy it to the onboard SD Card, the robot will automatically detect the file and load the params. (Be careful that this will overide the values set by the feature selecting in the `./run` script)
