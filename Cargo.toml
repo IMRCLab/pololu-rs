@@ -52,6 +52,8 @@ serde-json-core = "0.5"
 
 libm = "0.2"
 
+micro_qp = { path = "./libs/micro_qp" }
+
 [profile.release]
 debug = 2
 lto = true

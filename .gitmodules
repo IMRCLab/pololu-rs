@@ -2,3 +2,6 @@
 	path = ground_robots_ros
 	url = git@github.com:IMRCLab/pololu3pi2040-rs.git
 	branch = ground_robots_ros
+[submodule "libs/micro_qp"]
+	path = libs/micro_qp
+	url = git@github.com:Vincentive1232/micro_qp.git
