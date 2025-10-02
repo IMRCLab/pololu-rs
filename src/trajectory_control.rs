@@ -1,3 +1,4 @@
+use crate::diffdrive::Point;
 use crate::math::SO2;
 use core::cell::RefCell;
 use core::f32::consts::PI;
@@ -520,21 +521,47 @@ pub async fn diffdrive_outer_loop(
         let t_sec = t.as_millis() as f32 / 1000.0;
         let t_ms = t.as_millis() as u32;
 
-        let circle_duration: f32 = 10.0;
-        let phi0 = SO2::new(first_pose.yaw + 0.5 * PI);
-        let setpoint = robot.circle_reference_t(
-            0.5,
-            circle_duration,
-            t_sec,
-            first_pose.x,
-            first_pose.y,
-            phi0,
-        );
+        /* Bezier Curve Trajectory Generation & Following */
+        let bezier_duration: f32 = 8.0; // seconds
+
+        /*
+        hint: check the yaw angle zero axis alignment in mocap. currently: robot looking in y-axis direction
+        is theta_ref = 0
+        */
+        let bezier_point = PointCascade {
+            p0x: (0.0),
+            p0y: (0.0),
+            p1x: (0.0),
+            p1y: (0.05),
+            p2x: (0.45),
+            p2y: (0.5),
+            p3x: (0.5),
+            p3y: (0.5),
+            x_ref: (first_pose.x),
+            y_ref: (first_pose.y),
+            theta_ref: (first_pose.yaw + 0.5 * PI),
+        };
+
+        let setpoint = robot.beziercurve(bezier_point, t_sec, bezier_duration);
+
+        /* ===================================================== */
+
+        // let circle_duration: f32 = 10.0;
+
+        // let phi0 = SO2::new(first_pose.yaw + 0.5 * PI);
+        // let setpoint = robot.circle_reference_t(
+        //     0.5,
+        //     circle_duration,
+        //     t_sec,
+        //     first_pose.x,
+        //     first_pose.y,
+        //     phi0,
+        // );
         /* ===================================================== */
 
         robot.s.x = pose.x;
         robot.s.y = pose.y;
-        robot.s.theta = SO2::new(pose.yaw);
+        robot.s.theta = SO2::new(pose.yaw + 0.5 * PI); // mocap yaw is 90deg off
 
         let mut ul = 0.0;
         let mut ur = 0.0;
@@ -644,7 +671,7 @@ pub async fn diffdrive_outer_loop(
             theta_error
         );
 
-        if t_sec >= circle_duration {
+        if t_sec >= bezier_duration {
             let _ = WHEEL_CMD_CH.try_send(WheelCmd {
                 omega_l: 0.0,
                 omega_r: 0.0,

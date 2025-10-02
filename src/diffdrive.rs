@@ -201,7 +201,7 @@ impl Diffdrive {
             + 3.0 * t_norm * t_norm * one_minus_t * p.p2y
             + t_norm * t_norm * t_norm * p.p3y;
 
-        // time-derivatives (your original formulas)
+        // time-derivatives
         let xd = (3.0 / tau) * one_minus_t * one_minus_t * (p.p1x - p.p0x)
             + 6.0 * (t / (tau * tau)) * one_minus_t * (p.p2x - p.p1x)
             + (3.0 / tau) * t_norm * t_norm * (p.p3x - p.p2x);
@@ -223,10 +223,10 @@ impl Diffdrive {
         //note: affine transformation to align the beziercurve trajectory with the robots initial position and
         //the tangent of the curve in controlpoint p0 aligning with the robots heading.
         let theta0 = atan2f(p.p1y - p.p0y, p.p1x - p.p0x);
-        let dtheta = theta0 - p.theta_ref; //calc offset robot heading vs bezier start tangent
+        let dtheta = p.theta_ref + 0.5 * PI - theta0; //calc offset robot heading vs bezier start tangent
         let theta = theta_loc - (theta0 - p.theta_ref); //add that diff to all thetas in the trajectory
 
-        // rotation + translation (use temps!)
+        // rotation + translation
         let x_rot = x * cosf(dtheta) - y * sinf(dtheta); //turn whole trajectory by theta offset 
         let y_rot = x * sinf(dtheta) + y * cosf(dtheta);
         x = p.x_ref + x_rot;
