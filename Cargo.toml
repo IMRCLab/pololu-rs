@@ -12,8 +12,8 @@ test = false
 bench = false
 
 [[bin]]
-name = "trajectory_following"
-path = "src/bin/trajectory_following.rs"
+name = "trajectory_following_odometry"
+path = "src/bin/trajectory_following_odometry.rs"
 test = false
 bench = false
 

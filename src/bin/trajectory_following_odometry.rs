@@ -10,8 +10,7 @@ use embassy_rp::init;
 use pololu3pi2040_rs::init::init_all;
 use pololu3pi2040_rs::odometry::odometry_task;
 use pololu3pi2040_rs::trajectory_control::wheel_speed_inner_loop;
-use pololu3pi2040_rs::trajectory_control_odometry::diffdrive_outer_loop_with_keyboard_control;
-use pololu3pi2040_rs::trajectory_uart::{UartCfg, uart_motioncap_receiving_task};
+use pololu3pi2040_rs::trajectory_control_odometry::diffdrive_outer_loop_with_odometry;
 use pololu3pi2040_rs::{
     encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     robot_parameters_default::robot_constants::WHEEL_RADIUS,
@@ -24,16 +23,7 @@ async fn main(spawner: Spawner) {
     let devices = init_all(p);
 
     Timer::after_millis(3000).await;
-    defmt::info!("Starting odometry-based trajectory following test with keyboard control");
-
-    // =========================== Start uart task for receiving commands from ROS ===========================
-    spawner
-        .spawn(uart_motioncap_receiving_task(
-            devices.uart,
-            UartCfg { robot_id: 10 },
-        ))
-        .unwrap();
-    // ================================================================================================
+    defmt::info!("Starting odometry-based trajectory following test");
 
     // ========================================== Start encoder tasks =================================================
     // =========================== (will be accumulated to ENC_LEFT/RIGHT_DELTA) ======================================
@@ -70,11 +60,9 @@ async fn main(spawner: Spawner) {
     // ================================================================================================================
 
     // ============================================= Start outer loop =================================================
-    // =============== (trajectory control using odometry, triggered by keyboard) ======
-
-    //test the keyboard functionality on the ros node.
+    // =============== (trajectory control using odometry, give out wl/wr, send to inner loop via WHEEL_CMD_CH) ======
     spawner
-        .spawn(diffdrive_outer_loop_with_keyboard_control(
+        .spawn(testing_odometry(
             devices.sdlogger,
             devices.led,
             devices.config,
@@ -87,6 +75,7 @@ async fn main(spawner: Spawner) {
     //     .unwrap();
     // ================================================================================================================
 
-    defmt::info!("All tasks spawned successfully. Robot ready for keyboard commands via ROS node!");
-    defmt::info!("Press 't' in ROS terminal to start trajectory, 's' to stop.");
+    defmt::info!(
+        "All tasks spawned successfully. Robot will execute a 0.3m radius circle for 15 seconds."
+    );
 }

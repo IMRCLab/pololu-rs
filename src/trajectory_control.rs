@@ -1189,7 +1189,7 @@ async fn execute_trajectory_loop(
             dutyr: 0.0,
         };
 
-        if let Some(ref mut logger) = sdlogger {
+        if let Some(logger) = sdlogger {
             logger.log_traj_control_as_csv(&log);
             logger.flush();
         }
