@@ -15,6 +15,7 @@ pub struct PoseAbs {
 // ====== EVENT DEFINITIONS ========
 pub static FIRST_MESSAGE: Signal<Raw, ()> = Signal::new();
 pub static START_EVENT: Signal<Raw, ()> = Signal::new();
+pub static TRAJECTORY_CONTROL_EVENT: Signal<Raw, bool> = Signal::new(); // true = start, false = stop
 
 // ====== STATE (PUSHED EACH TIME A NEW FRAME COMES IN) ======
 pub static STATE_SIG: Signal<Raw, PoseAbs> = Signal::new();

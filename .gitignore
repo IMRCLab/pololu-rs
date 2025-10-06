@@ -10,6 +10,7 @@
 *.pdf
 **/__pycache__/
 *.swp
+.venv
 /datavis/TR*
 /datavis/TR[0-9][0-9]
 /datavis/my_display.py
