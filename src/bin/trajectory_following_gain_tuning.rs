@@ -7,18 +7,15 @@ use {defmt_rtt as _, panic_probe as _};
 use embassy_executor::Spawner;
 use embassy_rp::init;
 
+use pololu3pi2040_rs::init::init_all;
 use pololu3pi2040_rs::trajectory_control::{
     ControlMode, mocap_update_task, wheel_speed_inner_loop,
 };
 use pololu3pi2040_rs::trajectory_uart::{UartCfg, uart_motioncap_receiving_task};
 use pololu3pi2040_rs::{
     encoder::{EncoderPair, encoder_left_task, encoder_right_task},
-    trajectory_control::diffdrive_outer_loop_gain_tuning,
+    trajectory_control::diffdrive_outer_loop_command_controlled_tuning,
 };
-use pololu3pi2040_rs::{
-    init::init_all, trajectory_control::diffdrive_outer_loop_command_controlled_tuning,
-};
-
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
     let p = init(Default::default());
