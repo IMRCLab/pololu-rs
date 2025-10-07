@@ -413,15 +413,15 @@ pub async fn wheel_speed_inner_loop(
         let duty_l = u_l * MOTOR_DIRECTION_LEFT;
         let duty_r = u_r * MOTOR_DIRECTION_RIGHT;
 
-        defmt::info!(
-            "{}, {}, meas ω L: {}, R: {}, duty L: {}, duty R: {}",
-            last_cmd.omega_l,
-            last_cmd.omega_r,
-            omega_l_lp,
-            omega_r_lp,
-            duty_l,
-            duty_r
-        );
+        // defmt::info!(
+        //     "{}, {}, meas ω L: {}, R: {}, duty L: {}, duty R: {}",
+        //     last_cmd.omega_l,
+        //     last_cmd.omega_r,
+        //     omega_l_lp,
+        //     omega_r_lp,
+        //     duty_l,
+        //     duty_r
+        // );
 
         motor.set_speed(duty_l, duty_r).await;
     }
@@ -975,7 +975,7 @@ pub async fn diffdrive_outer_loop_command_controlled(
     let robot_cfg: RobotConfig = cfg.unwrap_or_default();
 
     // ============ Initialize robot model =========
-    defmt::info!("Initializing command-controlled diffdrive robot model");
+    defmt::info!("Initializing diffdrive robot model");
     defmt::info!(
         "Wheel radius[m]: {}, Wheel base[m]: {}, Wheel rotate speed max[rad/s]: {}",
         robot_cfg.wheel_radius,

@@ -17,6 +17,18 @@ path = "src/bin/trajectory_following_odometry.rs"
 test = false
 bench = false
 
+[[bin]]
+name = "trajectory_following_cascade"
+path = "src/bin/trajectory_following_cascade.rs"
+test = false
+bench = false
+
+[[bin]]
+name = "trajectory_following_diffdrive"
+path = "src/bin/trajectory_following_diffdrive.rs"
+test = false
+bench = false
+
 [dependencies]
 cortex-m = { version = "0.7.6" }
 cortex-m-rt = "0.7.3"

@@ -40,7 +40,7 @@ rustflags = [
 
 # This runner will find a supported SWD debug probe and flash your RP2040 over
 # SWD:
-runner = "probe-rs run --chip RP2040 --protocol swd"
+ runner = "probe-rs run --chip RP2040 --protocol swd"
 # runner = "elf2uf2-rs -d" #press b and reset for bootloader mode.
 
 [env]

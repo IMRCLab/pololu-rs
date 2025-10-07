@@ -94,14 +94,14 @@ pub async fn odometry_task(
 
         //publish the newly derived odometry data
         let _ = sender.try_send(odom);
-        defmt::info!(
-            "Odometry: x={}, y={}, theta={}, v={}, w={}",
-            odom.x,
-            odom.y,
-            odom.theta.rad(),
-            odom.v,
-            odom.w
-        );
+        // defmt::info!(
+        //     "Odometry: x={}, y={}, theta={}, v={}, w={}",
+        //     odom.x,
+        //     odom.y,
+        //     odom.theta.rad(),
+        //     odom.v,
+        //     odom.w
+        // );
     }
 }
 
