@@ -28,6 +28,7 @@ pub async fn uart_motioncap_receiving_task(uart: SharedUart<'static>, cfg: UartC
 
     loop {
         // Read Length Buffer Byte First
+        //info!("Waiting for mocap UART data...");
         let len: Option<u8> = {
             let read_len = async {
                 let mut u = uart.lock().await;
@@ -98,6 +99,7 @@ pub async fn uart_motioncap_receiving_task(uart: SharedUart<'static>, cfg: UartC
         }
 
         // -------- Decoding --------
+        info!("Received frame len={}", len);
         if len == LEN_TRAJECTORY_CMD {
             if let Some(start_trajectory) = decode_trajectory_command(&frame, cfg.robot_id) {
                 TRAJECTORY_CONTROL_EVENT.signal(start_trajectory);

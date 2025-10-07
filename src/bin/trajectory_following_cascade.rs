@@ -7,13 +7,16 @@ use {defmt_rtt as _, panic_probe as _};
 use embassy_executor::Spawner;
 use embassy_rp::init;
 
-use pololu3pi2040_rs::encoder::{EncoderPair, encoder_left_task, encoder_right_task};
 use pololu3pi2040_rs::init::init_all;
 use pololu3pi2040_rs::trajectory_control::{
     ControlMode, diffdrive_outer_loop, diffdrive_outer_loop_read_traj_from_json, mocap_update_task,
     wheel_speed_inner_loop,
 };
 use pololu3pi2040_rs::trajectory_uart::{UartCfg, uart_motioncap_receiving_task};
+use pololu3pi2040_rs::{
+    encoder::{EncoderPair, encoder_left_task, encoder_right_task},
+    trajectory_control::diffdrive_outer_loop_command_controlled,
+};
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
@@ -67,13 +70,22 @@ async fn main(spawner: Spawner) {
     // ============================================= Start outer loop =================================================
     // =============== (100ms, trajectory control, give out wl/wr, send to inner loop via WHEEL_CMD_CH) ===============
     spawner
-        .spawn(diffdrive_outer_loop(
-            ControlMode::WithMocapController,
+        .spawn(diffdrive_outer_loop_command_controlled(
+            ControlMode::DirectDuty,
             devices.sdlogger,
             devices.led,
             devices.config,
         ))
         .unwrap();
+
+    // spawner
+    //     .spawn(diffdrive_outer_loop(
+    //         ControlMode::WithMocapController,
+    //         devices.sdlogger,
+    //         devices.led,
+    //         devices.config,
+    //     ))
+    //     .unwrap();
     // spawner
     //     .spawn(diffdrive_outer_loop_read_traj_from_json(
     //         ControlMode::WithMocapController,

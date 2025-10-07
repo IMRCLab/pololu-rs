@@ -3,6 +3,8 @@ use core::cell::RefCell;
 use core::f32::consts::PI;
 use defmt::info;
 use embassy_futures::block_on;
+use embassy_futures::select::Either;
+use embassy_rp::pac::psm::regs::Wdsel;
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, signal::Signal};
@@ -236,6 +238,36 @@ impl DiffdriveCascade {
                 y: 0.0,
                 theta: SO2::new(0.0),
             },
+        }
+    }
+
+    pub fn circlereference_no_shift(
+        &self,
+        r: f32,
+        duration: f32,
+        t: f32,
+        x0: f32,
+        y0: f32,
+        theta0: f32,
+    ) -> DiffdriveSetpointCascade {
+        //apply scaling of t to reduce the angular velocity desired
+
+        let wd = 2.0 * PI / duration; //angular velocity
+        let mut x = r * cosf(t * wd);
+        let mut y = r * sinf(t * wd);
+
+        let theta_loc = t * wd; //angle in rad
+
+        //transform into body coordinates and to circle starting point.
+        x = x + x0 - x * cosf(theta0);
+        y = y + y0 - y * sinf(theta0);
+        let theta = SO2::new(theta0 + theta_loc);
+
+        let des: DiffdriveStateCascade = DiffdriveStateCascade { x, y, theta };
+        DiffdriveSetpointCascade {
+            des,
+            vdes: wd * r,
+            wdes: wd,
         }
     }
 
@@ -975,7 +1007,7 @@ pub async fn diffdrive_outer_loop_command_controlled(
     let robot_cfg: RobotConfig = cfg.unwrap_or_default();
 
     // ============ Initialize robot model =========
-    defmt::info!("Initializing diffdrive robot model");
+    defmt::info!("Initializing command-controlled diffdrive robot model");
     defmt::info!(
         "Wheel radius[m]: {}, Wheel base[m]: {}, Wheel rotate speed max[rad/s]: {}",
         robot_cfg.wheel_radius,
@@ -1004,41 +1036,62 @@ pub async fn diffdrive_outer_loop_command_controlled(
     }
 
     defmt::info!("Waiting for trajectory control commands...");
+    defmt::info!("Commands: 't' = start, 's' = stop");
 
     loop {
-        // Wait for trajectory control command
-        let start_trajectory = TRAJECTORY_CONTROL_EVENT.wait().await;
+        // Wait for start command (true)
+        loop {
+            let command = TRAJECTORY_CONTROL_EVENT.wait().await;
+            if command {
+                // Start command received
+                defmt::info!("Starting trajectory following from command!");
+                led.on();
+                STOP_ALL.store(false, Ordering::Relaxed);
+                break;
+            } else {
+                // Stop command received while not running - ignore
+                defmt::info!("Stop command received while not running - ignoring");
+            }
+        }
 
-        if start_trajectory {
-            defmt::info!("Starting trajectory following from command!");
-            led.on();
-            STOP_ALL.store(false, Ordering::Relaxed);
+        // Execute trajectory until stop command, completion, or restart
+        let result = execute_trajectory_loop_with_control(
+            mode,
+            &mut robot,
+            &mut controller,
+            &mut sdlogger,
+            &robot_cfg,
+        )
+        .await;
 
-            // Execute trajectory until stop command or completion
-            execute_trajectory_loop(mode, &mut robot, &mut controller, &mut sdlogger, &robot_cfg)
-                .await;
-        } else {
-            defmt::info!("Stopping trajectory following from command!");
-            led.off();
-            STOP_ALL.store(true, Ordering::Relaxed);
-
-            // Send stop command to motors
-            let _ = WHEEL_CMD_CH.try_send(WheelCmd {
-                omega_l: 0.0,
-                omega_r: 0.0,
-                stamp: Instant::now(),
-            });
+        match result {
+            TrajectoryResult::Completed => {
+                defmt::info!("Trajectory completed - waiting for next command");
+                led.off();
+                // Loop back to wait for next start command
+            }
+            TrajectoryResult::Stopped => {
+                defmt::info!("Trajectory stopped by command");
+                led.off();
+                // Loop back to wait for next start command
+            }
         }
     }
 }
 
-async fn execute_trajectory_loop(
+#[derive(Debug)]
+pub enum TrajectoryResult {
+    Completed,
+    Stopped,
+}
+
+async fn execute_trajectory_loop_with_control(
     mode: ControlMode,
     robot: &mut DiffdriveCascade,
     controller: &mut DiffdriveControllerCascade,
     sdlogger: &mut Option<SdLogger>,
     robot_cfg: &RobotConfig,
-) {
+) -> TrajectoryResult {
     // ================ Setup Ticker ===============
     let mut ticker = Ticker::every(Duration::from_millis(
         (robot_cfg.traj_following_dt_s * 1000.0) as u64,
@@ -1072,17 +1125,39 @@ async fn execute_trajectory_loop(
     let start = Instant::now();
 
     loop {
-        ticker.next().await;
+        //wait for either the timer tick or a trajectory command
+        let either_result =
+            embassy_futures::select::select(ticker.next(), TRAJECTORY_CONTROL_EVENT.wait()).await;
 
-        // Check if stop was requested via STOP_ALL or new command
+        match either_result {
+            embassy_futures::select::Either::First(_) => {
+                //timer tick: nomal loop execution
+            }
+            embassy_futures::select::Either::Second(command) => {
+                // command received during trajectory execution
+                if !command {
+                    // Stop command - immediately stop motors
+                    let _ = WHEEL_CMD_CH.try_send(WheelCmd {
+                        omega_l: 0.0,
+                        omega_r: 0.0,
+                        stamp: Instant::now(),
+                    });
+                    defmt::info!("Stopping trajectory by command");
+                    return TrajectoryResult::Stopped;
+                }
+            }
+        }
+
+        //in case a stop was requested
         if STOP_ALL.load(Ordering::Relaxed) {
+            let _ = WHEEL_CMD_CH.try_send(WheelCmd {
+                omega_l: 0.0,
+                omega_r: 0.0,
+                stamp: Instant::now(),
+            });
             defmt::info!("Trajectory stopped via STOP_ALL");
             break;
         }
-
-        // Check for new trajectory control commands (non-blocking)
-        // Note: We can't check for new commands non-blockingly with Signal
-        // The stop command will set STOP_ALL which we check above
 
         // Get robot pose
         let pose = {
@@ -1096,23 +1171,35 @@ async fn execute_trajectory_loop(
         let t_ms = t.as_millis() as u32;
 
         /* Bezier Curve Trajectory Generation & Following */
-        let bezier_duration: f32 = 8.0; // seconds
+        // let bezier_duration: f32 = 8.0; // seconds
 
-        let bezier_point = PointCascade {
-            p0x: 0.0,
-            p0y: 0.0,
-            p1x: 0.0,
-            p1y: 0.1,
-            p2x: 0.9,
-            p2y: 1.0,
-            p3x: 1.0,
-            p3y: 1.0,
-            x_ref: first_pose.x,
-            y_ref: first_pose.y,
-            theta_ref: first_pose.yaw + 0.5 * PI,
-        };
+        // let bezier_point = PointCascade {
+        //     p0x: 0.0,
+        //     p0y: 0.0,
+        //     p1x: 0.0,
+        //     p1y: 0.1,
+        //     p2x: 0.9,
+        //     p2y: 1.0,
+        //     p3x: 1.0,
+        //     p3y: 1.0,
+        //     x_ref: first_pose.x,
+        //     y_ref: first_pose.y,
+        //     theta_ref: first_pose.yaw + 0.5 * PI,
+        // };
 
-        let setpoint = robot.beziercurve(bezier_point, t_sec, bezier_duration);
+        // let setpoint = robot.beziercurve(bezier_point, t_sec, bezier_duration);
+
+        //circle demo
+        let duration = 8.0;
+
+        let setpoint = robot.circlereference_no_shift(
+            0.2,
+            duration,
+            t_sec,
+            first_pose.x,
+            first_pose.y,
+            first_pose.yaw,
+        );
 
         robot.s.x = pose.x;
         robot.s.y = pose.y;
@@ -1215,21 +1302,24 @@ async fn execute_trajectory_loop(
         );
 
         // Check for completion
-        if t_sec >= bezier_duration {
+        if t_sec >= duration {
+            //stop motors
             let _ = WHEEL_CMD_CH.try_send(WheelCmd {
                 omega_l: 0.0,
                 omega_r: 0.0,
                 stamp: Instant::now(),
             });
             defmt::info!("Trajectory complete after {}s", t_sec);
-            break;
+            return TrajectoryResult::Completed;
         }
     }
 
-    // Always stop motors when exiting trajectory execution
+    //ensure motors are stopped (check logic again ...)
     let _ = WHEEL_CMD_CH.try_send(WheelCmd {
         omega_l: 0.0,
         omega_r: 0.0,
         stamp: Instant::now(),
     });
+
+    TrajectoryResult::Stopped
 }

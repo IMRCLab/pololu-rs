@@ -7,8 +7,6 @@ use {defmt_rtt as _, panic_probe as _};
 use embassy_executor::Spawner;
 use embassy_rp::init;
 
-use pololu3pi2040_rs::odometry::odometry_task;
-use pololu3pi2040_rs::trajectory_control::diffdrive_outer_loop_command_controlled;
 use pololu3pi2040_rs::trajectory_control::wheel_speed_inner_loop;
 use pololu3pi2040_rs::trajectory_control_odometry::diffdrive_outer_loop_with_odometry;
 use pololu3pi2040_rs::{
@@ -17,6 +15,11 @@ use pololu3pi2040_rs::{
     trajectory_control_odometry::testing_odometry,
 };
 use pololu3pi2040_rs::{init::init_all, trajectory_control::ControlMode};
+use pololu3pi2040_rs::{odometry::odometry_task, trajectory_uart::UartCfg};
+use pololu3pi2040_rs::{
+    trajectory_control::diffdrive_outer_loop_command_controlled,
+    trajectory_uart::uart_motioncap_receiving_task,
+};
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
@@ -26,6 +29,12 @@ async fn main(spawner: Spawner) {
     Timer::after_millis(3000).await;
     defmt::info!("Starting odometry-based trajectory following test");
 
+    spawner
+        .spawn(uart_motioncap_receiving_task(
+            devices.uart,
+            UartCfg { robot_id: 10 },
+        ))
+        .unwrap();
     // ========================================== Start encoder tasks =================================================
     // =========================== (will be accumulated to ENC_LEFT/RIGHT_DELTA) ======================================
     let EncoderPair {
@@ -62,22 +71,22 @@ async fn main(spawner: Spawner) {
 
     // ============================================= Start outer loop =================================================
     // =============== (trajectory control using odometry, give out wl/wr, send to inner loop via WHEEL_CMD_CH) ======
-    // spawner
-    //     .spawn(testing_odometry(
-    //         devices.sdlogger,
-    //         devices.led,
-    //         devices.config,
-    //     ))
-    //     .unwrap();
-
     spawner
-        .spawn(diffdrive_outer_loop_command_controlled(
-            ControlMode::DirectDuty,
+        .spawn(testing_odometry(
             devices.sdlogger,
             devices.led,
             devices.config,
         ))
         .unwrap();
+
+    // spawner
+    //     .spawn(diffdrive_outer_loop_command_controlled(
+    //         ControlMode::DirectDuty,
+    //         devices.sdlogger,
+    //         devices.led,
+    //         devices.config,
+    //     ))
+    //     .unwrap();
 
     // Alternative: Uncomment this and comment the above to test odometry output only
     // spawner
