@@ -12,6 +12,9 @@
 #include "crazyflieLinkCpp/Connection.h"
 #include "PacketUtils.hpp"
 
+//policy compatibility
+#include <rclcpp/rclcpp.hpp>
+
 using namespace bitcraze::crazyflieLinkCpp;
 
 
@@ -26,10 +29,14 @@ public:
         : Node("mocap_broadcast")
         , logger_(this->get_logger())
     {
+
+        //adjust policy
+        auto qos = rclcpp::QoS(rclcpp::KeepLast(10));
+        qos.best_effort();
         //include listener that will send MoCap package about position to the robot
         mocap_subscription = this->create_subscription<motion_capture_tracking_interfaces::msg::NamedPoseArray>(
             "poses", 
-            1,
+            qos,
             std::bind(&MocapBroadcastNode::posesChanged, this, _1)
         );
 
@@ -90,8 +97,8 @@ private:
                 //split the compressed quaternion uint32_t into 2 uint16_t for packing in a supported variable type
                 uint16_t quat_first = comp & 0xFFFF;
                 uint16_t quat_second = (comp >> 16) & 0xFFFF;
-                //RCLCPP_INFO(logger_, "ID: %d", getName(pose.name));
-                //RCLCPP_INFO(logger_, "pose is x=%.4f, y=%.4f, z=%.4f", (float)pose.pose.position.x, (float)pose.pose.position.y, (float)pose.pose.position.z);
+                RCLCPP_INFO(logger_, "ID: %d", getName(pose.name));
+                RCLCPP_INFO(logger_, "pose is x=%.4f, y=%.4f, z=%.4f", (float)pose.pose.position.x, (float)pose.pose.position.y, (float)pose.pose.position.z);
                 //connection_[i]->send(PacketUtils::cmdLegacy_Pololu_Teleop(twist_[i].linear.z, twist_[i].angular.z));
                 connection_[i]->send(PacketUtils::motionCapture_Pololu_fullstate(getName(pose.name), (float)pose.pose.position.x, (float)pose.pose.position.y, (float)pose.pose.position.z,
                     quat_first, quat_second)); 
