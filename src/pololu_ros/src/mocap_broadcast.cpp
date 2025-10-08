@@ -2,21 +2,21 @@
 #include <vector>
 #include <chrono>
 #include <math.h>
+#include <thread>
+#include <termios.h>
+#include <unistd.h>
+#include <fcntl.h>
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/joy.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 
-//includes for MotionCapture tracking interface
+// includes for MotionCapture tracking interface
 #include "motion_capture_tracking_interfaces/msg/named_pose_array.hpp"
 
 #include "crazyflieLinkCpp/Connection.h"
 #include "PacketUtils.hpp"
 
-//policy compatibility
-#include <rclcpp/rclcpp.hpp>
-
 using namespace bitcraze::crazyflieLinkCpp;
-
 
 using std::placeholders::_1;
 
@@ -26,10 +26,8 @@ class MocapBroadcastNode : public rclcpp::Node
 {
 public:
     MocapBroadcastNode()
-        : Node("mocap_broadcast")
-        , logger_(this->get_logger())
+        : Node("mocap_broadcast"), logger_(this->get_logger()), keyboard_running_(true)
     {
-
         //adjust policy
         auto qos = rclcpp::QoS(rclcpp::KeepLast(10));
         qos.best_effort();
@@ -39,19 +37,18 @@ public:
             qos,
             std::bind(&MocapBroadcastNode::posesChanged, this, _1)
         );
-
         this->declare_parameter("frequency", 10);
         this->get_parameter<int>("frequency", frequency_);
 
-        this->declare_parameter("uri1", "radio://*/80/2M/E7C2C2C209?safelink=0&autoping=0");
+        this->declare_parameter("uri1", "radio://*/80/2M/E7C2C2C210?safelink=0&autoping=0");
         std::string uri1;
         this->get_parameter<std::string>("uri1", uri1);
-        connection_[0] = std::make_shared<Connection>(uri1);      
+        connection_[0] = std::make_shared<Connection>(uri1);
 
-        this->declare_parameter("uri2", "radio://*/80/2M/E7C2C2C210?safelink=0&autoping=0");
+        this->declare_parameter("uri2", "radio://*/80/2M/E7C2C2C209?safelink=0&autoping=0");
         std::string uri2;
         this->get_parameter<std::string>("uri2", uri2);
-        connection_[1] = std::make_shared<Connection>(uri2);    
+        connection_[1] = std::make_shared<Connection>(uri2);
 
         this->declare_parameter("uri3", "radio://*/80/2M/E7C2C2C208?safelink=0&autoping=0");
         std::string uri3;
@@ -63,16 +60,33 @@ public:
         this->get_parameter<std::string>("uri4", uri4);
         connection_[3] = std::make_shared<Connection>(uri4);
 
-        dt_ = 1.0f/frequency_;
-        if (frequency_ > 0) {
-            timer_ = this->create_wall_timer(std::chrono::milliseconds(1000/frequency_), std::bind(&MocapBroadcastNode::publish, this));
+        dt_ = 1.0f / frequency_;
+        if (frequency_ > 0)
+        {
+            timer_ = this->create_wall_timer(std::chrono::milliseconds(1000 / frequency_), std::bind(&MocapBroadcastNode::publish, this));
+        }
+
+        // Start keyboard input thread
+        keyboard_thread_ = std::thread(&MocapBroadcastNode::keyboardInputThread, this);
+
+        RCLCPP_INFO(logger_, "Mocap Broadcast Node started. Press keys to control robots:");
+        RCLCPP_INFO(logger_, "  't' - Start trajectory following");
+        RCLCPP_INFO(logger_, "  's' - Stop trajectory following");
+        RCLCPP_INFO(logger_, "  'q' - Quit");
+    }
+
+    ~MocapBroadcastNode()
+    {
+        keyboard_running_ = false;
+        if (keyboard_thread_.joinable())
+        {
+            keyboard_thread_.join();
         }
     }
 
 private:
-
     struct Axis
-    { 
+    {
         int axis;
         float max;
         float deadband;
@@ -83,60 +97,137 @@ private:
         Axis yaw;
     } axes_[4];
 
-    void publish() 
+    // Keyboard input handling
+    std::thread keyboard_thread_;
+    std::atomic<bool> keyboard_running_;
+
+    void keyboardInputThread()
     {
-        for (int i =0; i < 4; ++i) {
-            for (const auto& pose : latest_poses_.poses){
-                //prepare the quaternion for compressing
+        // Set terminal to non-canonical mode for immediate key input
+        struct termios old_termios, new_termios;
+        tcgetattr(STDIN_FILENO, &old_termios);
+        new_termios = old_termios;
+        new_termios.c_lflag &= ~(ICANON | ECHO);
+        tcsetattr(STDIN_FILENO, TCSANOW, &new_termios);
+
+        // Set stdin to non-blocking
+        int flags = fcntl(STDIN_FILENO, F_GETFL, 0);
+        fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
+
+        char key;
+        while (keyboard_running_)
+        {
+            // RCLCPP_INFO(logger_, "keyboard running");
+
+            if (read(STDIN_FILENO, &key, 1) > 0)
+            {
+                RCLCPP_INFO(logger_, "Key pressed: %c", key);
+                handleKeyPress(key);
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+
+        // Restore terminal settings
+        tcsetattr(STDIN_FILENO, TCSANOW, &old_termios);
+    }
+
+    void handleKeyPress(char key)
+    {
+        switch (key)
+        {
+        case 't':
+        case 'T':
+            RCLCPP_INFO(logger_, "Starting trajectory following on all robots...");
+            sendTrajectoryCommand(true);
+            break;
+        case 's':
+        case 'S':
+            RCLCPP_INFO(logger_, "Stopping trajectory following on all robots...");
+            sendTrajectoryCommand(false);
+            break;
+        case 'q':
+        case 'Q':
+            RCLCPP_INFO(logger_, "Quitting...");
+            keyboard_running_ = false;
+            rclcpp::shutdown();
+            break;
+        default:
+            // Ignore other keys
+            break;
+        }
+    }
+
+    void sendTrajectoryCommand(bool start)
+    {
+        RCLCPP_INFO(logger_, "Sending trajectory command: {}", start ? "START" : "STOP");
+        for (int i = 0; i < 4; ++i)
+        {
+            // Send command to start/stop trajectory following
+            // Robot ID 255 means broadcast to all robots on this connection
+            uint8_t command = start ? 1 : 0; // 1 = start, 0 = stop
+            RCLCPP_INFO(logger_, "Sending to connection {}: command {}", i, command);
+            connection_[i]->send(PacketUtils::cmdTrajectoryControl(255, command));
+        }
+    }
+
+    void publish()
+    {
+        for (int i = 0; i < 4; ++i)
+        {
+            for (const auto &pose : latest_poses_.poses)
+            {
+                // prepare the quaternion for compressing
                 float quat[4] = {
-                    (float)pose.pose.orientation.x, (float)pose.pose.orientation.y, (float)pose.pose.orientation.z, (float)pose.pose.orientation.w
-                };
+                    (float)pose.pose.orientation.x, (float)pose.pose.orientation.y, (float)pose.pose.orientation.z, (float)pose.pose.orientation.w};
 
                 uint32_t comp = quatcompress(quat);
 
-                //split the compressed quaternion uint32_t into 2 uint16_t for packing in a supported variable type
+                // split the compressed quaternion uint32_t into 2 uint16_t for packing in a supported variable type
                 uint16_t quat_first = comp & 0xFFFF;
                 uint16_t quat_second = (comp >> 16) & 0xFFFF;
-                RCLCPP_INFO(logger_, "ID: %d", getName(pose.name));
-                RCLCPP_INFO(logger_, "pose is x=%.4f, y=%.4f, z=%.4f", (float)pose.pose.position.x, (float)pose.pose.position.y, (float)pose.pose.position.z);
-                //connection_[i]->send(PacketUtils::cmdLegacy_Pololu_Teleop(twist_[i].linear.z, twist_[i].angular.z));
+                // RCLCPP_INFO(logger_, "ID: %d", getName(pose.name));
+                // RCLCPP_INFO(logger_, "pose is x=%.4f, y=%.4f, z=%.4f", (float)pose.pose.position.x, (float)pose.pose.position.y, (float)pose.pose.position.z);
+                // connection_[i]->send(PacketUtils::cmdLegacy_Pololu_Teleop(twist_[i].linear.z, twist_[i].angular.z));
                 connection_[i]->send(PacketUtils::motionCapture_Pololu_fullstate(getName(pose.name), (float)pose.pose.position.x, (float)pose.pose.position.y, (float)pose.pose.position.z,
-                    quat_first, quat_second)); 
-
+                                                                                 quat_first, quat_second));
             }
         }
     }
 
     static inline uint32_t quatcompress(float const q[4])
+    {
+        // we send the values of the quaternion's smallest 3 elements.
+        unsigned i_largest = 0;
+        for (unsigned i = 1; i < 4; ++i)
         {
-            // we send the values of the quaternion's smallest 3 elements.
-            unsigned i_largest = 0;
-            for (unsigned i = 1; i < 4; ++i) {
-                if (fabsf(q[i]) > fabsf(q[i_largest])) {
-                    i_largest = i;
-                }
+            if (fabsf(q[i]) > fabsf(q[i_largest]))
+            {
+                i_largest = i;
             }
-
-            // since -q represents the same rotation as q,
-            // transform the quaternion so the largest element is positive.
-            // this avoids having to send its sign bit.
-            unsigned negate = q[i_largest] < 0;
-
-            // 1/sqrt(2) is the largest possible value 
-            // of the second-largest element in a unit quaternion.
-
-            // do compression using sign bit and 9-bit precision per element.
-            uint32_t comp = i_largest;
-            for (unsigned i = 0; i < 4; ++i) {
-                if (i != i_largest) {
-                    unsigned negbit = (q[i] < 0) ^ negate;
-                    unsigned mag = ((1 << 9) - 1) * (fabsf(q[i]) / (float)M_SQRT1_2) + 0.5f;
-                    comp = (comp << 10) | (negbit << 9) | mag;
-                }
-            }
-
-	        return comp;
         }
+
+        // since -q represents the same rotation as q,
+        // transform the quaternion so the largest element is positive.
+        // this avoids having to send its sign bit.
+        unsigned negate = q[i_largest] < 0;
+
+        // 1/sqrt(2) is the largest possible value
+        // of the second-largest element in a unit quaternion.
+
+        // do compression using sign bit and 9-bit precision per element.
+        uint32_t comp = i_largest;
+        for (unsigned i = 0; i < 4; ++i)
+        {
+            if (i != i_largest)
+            {
+                unsigned negbit = (q[i] < 0) ^ negate;
+                unsigned mag = ((1 << 9) - 1) * (fabsf(q[i]) / (float)M_SQRT1_2) + 0.5f;
+                comp = (comp << 10) | (negbit << 9) | mag;
+            }
+        }
+
+        return comp;
+    }
 
     void quatdecompress(uint32_t comp, float q[4])
     {
@@ -145,13 +236,16 @@ private:
 
         int const i_largest = comp >> 30;
         float sum_squares = 0;
-        for (int i = 3; i >= 0; --i) {
-            if (i != i_largest) {
+        for (int i = 3; i >= 0; --i)
+        {
+            if (i != i_largest)
+            {
                 unsigned mag = comp & mask;
                 unsigned negbit = (comp >> 9) & 0x1;
                 comp = comp >> 10;
                 q[i] = SMALL_MAX * ((float)mag) / mask;
-                if (negbit == 1) {
+                if (negbit == 1)
+                {
                     q[i] = -q[i];
                 }
                 sum_squares += q[i] * q[i];
@@ -159,31 +253,31 @@ private:
         }
         q[i_largest] = sqrtf(1.0f - sum_squares);
     }
-    
 
-    //parse the last two characters from the name string in case those are numbers and convert them to a robot ID
-    static uint8_t getName(const std::string& name)
+    // parse the last two characters from the name string in case those are numbers and convert them to a robot ID
+    static uint8_t getName(const std::string &name)
     {
-        if (name.length() >= 2){
-            std::string last_two = name.substr(name.length() -2); //cut off all letters up to the last two
-            if(std::isdigit(last_two[0]) && std::isdigit(last_two[1])){
+        if (name.length() >= 2)
+        {
+            std::string last_two = name.substr(name.length() - 2); // cut off all letters up to the last two
+            if (std::isdigit(last_two[0]) && std::isdigit(last_two[1]))
+            {
                 return static_cast<uint8_t>(std::stoi(last_two));
             }
-            else if(std::isdigit(last_two[1])){
+            else if (std::isdigit(last_two[1]))
+            {
                 return static_cast<uint8_t>(std::stoi(last_two.substr(1)));
             }
         }
-        
-        return 255; //invalid characters
 
+        return 255; // invalid characters
     }
 
-    
     void posesChanged(const motion_capture_tracking_interfaces::msg::NamedPoseArray::SharedPtr msg)
     {
-        //mocap_data_received_timepoints_.emplace_back(std::chrono::steady_clock::now());
-        //overwrite latest poses
-        // std::cout << "Received pose" <<msg->poses.size() << "poses: " <<std::endl;
+        // mocap_data_received_timepoints_.emplace_back(std::chrono::steady_clock::now());
+        // overwrite latest poses
+        //  std::cout << "Received pose" <<msg->poses.size() << "poses: " <<std::endl;
 
         // for (const auto& pose : msg->poses) {
         //     std::cout   << "name" << pose.name
@@ -203,7 +297,6 @@ private:
 
     rclcpp::Logger logger_;
 
-    
     int frequency_;
     float dt_;
 
@@ -217,4 +310,3 @@ int main(int argc, char *argv[])
     rclcpp::shutdown();
     return 0;
 }
-
