@@ -43,12 +43,12 @@ public:
         this->declare_parameter("frequency", 10);
         this->get_parameter<int>("frequency", frequency_);
 
-        this->declare_parameter("uri1", "radio://*/80/2M/E7C2C2C208?safelink=0&autoping=0");
+        this->declare_parameter("uri1", "radio://*/80/2M/E7C2C2C209?safelink=0&autoping=0");
         std::string uri1;
         this->get_parameter<std::string>("uri1", uri1);
         connection_[0] = std::make_shared<Connection>(uri1);      
 
-        this->declare_parameter("uri2", "radio://*/80/2M/E7C2C2C207?safelink=0&autoping=0");
+        this->declare_parameter("uri2", "radio://*/80/2M/E7C2C2C210?safelink=0&autoping=0");
         std::string uri2;
         this->get_parameter<std::string>("uri2", uri2);
         connection_[1] = std::make_shared<Connection>(uri2);    
@@ -58,7 +58,7 @@ public:
         this->get_parameter<std::string>("uri3", uri3);
         connection_[2] = std::make_shared<Connection>(uri3);
 
-        this->declare_parameter("uri4", "radio://*/80/2M/E7C2C2C208?safelink=0&autoping=0");
+        this->declare_parameter("uri4", "radio://*/80/2M/E7C2C2C211?safelink=0&autoping=0");
         std::string uri4;
         this->get_parameter<std::string>("uri4", uri4);
         connection_[3] = std::make_shared<Connection>(uri4);
