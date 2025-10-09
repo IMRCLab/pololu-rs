@@ -9,7 +9,8 @@ use embassy_rp::init;
 
 use pololu3pi2040_rs::init::init_all;
 use pololu3pi2040_rs::trajectory_control::{
-    ControlMode, mocap_update_task, wheel_speed_inner_loop,
+    ControlMode, diffdrive_outer_loop_command_controlled_traj_following_from_sdcard,
+    mocap_update_task, wheel_speed_inner_loop,
 };
 use pololu3pi2040_rs::trajectory_uart::{UartCfg, uart_motioncap_receiving_task};
 use pololu3pi2040_rs::{
@@ -28,7 +29,7 @@ async fn main(spawner: Spawner) {
     spawner
         .spawn(uart_motioncap_receiving_task(
             devices.uart,
-            UartCfg { robot_id: 10 },
+            UartCfg { robot_id: 9 },
         ))
         .unwrap();
     // ================================================================================================================
@@ -67,13 +68,27 @@ async fn main(spawner: Spawner) {
 
     // ============================================= Start gain tuning outer loop ====================================
     // =============== Semi - Automatically tests different gains with straight line trajectory ============================
+    // spawner
+    //     .spawn(diffdrive_outer_loop_command_controlled_tuning(
+    //         //ControlMode::DirectDuty,
+    //         ControlMode::WithMocapController,
+    //         devices.sdlogger,
+    //         devices.led,
+    //         devices.config,
+    //     ))
+    //     .unwrap();
+
     spawner
-        .spawn(diffdrive_outer_loop_command_controlled_tuning(
-            ControlMode::WithMocapController,
-            devices.sdlogger,
-            devices.led,
-            devices.config,
-        ))
+        .spawn(
+            diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
+                //ControlMode::DirectDuty,
+                ControlMode::WithMocapController,
+                devices.sdlogger,
+                devices.led,
+                devices.config,
+            ),
+        )
         .unwrap();
-    // ================================================================================================================
+
+    // ==================================== End of gain tuning outer loop ============================================
 }

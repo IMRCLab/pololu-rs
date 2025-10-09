@@ -99,7 +99,7 @@ pub async fn uart_motioncap_receiving_task(uart: SharedUart<'static>, cfg: UartC
         }
 
         // -------- Decoding --------
-        info!("Received frame len={}", len);
+        //info!("Received frame len={}", len);
         if len == LEN_TRAJECTORY_CMD {
             if let Some(start_trajectory) = decode_trajectory_command(&frame, cfg.robot_id) {
                 TRAJECTORY_CONTROL_EVENT.signal(start_trajectory);
@@ -196,13 +196,15 @@ fn decode_abs_pose(payload: &[u8], robot_id: u8) -> Option<PoseAbs> {
 
     let raw = u32::from_le_bytes([s1[12], s1[13], s1[14], s1[15]]);
     let q = quat_decompress(raw);
-    info!("quat {} {} {} {}", q.x, q.y, q.z, q.w);
+    //info!("quat {} {} {} {}", q.x, q.y, q.z, q.w);
     let (roll, pitch, yaw) = rpy_from_quaternion(&q);
 
+    /*
     info!(
         "robot Id: {}, x:{}, y:{}, z:{}, roll:{}, pitch:{}, yaw:{}",
         payload[1], x, y, z, roll, pitch, yaw,
     );
+    */
 
     Some(PoseAbs {
         x,

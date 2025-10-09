@@ -120,17 +120,17 @@ async fn main(spawner: Spawner) {
         // Step 1: Keep speed at zero for 2 seconds
         defmt::info!("=== Step 1: Zero speed for 2 seconds ===");
         set_wheel_speed(0.0, 0.0).await;
-        Timer::after_millis(2000).await;
+        Timer::after_millis(1000).await;
 
         // Step 2: Step up to 0.4 m/s for 4 seconds
         defmt::info!("=== Step 2: Step up to 0.4 m/s for 4 seconds ===");
-        set_wheel_speed(2.0, 0.0).await;
-        Timer::after_millis(4000).await;
+        set_wheel_speed(0.5, 0.0).await;
+        Timer::after_millis(1000).await;
 
         // Step 3: Set back to zero for 4 seconds
         defmt::info!("=== Step 3: Back to zero for 4 seconds ===");
         set_wheel_speed(0.0, 0.0).await;
-        Timer::after_millis(4000).await;
+        Timer::after_millis(1000).await;
 
         defmt::info!("=== Test cycle complete, restarting... ===");
     }

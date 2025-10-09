@@ -241,34 +241,64 @@ impl DiffdriveCascade {
         }
     }
 
-    pub fn circlereference_no_shift(
+    pub fn spinning(
         &self,
-        r: f32,
         duration: f32,
         t: f32,
         x0: f32,
         y0: f32,
         theta0: f32,
     ) -> DiffdriveSetpointCascade {
-        //apply scaling of t to reduce the angular velocity desired
+        //rotate 4 times about itself within the given duration
+        let wd = 4.0 * 2.0 * PI / duration;
 
-        let wd = 2.0 * PI / duration; //angular velocity
-        let mut x = r * cosf(t * wd);
-        let mut y = r * sinf(t * wd);
-
-        let theta_loc = t * wd; //angle in rad
-
-        //transform into body coordinates and to circle starting point.
-        x = x + x0 - x * cosf(theta0);
-        y = y + y0 - y * sinf(theta0);
-        let theta = SO2::new(theta0 + theta_loc);
+        let x = x0;
+        let y = y0;
+        let theta = SO2::new(theta0 + wd * t);
 
         let des: DiffdriveStateCascade = DiffdriveStateCascade { x, y, theta };
         DiffdriveSetpointCascade {
             des,
-            vdes: wd * r,
+            vdes: 0.0,
             wdes: wd,
         }
+    }
+
+    pub fn circlereference(
+        &self,
+        t: f32,
+        r: f32,
+        wd: f32,
+        x0: f32,
+        y0: f32,
+        theta0: f32,
+    ) -> DiffdriveSetpointCascade {
+        //apply scaling of t to reduce the angular velocity desired
+        let x_local = r * cosf(t * wd);
+        let y_local = r * sinf(t * wd);
+        //note: multiply with inner derivative
+        let xd = -r * sinf(t * wd) * wd;
+        let yd = r * cosf(t * wd) * wd;
+        let xdd = -r * cosf(t * wd) * wd * wd;
+        let ydd = -r * sinf(t * wd) * wd * wd;
+
+        let vdes: f32 = sqrtf(xd * xd + yd * yd); //r * wd;
+        let wdes: f32 = (ydd * xd - xdd * yd) / (xd * xd + yd * yd); //wd
+        let theta_loc = atan2f(yd, xd);
+
+        //transform from local circle coordinates to world coordinates
+        //rotate by tangent of initial heading and translate to starting position
+        let c = cosf(theta0 - PI / 2.0);
+        let s = sinf(theta0 - PI / 2.0);
+
+        let x = x0 + (x_local - r) * c - y_local * s;
+        let y = y0 + (x_local - r) * s + y_local * c;
+
+        //orientation follows the circle tangent
+        let theta = SO2::new(theta0 + theta_loc);
+
+        let des: DiffdriveStateCascade = DiffdriveStateCascade { x, y, theta };
+        DiffdriveSetpointCascade { des, vdes, wdes }
     }
 
     pub fn circle_reference_t(
@@ -285,7 +315,7 @@ impl DiffdriveCascade {
         let state_des = DiffdriveStateCascade {
             x: x0 + r * (sinf(phi0.rad() + wd * t_s) - sinf(phi0.rad())),
             y: y0 + r * (-cosf(phi0.rad() + wd * t_s) + cosf(phi0.rad())),
-            theta: SO2::new(phi0.rad() - 0.5 * PI + wd * t_s),
+            theta: SO2::new(phi0.rad() + wd * t_s),
         };
 
         DiffdriveSetpointCascade {
@@ -1192,7 +1222,7 @@ async fn execute_trajectory_loop_with_control(
         //circle demo
         let duration = 8.0;
 
-        let setpoint = robot.circlereference_no_shift(
+        let setpoint = robot.circlereference(
             0.2,
             duration,
             t_sec,
@@ -1359,6 +1389,24 @@ pub async fn diffdrive_outer_loop_command_controlled_tuning(
         robot_cfg.ktheta_traj,
     );
 
+    //strictly for testing, initialise with low gains:
+    controller.kx = 1.0;
+    controller.ky = 1.0;
+    controller.kth = 5.0;
+
+    //print all robot parameters to check if they are loaded correctly:
+    //inner lool controler and position controller:
+    info!("robot parameters:");
+    info!("wheel radius: {}", robot_cfg.wheel_radius);
+    info!("wheel base: {}", robot_cfg.wheel_base);
+    info!("wheel max: {}", robot_cfg.wheel_max);
+    info!("kx: {}", controller.kx);
+    info!("ky: {}", controller.ky);
+    info!("kth: {}", controller.kth);
+    info!("KP_inner: {}", robot_cfg.kp_inner);
+    info!("KI_inner: {}", robot_cfg.ki_inner);
+    info!("KD_inner: {}", robot_cfg.kd_inner);
+
     // Initialize logger
     if let Some(ref mut logger) = sdlogger {
         logger.write_traj_control_header();
@@ -1378,10 +1426,12 @@ pub async fn diffdrive_outer_loop_command_controlled_tuning(
                 STOP_ALL.store(false, Ordering::Relaxed);
 
                 //increase ky, kx
-                controller.kx += 0.5;
-                controller.ky += 0.5;
+                //controller.kx += 0.5;
+                //controller.ky += 0.5;
+                controller.kx += 0.1;
                 defmt::info!(
-                    "Increased controller gains: kx={}, ky={}",
+                    "Increased controller gains: kth = {}, kx = {}, ky = {}",
+                    controller.kth,
                     controller.kx,
                     controller.ky
                 );
@@ -1522,25 +1572,39 @@ async fn execute_trajectory_loop_with_control_for_tuning(
         // let setpoint = robot.beziercurve(bezier_point, t_sec, bezier_duration);
 
         //circle demo
-        let duration = 8.0;
+        let duration = 4.0;
+        let r = 0.3;
+        let wd = 2.0 * PI / duration;
 
-        let setpoint = robot.circlereference_no_shift(
-            0.2,
+        //let setpoint = robot.spinning(duration, t_sec, first_pose.x, first_pose.y, first_pose.yaw);
+        // let setpoint =
+        //     robot.circlereference(t_sec, r, wd, first_pose.x, first_pose.y, first_pose.yaw);
+        let setpoint = robot.circle_reference_t(
+            r,
             duration,
             t_sec,
             first_pose.x,
             first_pose.y,
-            first_pose.yaw,
+            SO2::new(first_pose.yaw),
+        );
+        info!(
+            "setpoint: x = {}, y = {}, theta = {}, v = {}, w = {}",
+            setpoint.des.x,
+            setpoint.des.y,
+            setpoint.des.theta.rad(),
+            setpoint.vdes,
+            setpoint.wdes
         );
 
         robot.s.x = pose.x;
         robot.s.y = pose.y;
-        robot.s.theta = SO2::new(pose.yaw + 0.5 * PI); // mocap yaw is 90deg off
+        robot.s.theta = SO2::new(pose.yaw); // mocap yaw is 90deg off
 
         let (ul, ur, x_error, y_error, theta_error);
 
         match mode {
             ControlMode::WithMocapController => {
+                info!("Mocap Control Mode");
                 let (action, x_e, y_e, yaw_e) = controller.control(&robot, setpoint);
                 ul = action.ul;
                 ur = action.ur;
@@ -1654,4 +1718,372 @@ async fn execute_trajectory_loop_with_control_for_tuning(
     });
 
     TrajectoryResult::Stopped
+}
+
+async fn execute_trajectory_loop_with_control_from_SDCard(
+    mode: ControlMode,
+    robot: &mut DiffdriveCascade,
+    controller: &mut DiffdriveControllerCascade,
+    sdlogger: &mut Option<SdLogger>,
+    robot_cfg: &RobotConfig,
+) -> TrajectoryResult {
+    // =========== Load trajectory points ==========
+    let (states, actions) = {
+        let g = TRAJ_REF.lock().await;
+        let t = g.borrow();
+        let tr = t.as_ref().expect("Trajectory is not set");
+        (&tr.states, &tr.actions)
+    };
+
+    let len = core::cmp::min(states.len(), actions.len());
+    defmt::info!("Starting control task with {} states and actions", len);
+    // ================ Setup Ticker ===============
+    let mut ticker = Ticker::every(Duration::from_millis(
+        (robot_cfg.traj_following_dt_s * 1000.0) as u64,
+    ));
+
+    /* ================ Record First Pose w.r.t the selected mode ================== */
+    let mut first_pose: PoseAbs = PoseAbs {
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+        roll: 0.0,
+        pitch: 0.0,
+        yaw: 0.0,
+    };
+
+    Timer::after_millis(100).await; // Wait until the first pose comes
+    match mode {
+        ControlMode::WithMocapController => {
+            // Initialize first pose from mocap
+            first_pose = {
+                let s = LAST_STATE.lock().await;
+                *s
+            };
+        }
+        ControlMode::DirectDuty => {
+            info!("Using direct duty control, initial pose (0, 0, 0)");
+        }
+    }
+
+    // Get precise start time
+    let start = Instant::now();
+
+    loop {
+        //wait for either the timer tick or a trajectory command
+        let either_result =
+            embassy_futures::select::select(ticker.next(), TRAJECTORY_CONTROL_EVENT.wait()).await;
+
+        match either_result {
+            embassy_futures::select::Either::First(_) => {
+                //timer tick: normal loop execution
+            }
+            embassy_futures::select::Either::Second(command) => {
+                // command received during trajectory execution
+                if !command {
+                    // Stop command - immediately stop motors
+                    let _ = WHEEL_CMD_CH.try_send(WheelCmd {
+                        omega_l: 0.0,
+                        omega_r: 0.0,
+                        stamp: Instant::now(),
+                    });
+                    defmt::info!("Stopping trajectory by command");
+                    return TrajectoryResult::Stopped;
+                }
+            }
+        }
+
+        //in case a stop was requested
+        if STOP_ALL.load(Ordering::Relaxed) {
+            let _ = WHEEL_CMD_CH.try_send(WheelCmd {
+                omega_l: 0.0,
+                omega_r: 0.0,
+                stamp: Instant::now(),
+            });
+            defmt::info!("Trajectory stopped via STOP_ALL");
+            break;
+        }
+
+        // Get robot pose
+        let pose = {
+            let s = LAST_STATE.lock().await;
+            *s
+        };
+
+        // Current elapsed time
+        let t = Instant::now() - start;
+        let t_sec = t.as_millis() as f32 / 1000.0;
+        let t_ms = t.as_millis() as u32;
+        let mut i = (t_sec / robot_cfg.traj_following_dt_s) as usize;
+        if i >= len {
+            i = len - 1;
+        }
+
+        /* Bezier Curve Trajectory Generation & Following */
+        // let bezier_duration: f32 = 8.0; // seconds
+
+        // let bezier_point = PointCascade {
+        //     p0x: 0.0,
+        //     p0y: 0.0,
+        //     p1x: 0.0,
+        //     p1y: 0.1,
+        //     p2x: 0.9,
+        //     p2y: 1.0,
+        //     p3x: 1.0,
+        //     p3y: 1.0,
+        //     x_ref: first_pose.x,
+        //     y_ref: first_pose.y,
+        //     theta_ref: first_pose.yaw + 0.5 * PI,
+        // };
+
+        // let setpoint = robot.beziercurve(bezier_point, t_sec, bezier_duration);
+
+        //circle demo
+        let duration = 4.0;
+        let r = 0.3;
+        let wd = 2.0 * PI / duration;
+
+        //let setpoint = robot.spinning(duration, t_sec, first_pose.x, first_pose.y, first_pose.yaw);
+        // let setpoint =
+        //     robot.circlereference(t_sec, r, wd, first_pose.x, first_pose.y, first_pose.yaw);
+        // let setpoint = robot.circle_reference_t(
+        //     r,
+        //     duration,
+        //     t_sec,
+        //     first_pose.x,
+        //     first_pose.y,
+        //     SO2::new(first_pose.yaw),
+        // );
+
+        let Pose {
+            x: x_d,
+            y: y_d,
+            yaw: theta_d,
+        } = states[i];
+        let Action { v: vd, omega: wd } = actions[i]; // only n-1 actions(n states, i starts from 1)
+        let setpoint = DiffdriveSetpointCascade {
+            des: DiffdriveStateCascade {
+                x: first_pose.x + x_d,
+                y: first_pose.y + y_d,
+                theta: SO2::new(theta_d),
+            },
+            vdes: vd,
+            wdes: wd,
+        };
+
+        info!(
+            "setpoint: x = {}, y = {}, theta = {}, v = {}, w = {}",
+            setpoint.des.x,
+            setpoint.des.y,
+            setpoint.des.theta.rad(),
+            setpoint.vdes,
+            setpoint.wdes
+        );
+
+        robot.s.x = pose.x;
+        robot.s.y = pose.y;
+        robot.s.theta = SO2::new(pose.yaw); // mocap yaw is 90deg off
+
+        let (ul, ur, x_error, y_error, theta_error);
+
+        match mode {
+            ControlMode::WithMocapController => {
+                info!("Mocap Control Mode");
+                let (action, x_e, y_e, yaw_e) = controller.control(&robot, setpoint);
+                ul = action.ul;
+                ur = action.ur;
+                x_error = x_e;
+                y_error = y_e;
+                theta_error = yaw_e;
+
+                while WHEEL_CMD_CH.try_receive().is_ok() {} //drain old commands
+                let _ = WHEEL_CMD_CH.try_send(WheelCmd {
+                    omega_l: ul,
+                    omega_r: ur,
+                    stamp: Instant::now(),
+                });
+            }
+            ControlMode::DirectDuty => {
+                let w_rad = setpoint.wdes;
+                let vd = setpoint.vdes;
+
+                ur = (2.0 * vd + robot_cfg.k_clip * robot_cfg.wheel_base * w_rad)
+                    / (2.0 * robot_cfg.wheel_radius);
+                ul = (2.0 * vd - robot_cfg.k_clip * robot_cfg.wheel_base * w_rad)
+                    / (2.0 * robot_cfg.wheel_radius);
+                x_error = 0.0;
+                y_error = 0.0;
+                theta_error = 0.0;
+
+                while WHEEL_CMD_CH.try_receive().is_ok() {} // drain old commands
+                let _ = WHEEL_CMD_CH.try_send(WheelCmd {
+                    omega_l: ul,
+                    omega_r: ur,
+                    stamp: Instant::now(),
+                });
+            }
+        }
+
+        // Log trajectory control
+        let log: TrajControlLog = TrajControlLog {
+            timestamp_ms: t_ms,
+            target_x: setpoint.des.x,
+            target_y: setpoint.des.y,
+            target_theta: setpoint.des.theta.rad(),
+            actual_x: robot.s.x,
+            actual_y: robot.s.y,
+            actual_theta: robot.s.theta.rad(),
+            target_vx: setpoint.vdes,
+            target_vy: 0.0,
+            target_vz: 0.0,
+            actual_vx: 0.0,
+            actual_vy: 0.0,
+            actual_vz: 0.0,
+            target_qw: setpoint.des.theta.cos(),
+            target_qx: 0.0,
+            target_qy: 0.0,
+            target_qz: setpoint.des.theta.sin(),
+            actual_qw: robot.s.theta.cos(),
+            actual_qx: 0.0,
+            actual_qy: 0.0,
+            actual_qz: robot.s.theta.sin(),
+            xerror: x_error,
+            yerror: y_error,
+            thetaerror: theta_error,
+            ul: ul,
+            ur: ur,
+            dutyl: 0.0,
+            dutyr: 0.0,
+        };
+
+        if let Some(logger) = sdlogger {
+            logger.log_traj_control_as_csv(&log);
+            logger.flush();
+        }
+
+        let w_deg = setpoint.wdes * 180.0 / PI;
+        defmt::info!(
+            "t={}s, pos=({},{},{}), posd=({},{},{}), v={}, w={}rad/s ({}deg/s), u=({},{}), (xerr,yerr,theterr)=({},{},{})",
+            t_sec,
+            pose.x,
+            pose.y,
+            pose.yaw,
+            setpoint.des.x,
+            setpoint.des.y,
+            setpoint.des.theta.rad(),
+            setpoint.vdes,
+            setpoint.wdes,
+            w_deg,
+            ul,
+            ur,
+            x_error,
+            y_error,
+            theta_error
+        );
+
+        // Check for completion
+        if t_sec >= duration {
+            //stop motors
+            let _ = WHEEL_CMD_CH.try_send(WheelCmd {
+                omega_l: 0.0,
+                omega_r: 0.0,
+                stamp: Instant::now(),
+            });
+            defmt::info!("Trajectory complete after {}s", t_sec);
+            return TrajectoryResult::Completed;
+        }
+    }
+
+    //ensure motors are stopped (check logic again ...)
+    let _ = WHEEL_CMD_CH.try_send(WheelCmd {
+        omega_l: 0.0,
+        omega_r: 0.0,
+        stamp: Instant::now(),
+    });
+
+    TrajectoryResult::Stopped
+}
+
+// Command-controlled trajectory following from SDCard
+#[embassy_executor::task]
+pub async fn diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
+    mode: ControlMode,
+    mut sdlogger: Option<SdLogger>,
+    mut led: led::Led,
+    cfg: Option<RobotConfig>,
+) {
+    // ============ Robot Configuration ==========
+    let robot_cfg = RobotConfig::default();
+
+    // ============ Initialize robot model =========
+    defmt::info!("Initializing command-controlled diffdrive robot model");
+    defmt::info!(
+        "Wheel radius[m]: {}, Wheel base[m]: {}, Wheel rotate speed max[rad/s]: {}",
+        robot_cfg.wheel_radius,
+        robot_cfg.wheel_base,
+        robot_cfg.wheel_max,
+    );
+    let mut robot = DiffdriveCascade::new(
+        robot_cfg.wheel_radius,
+        robot_cfg.wheel_base,
+        -robot_cfg.wheel_max,
+        robot_cfg.wheel_max,
+        -robot_cfg.wheel_max,
+        robot_cfg.wheel_max,
+    );
+
+    // Initialize controller
+    let mut controller = DiffdriveControllerCascade::new(
+        robot_cfg.kx_traj,
+        robot_cfg.ky_traj,
+        robot_cfg.ktheta_traj,
+    );
+
+    // Initialize logger
+    if let Some(ref mut logger) = sdlogger {
+        logger.write_traj_control_header();
+    }
+
+    defmt::info!("Waiting for trajectory control commands...");
+    defmt::info!("Commands: 't' = start, 's' = stop");
+
+    loop {
+        // Wait for start command (true)
+        loop {
+            let command = TRAJECTORY_CONTROL_EVENT.wait().await;
+            if command {
+                // Start command received
+                defmt::info!("Starting trajectory following from command!");
+                led.on();
+                STOP_ALL.store(false, Ordering::Relaxed);
+                break;
+            } else {
+                // Stop command received while not running - ignore
+                defmt::info!("Stop command received while not running - ignoring");
+            }
+        }
+
+        // Execute trajectory until stop command, completion, or restart
+        let result = execute_trajectory_loop_with_control_from_SDCard(
+            mode,
+            &mut robot,
+            &mut controller,
+            &mut sdlogger,
+            &robot_cfg,
+        )
+        .await;
+
+        match result {
+            TrajectoryResult::Completed => {
+                defmt::info!("Trajectory completed - waiting for next command");
+                led.off();
+                // Loop back to wait for next start command
+            }
+            TrajectoryResult::Stopped => {
+                defmt::info!("Trajectory stopped by command");
+                led.off();
+                // Loop back to wait for next start command
+            }
+        }
+    }
 }
