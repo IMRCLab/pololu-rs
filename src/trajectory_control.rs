@@ -1839,7 +1839,7 @@ async fn execute_trajectory_loop_with_control_from_SDCard(
         // let setpoint = robot.beziercurve(bezier_point, t_sec, bezier_duration);
 
         //circle demo
-        let duration = 4.0;
+        let duration = 5.0;
         let r = 0.3;
         let wd = 2.0 * PI / duration;
 
@@ -1859,12 +1859,22 @@ async fn execute_trajectory_loop_with_control_from_SDCard(
             x: x_d,
             y: y_d,
             yaw: theta_d,
-        } = states[i];
+        } = states[i + 1];
         let Action { v: vd, omega: wd } = actions[i]; // only n-1 actions(n states, i starts from 1)
+        // let setpoint = DiffdriveSetpointCascade {
+        //     des: DiffdriveStateCascade {
+        //         x: first_pose.x + x_d,
+        //         y: first_pose.y + y_d,
+        //         theta: SO2::new(theta_d),
+        //     },
+        //     vdes: vd,
+        //     wdes: wd,
+        // };
+
         let setpoint = DiffdriveSetpointCascade {
             des: DiffdriveStateCascade {
-                x: first_pose.x + x_d,
-                y: first_pose.y + y_d,
+                x: x_d,
+                y: y_d,
                 theta: SO2::new(theta_d),
             },
             vdes: vd,
@@ -1982,7 +1992,17 @@ async fn execute_trajectory_loop_with_control_from_SDCard(
         );
 
         // Check for completion
-        if t_sec >= duration {
+        // if t_sec >= duration {
+        //     //stop motors
+        //     let _ = WHEEL_CMD_CH.try_send(WheelCmd {
+        //         omega_l: 0.0,
+        //         omega_r: 0.0,
+        //         stamp: Instant::now(),
+        //     });
+        //     defmt::info!("Trajectory complete after {}s", t_sec);
+        //     return TrajectoryResult::Completed;
+        // }
+        if t_sec >= (robot_cfg.traj_following_dt_s * (len as f32)) {
             //stop motors
             let _ = WHEEL_CMD_CH.try_send(WheelCmd {
                 omega_l: 0.0,
@@ -2013,7 +2033,14 @@ pub async fn diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
     cfg: Option<RobotConfig>,
 ) {
     // ============ Robot Configuration ==========
-    let robot_cfg = RobotConfig::default();
+    let robot_cfg: RobotConfig;
+    if let Some(_) = cfg {
+        defmt::info!("Load Robot Params from SD CARD!");
+        robot_cfg = cfg.unwrap();
+    } else {
+        defmt::info!("Load Robot Params from DEFAULT!");
+        robot_cfg = RobotConfig::default();
+    }
 
     // ============ Initialize robot model =========
     defmt::info!("Initializing command-controlled diffdrive robot model");
