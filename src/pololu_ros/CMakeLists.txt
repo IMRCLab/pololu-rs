@@ -33,10 +33,26 @@ add_executable(mocap_broadcast
   src/mocap_broadcast.cpp
 )
 
+add_executable(controller_interface
+  src/controller_interface.cpp
+)
+
+# ADD MISSING teleop dependencies:
 target_link_libraries(teleop
   crazyflieLinkCpp
 )
 ament_target_dependencies(teleop 
+  rclcpp
+  sensor_msgs
+  std_srvs
+  geometry_msgs
+  motion_capture_tracking_interfaces
+)
+
+target_link_libraries(controller_interface
+  crazyflieLinkCpp
+)
+ament_target_dependencies(controller_interface 
   rclcpp
   sensor_msgs
   std_srvs
@@ -55,13 +71,11 @@ ament_target_dependencies(mocap_broadcast
   motion_capture_tracking_interfaces
 )
 
-# Install C++ executables
+# FIX Install section - add ALL executables:
 install(TARGETS
   teleop
-  DESTINATION lib/${PROJECT_NAME})
-
-install(TARGETS
   mocap_broadcast
+  controller_interface  # ADD THIS LINE
   DESTINATION lib/${PROJECT_NAME})
 
 # Install launch, config, and urdf files.
