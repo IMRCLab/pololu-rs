@@ -35,11 +35,9 @@ def generate_launch_description():
             package='joy_linux',
             executable='joy_linux_node',
             name='joy_node',
-            parameters=[{
-                'dev': LaunchConfiguration('device'),
-                'deadzone': 0.05,
-                'autorepeat_rate': 20.0,
-            }],
+            remappings=[('joy', 'joy1')],
+            # parameters=[{'device_name':'C1'}]
+            parameters=[{'dev':'/dev/input/js0'}], # use "ros2 run joy joy_enumerate_devices" to find mapping
             output='screen'
         ),
         

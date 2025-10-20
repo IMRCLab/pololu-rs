@@ -159,13 +159,13 @@ private:
 
     void sendTrajectoryCommand(bool start)
     {
-        RCLCPP_INFO(logger_, "Sending trajectory command: {}", start ? "START" : "STOP");
+        RCLCPP_INFO(logger_, "Sending trajectory command: %d", start ? 1 : 0);
         for (int i = 0; i < 4; ++i)
         {
             // Send command to start/stop trajectory following
             // Robot ID 255 means broadcast to all robots on this connection
             uint8_t command = start ? 1 : 0; // 1 = start, 0 = stop
-            RCLCPP_INFO(logger_, "Sending to connection {}: command {}", i, command);
+            RCLCPP_INFO(logger_, "Sending to connection %d: command %d", i, command);
             connection_[i]->send(PacketUtils::cmdTrajectoryControl(255, command));
         }
     }
