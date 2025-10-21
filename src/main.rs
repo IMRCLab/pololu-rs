@@ -14,7 +14,7 @@ use pololu3pi2040_rs::{
     encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     imu::read_imu_task,
     init::init_all,
-    joystick_control::{CONTROL_CMD_UNICYCLE, ControlCommandUnicycle, motor_control_task},
+    joystick_control::{CONTROL_CMD_UNICYCLE, ControlCommandUnicycle, teleop_motor_control_task},
     sdlog::*,
     uart::uart_receive_task,
 };
@@ -26,7 +26,7 @@ async fn main(spawner: Spawner) {
     let mut devices = init_all(p);
 
     // === LED Initialization ===
-    let mut led = devices.led;
+    let mut led = devices.led.unwrap();
 
     // === Buzzer Initialization ===
     let mut buzzer = devices.buzzer;
@@ -55,7 +55,7 @@ async fn main(spawner: Spawner) {
     // Start the PI controller task instead of direct motor control
     let motors = devices.motor;
     spawner
-        .spawn(motor_control_task(
+        .spawn(teleop_motor_control_task(
             motors,
             encoder_count_left,
             encoder_count_right,

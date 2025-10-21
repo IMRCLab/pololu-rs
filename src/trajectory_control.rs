@@ -1,9 +1,11 @@
 use crate::math::SO2;
+use crate::orchestrator_signal::{STOP_TRAJ_OUTER_SIG, STOP_WHEEL_INNER_SIG, TRAJ_PAUSE_SIG, TRAJ_RESUME_SIG, STOP_MOCAP_UPDATE_SIG};
 use core::cell::RefCell;
 use core::f32::consts::PI;
 use defmt::info;
 use embassy_futures::block_on;
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
+use embassy_futures::select::{Either, select, select3, Either3};
 use embassy_sync::mutex::Mutex;
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, signal::Signal};
 use embassy_time::Timer;
@@ -20,7 +22,8 @@ use crate::led::{self};
 use crate::motor::MotorController;
 use crate::read_robot_config_from_sd::RobotConfig;
 use crate::robot_parameters_default::robot_constants::*;
-use crate::sdlog::{SdLogger, TrajControlLog};
+use crate::led::LED_SHARED;
+use crate::sdlog::{SdLogger, TrajControlLog, SDLOGGER_SHARED};
 use crate::trajectory_reading::{Action, Pose, Trajectory};
 use crate::trajectory_signal::{
     LAST_STATE, PoseAbs, STATE_SIG, TRAJECTORY_CONTROL_EVENT, WHEEL_CMD_CH, WheelCmd,
@@ -47,6 +50,29 @@ pub fn register_trajectory(traj: &'static Trajectory) {
         TRAJ_READY.signal(());
     })
 }
+
+pub async fn led_set(on: bool) {
+    let mut g = LED_SHARED.lock().await;
+    if let Some(led) = g.as_mut() {
+        if on { led.on(); } else { led.off(); }
+    } else {
+        defmt::warn!("LED not available; skip.");
+    }
+}
+
+pub async fn with_sdlogger<F, R>(f: F) -> Option<R>
+where
+    F: FnOnce(&mut SdLogger) -> R
+{
+    let mut g = SDLOGGER_SHARED.lock().await;
+    if let Some(l) = g.as_mut() {
+        Some(f(l))
+    } else {
+        defmt::warn!("SdLogger not available; skip.");
+        None
+    }
+}
+
 
 // ====================== TODO: ===========================
 // (1) add abstraction layer for trajectory selection
@@ -398,18 +424,27 @@ pub enum TrajectoryResult {
     Stopped,
 }
 
+/* =============================== Main Tasks ========================================== */
 // Inner Loop
 #[embassy_executor::task]
 pub async fn wheel_speed_inner_loop(
     motor: MotorController,
     left_counter: &'static Mutex<NoopRawMutex, i32>,
     right_counter: &'static Mutex<NoopRawMutex, i32>,
+    cfg: Option<RobotConfig>,
+    
 ) {
+    let robot_cfg: RobotConfig;
+    if let Some(_) = cfg {
+        robot_cfg = cfg.unwrap();
+    } else {
+        robot_cfg = RobotConfig::default();
+    }
+
     let mut ticker = Ticker::every(Duration::from_millis(20));
     let (mut il, mut ir) = (0.0f32, 0.0f32);
-    let (mut prev_el, mut prev_er) = (0.0f32, 0.0f32); // previous error
-    // let (kp, ki, kd) = (0.01, 0.02, 0.000); // Pololu gains
-    let (kp, ki, kd) = (KP_INNER, KI_INNER, KD_INNER); // Zumo gains (needs to be tuned)
+    let (mut prev_el, mut prev_er) = (0.0f32, 0.0f32);
+    let (kp, ki, kd) = (robot_cfg.kp_inner, robot_cfg.ki_inner, robot_cfg.kd_inner);
 
     // =========== Filter Parameters ==============
     let dt: f32 = 0.02; // 20 ms
@@ -430,11 +465,28 @@ pub async fn wheel_speed_inner_loop(
     };
 
     loop {
-        ticker.next().await;
-
-        if STOP_ALL.load(Ordering::Relaxed) {
-            motor.set_speed(0.0, 0.0).await;
-            break;
+        match select3(ticker.next(), STOP_WHEEL_INNER_SIG.wait(), TRAJ_PAUSE_SIG.wait()).await {
+            Either3::First(_) => { 
+                // Normal loop 
+            }
+            Either3::Second(_) => {
+                motor.set_speed(0.0, 0.0).await;
+                defmt::warn!("STOP inner loop -> exit");
+                return;    // Stop inner loop, stop trajectory following task, back to menu
+            }
+            Either3::Third(_) => {
+                motor.set_speed(0.0, 0.0).await;
+                loop {
+                    match select(TRAJ_RESUME_SIG.wait(), STOP_WHEEL_INNER_SIG.wait()).await {
+                        Either::First(_) => break,        // back to normal loop
+                        Either::Second(_) => {
+                            motor.set_speed(0.0, 0.0).await;
+                            return;
+                        }
+                    }
+                }
+                continue;
+            }
         }
 
         while let Ok(cmd) = WHEEL_CMD_CH.try_receive() {
@@ -445,7 +497,7 @@ pub async fn wheel_speed_inner_loop(
         let ((omega_l_raw, omega_r_raw), (ln, rn)) = wheel_speed_from_counts_now(
             left_counter,
             right_counter,
-            ENCODER_CPR,
+            robot_cfg.encoder_cpr,
             prev_l,
             prev_r,
             dt,
@@ -476,8 +528,8 @@ pub async fn wheel_speed_inner_loop(
         let u_l = (kp * el + il + kd * dl).clamp(-1.0, 1.0);
         let u_r = (kp * er + ir + kd * dr).clamp(-1.0, 1.0);
 
-        let duty_l = u_l * MOTOR_DIRECTION_LEFT;
-        let duty_r = u_r * MOTOR_DIRECTION_RIGHT;
+        let duty_l = u_l * robot_cfg.motor_direction_left;
+        let duty_r = u_r * robot_cfg.motor_direction_right;
 
         // defmt::info!(
         //     "{}, {}, meas ω L: {}, R: {}, duty L: {}, duty R: {}",
@@ -493,6 +545,435 @@ pub async fn wheel_speed_inner_loop(
     }
 }
 
+// Command-controlled trajectory following for gain tunning
+async fn execute_trajectory_loop_with_control_from_sdcard(
+    mode: ControlMode,
+    robot: &mut DiffdriveCascade,
+    controller: &mut DiffdriveControllerCascade,
+    // sdlogger: &mut Option<SdLogger>,
+    robot_cfg: &RobotConfig,
+) -> TrajectoryResult {
+    /* ========================= Load trajectory points ============================ */
+    let (states, actions) = {
+        let g = TRAJ_REF.lock().await;
+        let t = g.borrow();
+        let tr = t.as_ref().expect("Trajectory is not set");
+        (&tr.states, &tr.actions)
+    };
+
+    let len = core::cmp::min(states.len(), actions.len());
+    defmt::info!("Starting control task with {} states and actions", len);
+    /* ============================================================================= */
+
+    /* ============================== Setup Ticker ================================= */
+    let mut ticker = Ticker::every(Duration::from_millis(
+        (robot_cfg.traj_following_dt_s * 1000.0) as u64,
+    ));
+    /* ============================================================================= */
+
+    /* ================ Record First Pose w.r.t the selected mode ================== */
+    // let mut first_pose: PoseAbs = PoseAbs {
+    //     x: 0.0,
+    //     y: 0.0,
+    //     z: 0.0,
+    //     roll: 0.0,
+    //     pitch: 0.0,
+    //     yaw: 0.0,
+    // };
+
+    // Timer::after_millis(100).await; // Wait until the first pose comes
+    // match mode {
+    //     ControlMode::WithMocapController => {
+    //         // Initialize first pose from mocap
+    //         first_pose = {
+    //             let s = LAST_STATE.lock().await;
+    //             *s
+    //         };
+    //     }
+    //     ControlMode::DirectDuty => {
+    //         info!("Using direct duty control, initial pose (0, 0, 0)");
+    //     }
+    // }
+    /* ============================================================================= */
+
+    /* ======================== Get precise start time ============================= */
+    let start = Instant::now();
+    /* ============================================================================= */
+
+    loop {
+        /* ======== wait for either the timer tick or a trajectory command ========= */
+        let either_result =
+            embassy_futures::select::select(ticker.next(), TRAJECTORY_CONTROL_EVENT.wait()).await;
+
+        match either_result {
+            embassy_futures::select::Either::First(_) => {
+                // timer tick: normal loop execution
+            }
+            embassy_futures::select::Either::Second(command) => {
+                // command received during trajectory execution
+                if !command {
+                    // Stop command - immediately stop motors
+                    let _ = WHEEL_CMD_CH.try_send(WheelCmd {
+                        omega_l: 0.0,
+                        omega_r: 0.0,
+                        stamp: Instant::now(),
+                    });
+                    defmt::info!("Stopping trajectory by command");
+                    return TrajectoryResult::Stopped;
+                }
+            }
+        }
+
+        // in case a stop was requested
+        if STOP_ALL.load(Ordering::Relaxed) {
+            let _ = WHEEL_CMD_CH.try_send(WheelCmd {
+                omega_l: 0.0,
+                omega_r: 0.0,
+                stamp: Instant::now(),
+            });
+            defmt::info!("Trajectory stopped via STOP_ALL");
+            break;
+        }
+        /* ========================================================================= */
+
+        /* ========================= Get robot pose ================================ */
+        let pose = {
+            let s = LAST_STATE.lock().await;
+            *s
+        };
+        /* ========================================================================= */
+
+        /* ====================== Current elapsed time ============================= */
+        let t = Instant::now() - start;
+        let t_sec = t.as_millis() as f32 / 1000.0;
+        let t_ms = t.as_millis() as u32;
+        /* ========================================================================= */
+
+        /* ============= get corresponding reference state and action ============== */
+        let mut i = (t_sec / robot_cfg.traj_following_dt_s) as usize;
+        if i >= len {
+            i = len - 1;
+        }
+
+        let Pose {
+            x: x_d,
+            y: y_d,
+            yaw: theta_d,
+        } = states[i + 1];
+        let Action { v: vd, omega: wd } = actions[i]; // only n-1 actions(n states, i starts from 1)
+        /* ========================================================================= */
+
+        /* =================== Create Setpoint from reference ====================== */
+        let setpoint = DiffdriveSetpointCascade {
+            des: DiffdriveStateCascade {
+                x: x_d,
+                y: y_d,
+                theta: SO2::new(theta_d),
+            },
+            vdes: vd,
+            wdes: wd,
+        };
+
+        info!(
+            "setpoint: x = {}, y = {}, theta = {}, v = {}, w = {}",
+            setpoint.des.x,
+            setpoint.des.y,
+            setpoint.des.theta.rad(),
+            setpoint.vdes,
+            setpoint.wdes
+        );
+        /* ========================================================================= */
+
+        robot.s.x = pose.x;
+        robot.s.y = pose.y;
+        robot.s.theta = SO2::new(pose.yaw);
+
+        let (ul, ur, x_error, y_error, theta_error);
+
+        match mode {
+            ControlMode::WithMocapController => {
+                info!("Mocap Control Mode");
+                let (action, x_e, y_e, yaw_e) = controller.control(&robot, setpoint);
+                ul = action.ul;
+                ur = action.ur;
+                x_error = x_e;
+                y_error = y_e;
+                theta_error = yaw_e;
+
+                while WHEEL_CMD_CH.try_receive().is_ok() {} //drain old commands
+                let _ = WHEEL_CMD_CH.try_send(WheelCmd {
+                    omega_l: ul,
+                    omega_r: ur,
+                    stamp: Instant::now(),
+                });
+            }
+            ControlMode::DirectDuty => {
+                let w_rad = setpoint.wdes;
+                let vd = setpoint.vdes;
+
+                ur = (2.0 * vd + robot_cfg.k_clip * robot_cfg.wheel_base * w_rad)
+                    / (2.0 * robot_cfg.wheel_radius);
+                ul = (2.0 * vd - robot_cfg.k_clip * robot_cfg.wheel_base * w_rad)
+                    / (2.0 * robot_cfg.wheel_radius);
+                x_error = 0.0;
+                y_error = 0.0;
+                theta_error = 0.0;
+
+                while WHEEL_CMD_CH.try_receive().is_ok() {} // drain old commands
+                let _ = WHEEL_CMD_CH.try_send(WheelCmd {
+                    omega_l: ul,
+                    omega_r: ur,
+                    stamp: Instant::now(),
+                });
+            }
+        }
+
+        // Log trajectory control
+        let log: TrajControlLog = TrajControlLog {
+            timestamp_ms: t_ms,
+            target_x: setpoint.des.x,
+            target_y: setpoint.des.y,
+            target_theta: setpoint.des.theta.rad(),
+            actual_x: robot.s.x,
+            actual_y: robot.s.y,
+            actual_theta: robot.s.theta.rad(),
+            target_vx: setpoint.vdes,
+            target_vy: 0.0,
+            target_vz: 0.0,
+            actual_vx: 0.0,
+            actual_vy: 0.0,
+            actual_vz: 0.0,
+            target_qw: setpoint.des.theta.cos(),
+            target_qx: 0.0,
+            target_qy: 0.0,
+            target_qz: setpoint.des.theta.sin(),
+            actual_qw: robot.s.theta.cos(),
+            actual_qx: 0.0,
+            actual_qy: 0.0,
+            actual_qz: robot.s.theta.sin(),
+            xerror: x_error,
+            yerror: y_error,
+            thetaerror: theta_error,
+            ul: ul,
+            ur: ur,
+            dutyl: 0.0,
+            dutyr: 0.0,
+        };
+
+        let _ = with_sdlogger(|logger| {
+            logger.log_traj_control_as_csv(&log);
+            logger.flush();
+        }).await;
+
+        // if let Some(logger) = sdlogger {
+        //     logger.log_traj_control_as_csv(&log);
+        //     logger.flush();
+        // }
+
+        let w_deg = setpoint.wdes * 180.0 / PI;
+        defmt::info!(
+            "t={}s, pos=({},{},{}), posd=({},{},{}), v={}, w={}rad/s ({}deg/s), u=({},{}), (xerr,yerr,theterr)=({},{},{})",
+            t_sec,
+            pose.x,
+            pose.y,
+            pose.yaw,
+            setpoint.des.x,
+            setpoint.des.y,
+            setpoint.des.theta.rad(),
+            setpoint.vdes,
+            setpoint.wdes,
+            w_deg,
+            ul,
+            ur,
+            x_error,
+            y_error,
+            theta_error
+        );
+
+        if t_sec >= (robot_cfg.traj_following_dt_s * (len as f32)) {
+            //stop motors
+            let _ = WHEEL_CMD_CH.try_send(WheelCmd {
+                omega_l: 0.0,
+                omega_r: 0.0,
+                stamp: Instant::now(),
+            });
+            defmt::info!("Trajectory complete after {}s", t_sec);
+            return TrajectoryResult::Completed;
+        }
+    }
+
+    //ensure motors are stopped (check logic again ...)
+    let _ = WHEEL_CMD_CH.try_send(WheelCmd {
+        omega_l: 0.0,
+        omega_r: 0.0,
+        stamp: Instant::now(),
+    });
+
+    TrajectoryResult::Stopped
+}
+
+// Command-controlled trajectory following from SDCard
+#[embassy_executor::task]
+pub async fn diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
+    mode: ControlMode,
+    // mut sdlogger: Option<SdLogger>,
+    // led_device: Option<led::Led>,
+    cfg: Option<RobotConfig>,
+) {
+    // ============ Robot Configuration ==========
+    let robot_cfg: RobotConfig;
+    if let Some(_) = cfg {
+        defmt::info!("Load Robot Params from SD CARD!");
+        robot_cfg = cfg.unwrap();
+    } else {
+        defmt::info!("Load Robot Params from DEFAULT!");
+        robot_cfg = RobotConfig::default();
+    }
+
+    // ============ Initialize robot model =========
+    defmt::info!("Initializing command-controlled diffdrive robot model");
+    defmt::info!(
+        "Wheel radius[m]: {}, Wheel base[m]: {}, Wheel rotate speed max[rad/s]: {}",
+        robot_cfg.wheel_radius,
+        robot_cfg.wheel_base,
+        robot_cfg.wheel_max,
+    );
+    let mut robot = DiffdriveCascade::new(
+        robot_cfg.wheel_radius,
+        robot_cfg.wheel_base,
+        -robot_cfg.wheel_max,
+        robot_cfg.wheel_max,
+        -robot_cfg.wheel_max,
+        robot_cfg.wheel_max,
+    );
+
+    // Initialize controller
+    let mut controller = DiffdriveControllerCascade::new(
+        robot_cfg.kx_traj,
+        robot_cfg.ky_traj,
+        robot_cfg.ktheta_traj,
+    );
+
+    // Initialize logger
+    let _ = with_sdlogger(|logger| logger.write_traj_control_header()).await;
+    // if let Some(ref mut logger) = sdlogger {
+    //     logger.write_traj_control_header();
+    // }
+
+    defmt::info!("Waiting for trajectory control commands...");
+    defmt::info!("Commands: 't' = start, 's' = stop");
+
+    loop {
+        // If user request stop task, stop immediately
+        let start_fut = TRAJ_RESUME_SIG.wait();
+        let pause_fut = TRAJ_PAUSE_SIG.wait();
+        let stop_fut = STOP_TRAJ_OUTER_SIG.wait();
+
+        match select3(start_fut, stop_fut, pause_fut).await {
+            // STRAT/RESTART
+            Either3::First(start) => {
+                if !start {
+                    continue;
+                }
+                defmt::info!("Starting trajectory!");
+                led_set(true).await;
+            }
+            Either3::Second(_) => {
+                defmt::warn!("STOP outer loop -> exit");
+                led_set(false).await;
+                return;
+            }
+            Either3::Third(_) => {
+                defmt::warn!("PAUSE (idle) -> wait RESUME/STOP");
+                led_set(false).await;
+                loop {
+                    match select(TRAJ_RESUME_SIG.wait(), STOP_TRAJ_OUTER_SIG.wait()).await {
+                        Either::First(_) => { 
+                            defmt::info!("RESUME(idle)"); 
+                            break;
+                        }
+                        Either::Second(_) => {
+                            defmt::warn!("STOP outer loop (idle) -> exit");
+                        }
+                    }
+                }
+                continue;
+            }
+        }
+
+        
+
+        let exec_fut = execute_trajectory_loop_with_control_from_sdcard(
+            mode,
+            &mut robot,
+            &mut controller,
+            &robot_cfg,
+        );
+        let stop_fut = STOP_TRAJ_OUTER_SIG.wait();
+        let pause_fut = TRAJ_PAUSE_SIG.wait();
+
+        match select3(exec_fut, stop_fut, pause_fut).await {
+            Either3::First(result) => {
+                match result {
+                    TrajectoryResult::Completed => {
+                        defmt::info!("Trajectory completed.");
+                    },
+                    TrajectoryResult::Stopped   => {
+                        defmt::info!("Trajectory stopped internally.");
+                    }
+                }
+                led_set(false).await;
+            }
+            Either3::Second(_) => {
+                defmt::warn!("STOP outer during exec -> exit");
+                led_set(false).await;
+                return;
+            }
+            Either3::Third(_) => {
+                defmt::info!("PAUSE outer during exec -> wait RESUME/STOP");
+                led_set(false).await;
+                loop {
+                    match select(TRAJ_RESUME_SIG.wait(), STOP_TRAJ_OUTER_SIG.wait()).await {
+                        Either::First(_) => {
+                            defmt::info!("RESUME outer -> restart exec loop");
+                            led_set(true).await;
+                            break;
+                        }
+                        Either::Second(_) => {
+                            defmt::warn!("STOP outer during pause -> exit");
+                            return;
+                        }
+                    }
+                }
+                continue;
+            }
+        }
+        defmt::info!("Waiting for next command...");
+    }
+}
+
+/// Mocap Update Signal
+#[embassy_executor::task]
+pub async fn mocap_update_task() {
+    loop {
+        match select(STATE_SIG.wait(), STOP_MOCAP_UPDATE_SIG.wait()).await {
+            Either::First(new_pose) => {
+                let mut s = LAST_STATE.lock().await;
+                *s = new_pose;
+            }
+
+            Either::Second(_) => {
+                defmt::info!("mocap_update_task stopped by STOP_MOCAP_UPDATE_SIG");
+                return;
+            }
+        }
+    }
+}
+
+/* ===================================================================================== */
+
+
+/* ========================== Not use or abandoned ==================================== */
 // Outer Loop
 #[embassy_executor::task]
 pub async fn diffdrive_outer_loop(
@@ -1708,365 +2189,4 @@ async fn execute_trajectory_loop_with_control_for_tuning(
     TrajectoryResult::Stopped
 }
 
-// Command-controlled trajectory following for gain tunning
-async fn execute_trajectory_loop_with_control_from_sdcard(
-    mode: ControlMode,
-    robot: &mut DiffdriveCascade,
-    controller: &mut DiffdriveControllerCascade,
-    sdlogger: &mut Option<SdLogger>,
-    robot_cfg: &RobotConfig,
-) -> TrajectoryResult {
-    /* ========================= Load trajectory points ============================ */
-    let (states, actions) = {
-        let g = TRAJ_REF.lock().await;
-        let t = g.borrow();
-        let tr = t.as_ref().expect("Trajectory is not set");
-        (&tr.states, &tr.actions)
-    };
 
-    let len = core::cmp::min(states.len(), actions.len());
-    defmt::info!("Starting control task with {} states and actions", len);
-    /* ============================================================================= */
-
-    /* ============================== Setup Ticker ================================= */
-    let mut ticker = Ticker::every(Duration::from_millis(
-        (robot_cfg.traj_following_dt_s * 1000.0) as u64,
-    ));
-    /* ============================================================================= */
-
-    /* ================ Record First Pose w.r.t the selected mode ================== */
-    // let mut first_pose: PoseAbs = PoseAbs {
-    //     x: 0.0,
-    //     y: 0.0,
-    //     z: 0.0,
-    //     roll: 0.0,
-    //     pitch: 0.0,
-    //     yaw: 0.0,
-    // };
-
-    // Timer::after_millis(100).await; // Wait until the first pose comes
-    // match mode {
-    //     ControlMode::WithMocapController => {
-    //         // Initialize first pose from mocap
-    //         first_pose = {
-    //             let s = LAST_STATE.lock().await;
-    //             *s
-    //         };
-    //     }
-    //     ControlMode::DirectDuty => {
-    //         info!("Using direct duty control, initial pose (0, 0, 0)");
-    //     }
-    // }
-    /* ============================================================================= */
-
-    /* ======================== Get precise start time ============================= */
-    let start = Instant::now();
-    /* ============================================================================= */
-
-    loop {
-        /* ======== wait for either the timer tick or a trajectory command ========= */
-        let either_result =
-            embassy_futures::select::select(ticker.next(), TRAJECTORY_CONTROL_EVENT.wait()).await;
-
-        match either_result {
-            embassy_futures::select::Either::First(_) => {
-                // timer tick: normal loop execution
-            }
-            embassy_futures::select::Either::Second(command) => {
-                // command received during trajectory execution
-                if !command {
-                    // Stop command - immediately stop motors
-                    let _ = WHEEL_CMD_CH.try_send(WheelCmd {
-                        omega_l: 0.0,
-                        omega_r: 0.0,
-                        stamp: Instant::now(),
-                    });
-                    defmt::info!("Stopping trajectory by command");
-                    return TrajectoryResult::Stopped;
-                }
-            }
-        }
-
-        // in case a stop was requested
-        if STOP_ALL.load(Ordering::Relaxed) {
-            let _ = WHEEL_CMD_CH.try_send(WheelCmd {
-                omega_l: 0.0,
-                omega_r: 0.0,
-                stamp: Instant::now(),
-            });
-            defmt::info!("Trajectory stopped via STOP_ALL");
-            break;
-        }
-        /* ========================================================================= */
-
-        /* ========================= Get robot pose ================================ */
-        let pose = {
-            let s = LAST_STATE.lock().await;
-            *s
-        };
-        /* ========================================================================= */
-
-        /* ====================== Current elapsed time ============================= */
-        let t = Instant::now() - start;
-        let t_sec = t.as_millis() as f32 / 1000.0;
-        let t_ms = t.as_millis() as u32;
-        /* ========================================================================= */
-
-        /* ============= get corresponding reference state and action ============== */
-        let mut i = (t_sec / robot_cfg.traj_following_dt_s) as usize;
-        if i >= len {
-            i = len - 1;
-        }
-
-        let Pose {
-            x: x_d,
-            y: y_d,
-            yaw: theta_d,
-        } = states[i + 1];
-        let Action { v: vd, omega: wd } = actions[i]; // only n-1 actions(n states, i starts from 1)
-        /* ========================================================================= */
-
-        /* =================== Create Setpoint from reference ====================== */
-        let setpoint = DiffdriveSetpointCascade {
-            des: DiffdriveStateCascade {
-                x: x_d,
-                y: y_d,
-                theta: SO2::new(theta_d),
-            },
-            vdes: vd,
-            wdes: wd,
-        };
-
-        info!(
-            "setpoint: x = {}, y = {}, theta = {}, v = {}, w = {}",
-            setpoint.des.x,
-            setpoint.des.y,
-            setpoint.des.theta.rad(),
-            setpoint.vdes,
-            setpoint.wdes
-        );
-        /* ========================================================================= */
-
-        robot.s.x = pose.x;
-        robot.s.y = pose.y;
-        robot.s.theta = SO2::new(pose.yaw);
-
-        let (ul, ur, x_error, y_error, theta_error);
-
-        match mode {
-            ControlMode::WithMocapController => {
-                info!("Mocap Control Mode");
-                let (action, x_e, y_e, yaw_e) = controller.control(&robot, setpoint);
-                ul = action.ul;
-                ur = action.ur;
-                x_error = x_e;
-                y_error = y_e;
-                theta_error = yaw_e;
-
-                while WHEEL_CMD_CH.try_receive().is_ok() {} //drain old commands
-                let _ = WHEEL_CMD_CH.try_send(WheelCmd {
-                    omega_l: ul,
-                    omega_r: ur,
-                    stamp: Instant::now(),
-                });
-            }
-            ControlMode::DirectDuty => {
-                let w_rad = setpoint.wdes;
-                let vd = setpoint.vdes;
-
-                ur = (2.0 * vd + robot_cfg.k_clip * robot_cfg.wheel_base * w_rad)
-                    / (2.0 * robot_cfg.wheel_radius);
-                ul = (2.0 * vd - robot_cfg.k_clip * robot_cfg.wheel_base * w_rad)
-                    / (2.0 * robot_cfg.wheel_radius);
-                x_error = 0.0;
-                y_error = 0.0;
-                theta_error = 0.0;
-
-                while WHEEL_CMD_CH.try_receive().is_ok() {} // drain old commands
-                let _ = WHEEL_CMD_CH.try_send(WheelCmd {
-                    omega_l: ul,
-                    omega_r: ur,
-                    stamp: Instant::now(),
-                });
-            }
-        }
-
-        // Log trajectory control
-        let log: TrajControlLog = TrajControlLog {
-            timestamp_ms: t_ms,
-            target_x: setpoint.des.x,
-            target_y: setpoint.des.y,
-            target_theta: setpoint.des.theta.rad(),
-            actual_x: robot.s.x,
-            actual_y: robot.s.y,
-            actual_theta: robot.s.theta.rad(),
-            target_vx: setpoint.vdes,
-            target_vy: 0.0,
-            target_vz: 0.0,
-            actual_vx: 0.0,
-            actual_vy: 0.0,
-            actual_vz: 0.0,
-            target_qw: setpoint.des.theta.cos(),
-            target_qx: 0.0,
-            target_qy: 0.0,
-            target_qz: setpoint.des.theta.sin(),
-            actual_qw: robot.s.theta.cos(),
-            actual_qx: 0.0,
-            actual_qy: 0.0,
-            actual_qz: robot.s.theta.sin(),
-            xerror: x_error,
-            yerror: y_error,
-            thetaerror: theta_error,
-            ul: ul,
-            ur: ur,
-            dutyl: 0.0,
-            dutyr: 0.0,
-        };
-
-        if let Some(logger) = sdlogger {
-            logger.log_traj_control_as_csv(&log);
-            logger.flush();
-        }
-
-        let w_deg = setpoint.wdes * 180.0 / PI;
-        defmt::info!(
-            "t={}s, pos=({},{},{}), posd=({},{},{}), v={}, w={}rad/s ({}deg/s), u=({},{}), (xerr,yerr,theterr)=({},{},{})",
-            t_sec,
-            pose.x,
-            pose.y,
-            pose.yaw,
-            setpoint.des.x,
-            setpoint.des.y,
-            setpoint.des.theta.rad(),
-            setpoint.vdes,
-            setpoint.wdes,
-            w_deg,
-            ul,
-            ur,
-            x_error,
-            y_error,
-            theta_error
-        );
-
-        if t_sec >= (robot_cfg.traj_following_dt_s * (len as f32)) {
-            //stop motors
-            let _ = WHEEL_CMD_CH.try_send(WheelCmd {
-                omega_l: 0.0,
-                omega_r: 0.0,
-                stamp: Instant::now(),
-            });
-            defmt::info!("Trajectory complete after {}s", t_sec);
-            return TrajectoryResult::Completed;
-        }
-    }
-
-    //ensure motors are stopped (check logic again ...)
-    let _ = WHEEL_CMD_CH.try_send(WheelCmd {
-        omega_l: 0.0,
-        omega_r: 0.0,
-        stamp: Instant::now(),
-    });
-
-    TrajectoryResult::Stopped
-}
-
-// Command-controlled trajectory following from SDCard
-#[embassy_executor::task]
-pub async fn diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
-    mode: ControlMode,
-    mut sdlogger: Option<SdLogger>,
-    mut led: led::Led,
-    cfg: Option<RobotConfig>,
-) {
-    // ============ Robot Configuration ==========
-    let robot_cfg: RobotConfig;
-    if let Some(_) = cfg {
-        defmt::info!("Load Robot Params from SD CARD!");
-        robot_cfg = cfg.unwrap();
-    } else {
-        defmt::info!("Load Robot Params from DEFAULT!");
-        robot_cfg = RobotConfig::default();
-    }
-
-    // ============ Initialize robot model =========
-    defmt::info!("Initializing command-controlled diffdrive robot model");
-    defmt::info!(
-        "Wheel radius[m]: {}, Wheel base[m]: {}, Wheel rotate speed max[rad/s]: {}",
-        robot_cfg.wheel_radius,
-        robot_cfg.wheel_base,
-        robot_cfg.wheel_max,
-    );
-    let mut robot = DiffdriveCascade::new(
-        robot_cfg.wheel_radius,
-        robot_cfg.wheel_base,
-        -robot_cfg.wheel_max,
-        robot_cfg.wheel_max,
-        -robot_cfg.wheel_max,
-        robot_cfg.wheel_max,
-    );
-
-    // Initialize controller
-    let mut controller = DiffdriveControllerCascade::new(
-        robot_cfg.kx_traj,
-        robot_cfg.ky_traj,
-        robot_cfg.ktheta_traj,
-    );
-
-    // Initialize logger
-    if let Some(ref mut logger) = sdlogger {
-        logger.write_traj_control_header();
-    }
-
-    defmt::info!("Waiting for trajectory control commands...");
-    defmt::info!("Commands: 't' = start, 's' = stop");
-
-    loop {
-        // Wait for start command (true)
-        loop {
-            let command = TRAJECTORY_CONTROL_EVENT.wait().await;
-            if command {
-                // Start command received
-                defmt::info!("Starting trajectory following from command!");
-                led.on();
-                STOP_ALL.store(false, Ordering::Relaxed);
-                break;
-            } else {
-                // Stop command received while not running - ignore
-                defmt::info!("Stop command received while not running - ignoring");
-            }
-        }
-
-        // Execute trajectory until stop command, completion, or restart
-        let result = execute_trajectory_loop_with_control_from_sdcard(
-            mode,
-            &mut robot,
-            &mut controller,
-            &mut sdlogger,
-            &robot_cfg,
-        )
-        .await;
-
-        match result {
-            TrajectoryResult::Completed => {
-                defmt::info!("Trajectory completed - waiting for next command");
-                led.off();
-                // Loop back to wait for next start command
-            }
-            TrajectoryResult::Stopped => {
-                defmt::info!("Trajectory stopped by command");
-                led.off();
-                // Loop back to wait for next start command
-            }
-        }
-    }
-}
-
-/// Mocap Update Signal
-#[embassy_executor::task]
-pub async fn mocap_update_task() {
-    loop {
-        let new_pose = STATE_SIG.wait().await;
-        let mut s = LAST_STATE.lock().await;
-        *s = new_pose;
-    }
-}

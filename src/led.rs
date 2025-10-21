@@ -1,7 +1,9 @@
-#![allow(dead_code)]
-
 use embassy_rp::gpio::Output;
+use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex as Raw;
+use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Timer};
+
+pub static LED_SHARED: Mutex<Raw, Option<Led>> = Mutex::new(None);
 
 pub struct Led {
     pin: Output<'static>,

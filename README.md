@@ -151,7 +151,8 @@ Then:
 
 ```bash
 # Examples:
-./run                    # Default config, main binary
+./run                   # Default config, main binary\
+./run 3pi menu          # 3Pi config, functionality select menu
 ./run zumo              # Zumo config, main binary
 ./run zumo teleop       # Zumo config, teleop_control binary
 ./run 3pi trajectory    # 3Pi config, trajectory_following binary
@@ -173,14 +174,14 @@ This firmware supports both **Zumo** and **3Pi** robots with different physical 
 ### Robot Configurations
 
 #### Zumo Robot (`--features zumo`)
-- **Gear Ratio**: 75.81
+- **Gear Ratio**: 100.31
 - **Wheel Radius**: 0.02m
 - **Wheel Base**: 0.099m
 - **Motor Direction**: Reversed (`-duty_left`, `-duty_right`)
 - **Encoder CPR**:  1203.72 (100.31 × 12.0)
 
 #### 3Pi Robot (`--features 3pi`)
-- **Gear Ratio**: 29.86
+- **Gear Ratio**: 15.25
 - **Wheel Radius**: 0.016m
 - **Wheel Base**: 0.0842m
 - **Motor Direction**: Normal (`duty_left`, `duty_right`)

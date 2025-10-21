@@ -9,7 +9,8 @@ use embassy_rp::init;
 use pololu3pi2040_rs::{
     encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     init::init_all,
-    joystick_control::{get_gear_ratio, motor_control_task, robot_command_control_task},
+    joystick_control::{get_gear_ratio, teleop_motor_control_task, teleop_uart_task},
+    trajectory_uart::UartCfg,
 };
 
 #[embassy_executor::main]
@@ -29,7 +30,7 @@ async fn main(spawner: Spawner) {
 
     // === Robot Configuration Test ===
     // This will show the actual GEAR_RATIO being used at runtime
-    let mut led = devices.led;
+    let mut led = devices.led.unwrap();
 
     // Get the actual gear ratio being used
     let gear_ratio = get_gear_ratio();
@@ -59,7 +60,7 @@ async fn main(spawner: Spawner) {
 
     // === Start Receiving Command ===
     spawner
-        .spawn(robot_command_control_task(devices.uart))
+        .spawn(teleop_uart_task(devices.uart, UartCfg { robot_id: 10 }))
         .unwrap();
 
     // === Start Encoder Task ===
@@ -78,7 +79,7 @@ async fn main(spawner: Spawner) {
 
     // === Start Control Task ===
     spawner
-        .spawn(motor_control_task(
+        .spawn(teleop_motor_control_task(
             devices.motor,
             encoder_count_left,
             encoder_count_right,

@@ -16,7 +16,7 @@ async fn main(spawner: Spawner) {
     let p = init(Default::default());
     let mut devices = init_all(p);
 
-    let led = devices.led;
+    let led = devices.led.unwrap();
     let mut buzzer = devices.buzzer;
     // let mut buzzer = devices.buzzer;
 

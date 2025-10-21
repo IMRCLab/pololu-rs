@@ -109,14 +109,14 @@ pub struct CmdTeleopPacketMix {
 
 impl CmdTeleopPacketMix {
     pub fn from_bytes(data: &[u8]) -> Option<Self> {
-        if data.len() != 10 {
+        if data.len() != 9 {
             warn!("Invalid Teleop packet length");
             return None;
         }
         Some(Self {
-            header: data[1],
-            linear_velocity: f32::from_le_bytes([data[2], data[3], data[4], data[5]]),
-            steering_angle: f32::from_le_bytes([data[6], data[7], data[8], data[9]]),
+            header: data[0],
+            linear_velocity: f32::from_le_bytes([data[1], data[2], data[3], data[4]]),
+            steering_angle: f32::from_le_bytes([data[5], data[6], data[7], data[8]]),
         })
     }
 }

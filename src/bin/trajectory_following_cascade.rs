@@ -16,11 +16,22 @@ use pololu3pi2040_rs::trajectory_uart::{UartCfg, uart_motioncap_receiving_task};
 use pololu3pi2040_rs::{
     encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     // trajectory_control::diffdrive_outer_loop_command_controlled_tuning,
+    led::LED_SHARED,
+    sdlog::SDLOGGER_SHARED,
 };
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
     let p = init(Default::default());
-    let devices = init_all(p);
+    let mut devices = init_all(p);
+
+    if let Some(led_dev) = devices.led.take() {
+        let mut g = LED_SHARED.lock().await;
+        *g = Some(led_dev);
+    }
+    if let Some(sd) = devices.sdlogger.take() {
+        let mut g = SDLOGGER_SHARED.lock().await;
+        *g = Some(sd);
+    }
 
     Timer::after_millis(3000).await;
 
@@ -62,6 +73,7 @@ async fn main(spawner: Spawner) {
             devices.motor,
             encoder_count_left,
             encoder_count_right,
+            devices.config,
         ))
         .unwrap();
     // ================================================================================================================
@@ -83,8 +95,6 @@ async fn main(spawner: Spawner) {
             diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
                 // ControlMode::DirectDuty,
                 ControlMode::WithMocapController,
-                devices.sdlogger,
-                devices.led,
                 devices.config,
             ),
         )

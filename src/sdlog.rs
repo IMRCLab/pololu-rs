@@ -7,6 +7,8 @@ use embassy_rp::{
     peripherals::{PIN_18, PIN_19, PIN_20, PIN_21, SPI0},
     spi::{self, Spi},
 };
+use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex as Raw;
+use embassy_sync::mutex::Mutex;
 use embassy_time::Delay;
 use embedded_hal_bus::spi::{ExclusiveDevice, NoDelay};
 use embedded_sdmmc::{
@@ -26,6 +28,8 @@ pub type Clock = DummyClock;
 const MAX_DIRS: usize = 4;
 const MAX_FILES: usize = 4;
 const MAX_VOLUMES: usize = 1;
+
+pub static SDLOGGER_SHARED: Mutex<Raw, Option<SdLogger>> = Mutex::new(None);
 
 // === Time Resources ===
 pub struct DummyClock;

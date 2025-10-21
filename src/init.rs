@@ -38,7 +38,7 @@ static I2C_CELL: StaticCell<Mutex<ThreadModeRawMutex, I2c<'static, I2C0, i2c::As
     StaticCell::new();
 
 pub struct InitDevices<'a> {
-    pub led: Led,
+    pub led: Option<Led>,
     pub buzzer: Buzzer,
     pub buttons: Buttons,
     pub motor: MotorController,
@@ -54,7 +54,7 @@ pub struct InitDevices<'a> {
 pub fn init_all(p: embassy_rp::Peripherals) -> InitDevices<'static> {
     // === LED Initialization ===
     let led_pin = Output::new(p.PIN_25, Level::Low);
-    let led = Led::new(led_pin);
+    let led = Some(Led::new(led_pin));
 
     // === Buzzer Initialization ===
     let buzzer_pin = Output::new(p.PIN_7, Level::High);
