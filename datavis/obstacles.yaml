@@ -1,0 +1,11 @@
+obstacles:
+  - center: [0.5, 0.5]
+    size: [0.3, 0.3]
+    type: box
+    color: red
+    alpha: 0.7
+  - center: [-0.2, 0.8]
+    size: [0.2, 0.4]
+    type: box
+    color: blue
+    alpha: 0.5

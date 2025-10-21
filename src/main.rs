@@ -127,6 +127,9 @@ async fn main(spawner: Spawner) {
         set_wheel_speed(0.5, 0.0).await;
         Timer::after_millis(1000).await;
 
+        set_wheel_speed(-0.4, 0.0).await;
+        Timer::after_millis(1000).await;
+
         // Step 3: Set back to zero for 4 seconds
         defmt::info!("=== Step 3: Back to zero for 4 seconds ===");
         set_wheel_speed(0.0, 0.0).await;

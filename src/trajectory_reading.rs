@@ -4,7 +4,7 @@ use heapless::Vec;
 use serde::Deserialize;
 
 // Could not be too large, should use static memory to support longer trajectory
-pub const MAX_POINTS: usize = 128;
+pub const MAX_POINTS: usize = 200;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Pose {

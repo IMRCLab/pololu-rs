@@ -6,6 +6,7 @@ use crate::robot_parameters_default::robot_constants::*;
 
 #[derive(Clone, Copy, Debug, defmt::Format)]
 pub struct RobotConfig {
+    pub robot_id: u8,
     pub joystick_control_dt_ms: u64,
     pub traj_following_dt_s: f32,
     pub wheel_radius: f32,
@@ -31,6 +32,7 @@ pub struct RobotConfig {
 impl Default for RobotConfig {
     fn default() -> Self {
         Self {
+            robot_id: 7,
             joystick_control_dt_ms: JOYSTICK_CONTROL_DT, // Should be a integer but written in f32
             traj_following_dt_s: TRAJ_FOLLOWING_DT_S,
             wheel_radius: WHEEL_RADIUS,
@@ -102,6 +104,11 @@ pub fn parse_robot_config_from_bytes(buf: &[u8]) -> RobotConfig {
             let parse_u64 = |s: &str| -> Option<u64> { s.parse::<u64>().ok() };
 
             match k {
+                "robot_id" => {
+                    if let Some(x) = parse_u64(v) {
+                        cfg.joystick_control_dt_ms = x;
+                    }
+                }
                 "joystick_control_dt_ms" => {
                     if let Some(x) = parse_u64(v) {
                         cfg.joystick_control_dt_ms = x;
