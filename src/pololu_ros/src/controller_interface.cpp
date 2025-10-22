@@ -533,7 +533,7 @@ private:
 
         connection_[robot_id]->send(PacketUtils::cmdTrajectoryControlStartStop(robot_ids_[robot_id], 0));
         RCLCPP_INFO(logger_, "Sent STOP command to robot %d", robot_id + 1);
-        robot_running[robot_id] = false;
+        //robot_running[robot_id] = false;
         teleop_activated[robot_id] = false; //deactivate teleop always when stopping the robot
     }
 
