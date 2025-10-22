@@ -68,7 +68,7 @@ note: when stopping the robot, the program must be quit for each robot with the 
 #### Teleop Control
 - **Left Stick**: Control selected robot when in teleop mode
   - Vertical axis: Linear velocity (forward/backward)
-  **Right Stick**: Steering control
+- **Right Stick**: Steering control
   - Horizontal axis: Steering angle (left/right)
 
 ### Available Programs
