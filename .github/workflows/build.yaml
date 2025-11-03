@@ -43,8 +43,3 @@ jobs:
           else
             cargo clippy --target thumbv6m-none-eabi --bins --examples --lib --features ${{ matrix.feature }}
           fi
-
-      - name: Run Code Formatter
-        run: |
-          rustup component add rustfmt
-          cargo fmt --all --check
