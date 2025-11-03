@@ -364,7 +364,7 @@ Take Polulu 3Pi as an example, PLEASE FOLLOW THE STEPS:
 - Then we can use the joystick to teleoperate different robots.
   
 
-## Tele-Operation
+## Trajectory Following
 Also take Polulu 3Pi as an example, PLEASE FOLLOW THE STEPS:
 - Prepare the Robots:
   - Prepare the nRF Dongle and write down the address for the robot(if multiple dongles are running together then each dongle should have different address)
