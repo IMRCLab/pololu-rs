@@ -383,8 +383,8 @@ Also take Polulu 3Pi as an example, PLEASE FOLLOW THE STEPS:
   - Paste the tuned robot configuration file in folder `cfg` to a micro sd card. Please DO NOT CHANGE the name of the configuration file, the file system depends on the file name to distinguish configuration file from other files.
   - Paste the trajectory file to a micro sd card. Please DO NOT CHANGE the name of the configuration file, the file system depends on the file name to distinguish configuration file from other files.
   - Insert the sd card to the port on the robot.
-- Prepare the Joystick ROS Node:
-  - Connect a Crazyradio 1 and 1 or more joystick onto the PC.
+- Prepare the Trajectory Following ROS Node:
+  - Connect a Crazyradio 1.
   - Change the address for each robot in `ground_robot_ros/src/pololu_ros/config/mocap_broadcast.yaml`.
   - Open ground_robot_ros folder and build the ros2 workspace using:
     ```
@@ -403,7 +403,7 @@ Also take Polulu 3Pi as an example, PLEASE FOLLOW THE STEPS:
 - Run Trajectory:
   - Put the robot on the correct starting position written in the trajectory file. 
   - Press `t` for starting the trajectory(for all robots); Press `s` for stop(for all robots).
-  - The actual trajectory would be saved in a csv file in the sd card, some plotting function is    also provided in folder `datavis`. User could use the following command to plot the trajectories and part of the error w.r.t the given trajectory:
+  - The actual trajectory would be saved in a csv file in the sd card, some plotting function is also provided in folder `datavis`. User could use the following command to plot the trajectories and part of the error w.r.t the given trajectory:
     ```
     python3 my_display.py path/to/your/csv
     ```
