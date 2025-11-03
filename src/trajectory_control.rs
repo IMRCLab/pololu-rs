@@ -31,7 +31,7 @@ use portable_atomic::{AtomicBool, Ordering};
 pub static STOP_ALL: AtomicBool = AtomicBool::new(false);
 
 // =============================== Save Trajectory ================================
-static TRAJ_REF: Mutex<ThreadModeRawMutex, RefCell<Option<&'static Trajectory>>> =
+pub static TRAJ_REF: Mutex<ThreadModeRawMutex, RefCell<Option<&'static Trajectory>>> =
     Mutex::new(RefCell::new(None));
 pub static TRAJ_READY: Signal<ThreadModeRawMutex, ()> = Signal::new();
 static TRAJ_CELL: StaticCell<Trajectory> = StaticCell::new();
@@ -562,7 +562,7 @@ pub async fn diffdrive_outer_loop(
             // initialise first pose from mocap:
             first_pose = {
                 let s = LAST_STATE.lock().await;
-                *s
+                s.pose
             };
         }
         ControlMode::DirectDuty => {
@@ -580,7 +580,7 @@ pub async fn diffdrive_outer_loop(
         // get robot pose
         let pose = {
             let s = LAST_STATE.lock().await;
-            *s
+            s.pose
         };
 
         // current elapsed time
@@ -834,7 +834,7 @@ pub async fn diffdrive_outer_loop_read_traj_from_json(
             // initialise first pose from mocap:
             first_pose = {
                 let s = LAST_STATE.lock().await;
-                *s
+                s.pose
             };
         }
         ControlMode::DirectDuty => {
@@ -852,7 +852,7 @@ pub async fn diffdrive_outer_loop_read_traj_from_json(
         // get robot pose
         let pose = {
             let s = LAST_STATE.lock().await;
-            *s
+            s.pose
         };
 
         // current elapsed time
@@ -1131,7 +1131,8 @@ async fn execute_trajectory_loop_with_control(
             // Initialize first pose from mocap
             first_pose = {
                 let s = LAST_STATE.lock().await;
-                *s
+                //*s; */
+                s.pose.clone()
             };
         }
         ControlMode::DirectDuty => {
@@ -1180,10 +1181,10 @@ async fn execute_trajectory_loop_with_control(
         // Get robot pose
         let pose = {
             let s = LAST_STATE.lock().await;
-            *s
+            s.pose
         };
 
-        // Current elapsed time
+        //---------------------------------------------------------        // Current elapsed time
         let t = Instant::now() - start;
         let t_sec = t.as_millis() as f32 / 1000.0;
         let t_ms = t.as_millis() as u32;
@@ -1483,7 +1484,8 @@ async fn execute_trajectory_loop_with_control_for_tuning(
             // Initialize first pose from mocap
             first_pose = {
                 let s = LAST_STATE.lock().await;
-                *s
+                //*s; */
+                s.pose.clone()
             };
         }
         ControlMode::DirectDuty => {
@@ -1532,7 +1534,7 @@ async fn execute_trajectory_loop_with_control_for_tuning(
         // Get robot pose
         let pose = {
             let s = LAST_STATE.lock().await;
-            *s
+            s.pose
         };
 
         // Current elapsed time
@@ -1802,8 +1804,10 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
         /* ========================= Get robot pose ================================ */
         let pose = {
             let s = LAST_STATE.lock().await;
-            *s
+            s.pose
         };
+
+ 
         /* ========================================================================= */
 
         /* ====================== Current elapsed time ============================= */
@@ -2067,6 +2071,6 @@ pub async fn mocap_update_task() {
     loop {
         let new_pose = STATE_SIG.wait().await;
         let mut s = LAST_STATE.lock().await;
-        *s = new_pose;
+        s.pose = new_pose;
     }
 }

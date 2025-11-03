@@ -7,10 +7,10 @@ use {defmt_rtt as _, panic_probe as _};
 use embassy_executor::Spawner;
 use embassy_rp::init;
 
+use pololu3pi2040_rs::hackathon::hackathon_command_loop;
 use pololu3pi2040_rs::init::init_all;
 use pololu3pi2040_rs::trajectory_control::{
-    ControlMode, diffdrive_outer_loop_command_controlled_traj_following_from_sdcard,
-    mocap_update_task, wheel_speed_inner_loop,
+    ControlMode, mocap_update_task, wheel_speed_inner_loop,
 };
 use pololu3pi2040_rs::trajectory_uart::{UartCfg, uart_motioncap_receiving_task};
 use pololu3pi2040_rs::{
@@ -80,15 +80,13 @@ async fn main(spawner: Spawner) {
     //     .unwrap();
 
     spawner
-        .spawn(
-            diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
-                // ControlMode::DirectDuty,
-                ControlMode::WithMocapController,
-                devices.sdlogger,
-                devices.led,
-                devices.config,
-            ),
-        )
+        .spawn(hackathon_command_loop(
+            // ControlMode::DirectDuty,
+            ControlMode::WithMocapController,
+            devices.sdlogger,
+            devices.led,
+            devices.config,
+        ))
         .unwrap();
 
     // ==================================== End of gain tuning outer loop ============================================

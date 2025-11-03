@@ -29,6 +29,12 @@ path = "src/bin/trajectory_following_diffdrive.rs"
 test = false
 bench = false
 
+[[bin]]
+name = "hackathon"
+path = "src/bin/hackathon.rs"
+test = false
+bench = false
+
 [dependencies]
 cortex-m = { version = "0.7.6" }
 cortex-m-rt = "0.7.3"
@@ -58,7 +64,7 @@ panic-probe = { version = "1.0.0", features = ["print-defmt"] }
 
 static_cell = "2.1"
 portable-atomic = { version = "1.5", features = ["critical-section"] }
-heapless = { version = "0.8", default-features = false, features = ["serde"] }
+heapless = { version = "0.7", default-features = false, features = ["serde"] }
 serde = { version = "1", default-features = false, features = ["derive"] }
 serde-json-core = "0.5"
 

@@ -45,6 +45,7 @@ pub mod buzzer;
 pub mod diffdrive;
 pub mod encoder;
 pub mod encoder_lib;
+pub mod hackathon;
 pub mod imu;
 pub mod init;
 pub mod joystick_control;
