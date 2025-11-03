@@ -3,8 +3,6 @@ use core::cell::RefCell;
 use core::f32::consts::PI;
 use defmt::info;
 use embassy_futures::block_on;
-use embassy_futures::select::Either;
-use embassy_rp::pac::psm::regs::Wdsel;
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, signal::Signal};
@@ -50,10 +48,6 @@ pub fn register_trajectory(traj: &'static Trajectory) {
     })
 }
 
-// ====================== TODO: ===========================
-// (1) add abstraction layer for trajectory selection
-// (2) time to test the position controller with mocap system
-// ====================== TODO: ===========================
 #[derive(Debug, Copy, Clone)]
 pub struct DiffdriveStateCascade {
     pub x: f32,     // m
@@ -164,8 +158,8 @@ impl DiffdriveControllerCascade {
         let w: f32 = setpoint.wdes + setpoint.vdes * (self.ky * yerror + sinf(therror) * self.kth);
 
         // Convert to wheel speeds
-        let ur = (2.0 * v + 1.14 * robot.l * w) / (2.0 * robot.r);
-        let ul = (2.0 * v - 1.14 * robot.l * w) / (2.0 * robot.r);
+        let ur = (2.0 * v + 1.0 * robot.l * w) / (2.0 * robot.r);
+        let ul = (2.0 * v - 1.0 * robot.l * w) / (2.0 * robot.r);
 
         // Return the action and the errors as a tuple
         (DiffdriveActionCascade { ul, ur }, xerror, yerror, therror)
@@ -1574,7 +1568,6 @@ async fn execute_trajectory_loop_with_control_for_tuning(
         //circle demo
         let duration = 4.0;
         let r = 0.3;
-        let wd = 2.0 * PI / duration;
 
         //let setpoint = robot.spinning(duration, t_sec, first_pose.x, first_pose.y, first_pose.yaw);
         // let setpoint =
@@ -1720,14 +1713,14 @@ async fn execute_trajectory_loop_with_control_for_tuning(
     TrajectoryResult::Stopped
 }
 
-async fn execute_trajectory_loop_with_control_from_SDCard(
+async fn execute_trajectory_loop_with_control_from_sdcard(
     mode: ControlMode,
     robot: &mut DiffdriveCascade,
     controller: &mut DiffdriveControllerCascade,
     sdlogger: &mut Option<SdLogger>,
     robot_cfg: &RobotConfig,
 ) -> TrajectoryResult {
-    // =========== Load trajectory points ==========
+    /* ========================= Load trajectory points ============================ */
     let (states, actions) = {
         let g = TRAJ_REF.lock().await;
         let t = g.borrow();
@@ -1737,13 +1730,16 @@ async fn execute_trajectory_loop_with_control_from_SDCard(
 
     let len = core::cmp::min(states.len(), actions.len());
     defmt::info!("Starting control task with {} states and actions", len);
-    // ================ Setup Ticker ===============
+    /* ============================================================================= */
+
+    /* ============================== Setup Ticker ================================= */
     let mut ticker = Ticker::every(Duration::from_millis(
         (robot_cfg.traj_following_dt_s * 1000.0) as u64,
     ));
+    /* ============================================================================= */
 
     /* ================ Record First Pose w.r.t the selected mode ================== */
-    let mut first_pose: PoseAbs = PoseAbs {
+    let mut _first_pose: PoseAbs = PoseAbs {
         x: 0.0,
         y: 0.0,
         z: 0.0,
@@ -1756,7 +1752,7 @@ async fn execute_trajectory_loop_with_control_from_SDCard(
     match mode {
         ControlMode::WithMocapController => {
             // Initialize first pose from mocap
-            first_pose = {
+            _first_pose = {
                 let s = LAST_STATE.lock().await;
                 *s
             };
@@ -1839,9 +1835,9 @@ async fn execute_trajectory_loop_with_control_from_SDCard(
         // let setpoint = robot.beziercurve(bezier_point, t_sec, bezier_duration);
 
         //circle demo
-        let duration = 5.0;
-        let r = 0.3;
-        let wd = 2.0 * PI / duration;
+        // let duration = 5.0;
+        // let r = 0.3;
+        // let wd = 2.0 * PI / duration;
 
         //let setpoint = robot.spinning(duration, t_sec, first_pose.x, first_pose.y, first_pose.yaw);
         // let setpoint =
@@ -1861,6 +1857,7 @@ async fn execute_trajectory_loop_with_control_from_SDCard(
             yaw: theta_d,
         } = states[i + 1];
         let Action { v: vd, omega: wd } = actions[i]; // only n-1 actions(n states, i starts from 1)
+
         // let setpoint = DiffdriveSetpointCascade {
         //     des: DiffdriveStateCascade {
         //         x: first_pose.x + x_d,
@@ -2091,7 +2088,7 @@ pub async fn diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
         }
 
         // Execute trajectory until stop command, completion, or restart
-        let result = execute_trajectory_loop_with_control_from_SDCard(
+        let result = execute_trajectory_loop_with_control_from_sdcard(
             mode,
             &mut robot,
             &mut controller,
