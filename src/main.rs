@@ -10,7 +10,6 @@ use embassy_time::Timer;
 
 use pololu3pi2040_rs::{
     button::{button_task_b, button_task_c},
-    // encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     imu::read_imu_task,
     init::init_all,
@@ -59,6 +58,7 @@ async fn main(spawner: Spawner) {
             motors,
             encoder_count_left,
             encoder_count_right,
+            devices.config,
         ))
         .unwrap();
 
@@ -120,17 +120,20 @@ async fn main(spawner: Spawner) {
         // Step 1: Keep speed at zero for 2 seconds
         defmt::info!("=== Step 1: Zero speed for 2 seconds ===");
         set_wheel_speed(0.0, 0.0).await;
-        Timer::after_millis(2000).await;
+        Timer::after_millis(1000).await;
 
         // Step 2: Step up to 0.4 m/s for 4 seconds
         defmt::info!("=== Step 2: Step up to 0.4 m/s for 4 seconds ===");
-        set_wheel_speed(2.0, 0.0).await;
-        Timer::after_millis(4000).await;
+        set_wheel_speed(0.5, 0.0).await;
+        Timer::after_millis(1000).await;
+
+        set_wheel_speed(-0.4, 0.0).await;
+        Timer::after_millis(1000).await;
 
         // Step 3: Set back to zero for 4 seconds
         defmt::info!("=== Step 3: Back to zero for 4 seconds ===");
         set_wheel_speed(0.0, 0.0).await;
-        Timer::after_millis(4000).await;
+        Timer::after_millis(1000).await;
 
         defmt::info!("=== Test cycle complete, restarting... ===");
     }

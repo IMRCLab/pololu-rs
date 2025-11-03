@@ -42,8 +42,7 @@ macro_rules! debug_warn {
 
 pub mod button;
 pub mod buzzer;
-// pub mod diffdrive;
-// pub mod diffdrive_cascade;
+pub mod diffdrive;
 pub mod encoder;
 pub mod encoder_lib;
 pub mod imu;
@@ -52,6 +51,7 @@ pub mod joystick_control;
 pub mod led;
 pub mod math;
 pub mod motor;
+pub mod odometry;
 pub mod packet;
 pub mod read_robot_config_from_sd;
 pub mod robot_parameters_default;

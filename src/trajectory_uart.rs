@@ -5,7 +5,9 @@ use embassy_time::{Duration, Timer};
 use heapless::Vec as HVec;
 
 use crate::math::{quat_decompress, rpy_from_quaternion};
-use crate::trajectory_signal::{FIRST_MESSAGE, LAST_STATE, PoseAbs, START_EVENT, STATE_SIG};
+use crate::trajectory_signal::{
+    FIRST_MESSAGE, LAST_STATE, PoseAbs, START_EVENT, STATE_SIG, TRAJECTORY_CONTROL_EVENT,
+};
 use crate::uart::SharedUart; // = Mutex<Raw, Uart<'static, Async>>
 
 #[derive(Clone, Copy)]
@@ -16,6 +18,7 @@ pub struct UartCfg {
 const FRAME_MAX: usize = 54;
 const LEN_POSE: u8 = 18;
 const LEN_START: u8 = 10;
+const LEN_TRAJECTORY_CMD: u8 = 3;
 
 #[embassy_executor::task]
 pub async fn uart_motioncap_receiving_task(uart: SharedUart<'static>, cfg: UartCfg) {
@@ -25,6 +28,7 @@ pub async fn uart_motioncap_receiving_task(uart: SharedUart<'static>, cfg: UartC
 
     loop {
         // Read Length Buffer Byte First
+        //info!("Waiting for mocap UART data...");
         let len: Option<u8> = {
             let read_len = async {
                 let mut u = uart.lock().await;
@@ -47,7 +51,7 @@ pub async fn uart_motioncap_receiving_task(uart: SharedUart<'static>, cfg: UartC
         };
 
         let len = len_buf[0];
-        if !(len == LEN_POSE || len == LEN_START) {
+        if !(len == LEN_POSE || len == LEN_START || len == LEN_TRAJECTORY_CMD) {
             // info!("here1");
             continue; // illegal Length
         }
@@ -95,6 +99,14 @@ pub async fn uart_motioncap_receiving_task(uart: SharedUart<'static>, cfg: UartC
         }
 
         // -------- Decoding --------
+        //info!("Received frame len={}", len);
+        if len == LEN_TRAJECTORY_CMD {
+            if let Some(start_trajectory) = decode_trajectory_command(&frame, cfg.robot_id) {
+                TRAJECTORY_CONTROL_EVENT.signal(start_trajectory);
+                info!("Trajectory control command received: {}", start_trajectory);
+            }
+            continue;
+        }
         if len == LEN_START {
             if is_start_event(&frame) {
                 START_EVENT.signal(());
@@ -125,11 +137,33 @@ fn is_start_event(payload: &[u8]) -> bool {
     payload.len() == 10 && (payload[0] & 0xF3) == 0x80 && payload[1] == 0x05
 }
 
+fn decode_trajectory_command(payload: &[u8], robot_id: u8) -> Option<bool> {
+    // Check frame format: should be 3 bytes with specific header
+    if payload.len() != 3 || payload[0] != 0x3C {
+        //related to channel and port number
+        // PORT 3 identifier
+        return None;
+    }
+
+    // Check if command is for this robot (255 = broadcast to all)
+    if payload[1] != robot_id && payload[1] != 255 {
+        return None;
+    }
+
+    // Return command: 1 = start trajectory, 0 = stop trajectory
+    match payload[2] {
+        1 => Some(true),  // Start trajectory
+        0 => Some(false), // Stop trajectory
+        _ => None,        // Invalid command
+    }
+}
+
 fn decode_abs_pose(payload: &[u8], robot_id: u8) -> Option<PoseAbs> {
     // frame header check
     // info!("here3 {}", payload);
 
     if !(payload.len() == 18 && (payload[0] == 0x3C)) {
+        //0x3C is related to channel and port number
         return None;
     }
 
@@ -162,13 +196,13 @@ fn decode_abs_pose(payload: &[u8], robot_id: u8) -> Option<PoseAbs> {
 
     let raw = u32::from_le_bytes([s1[12], s1[13], s1[14], s1[15]]);
     let q = quat_decompress(raw);
-    info!("quat {} {} {} {}", q.x, q.y, q.z, q.w);
+    //info!("quat {} {} {} {}", q.x, q.y, q.z, q.w);
     let (roll, pitch, yaw) = rpy_from_quaternion(&q);
 
-    info!(
-        "x:{}, y:{}, z:{}, roll:{}, pitch:{}, yaw:{}",
-        x, y, z, roll, pitch, yaw,
-    );
+    // info!(
+    //     "robot Id: {}, x:{}, y:{}, z:{}, roll:{}, pitch:{}, yaw:{}",
+    //     payload[1], x, y, z, roll, pitch, yaw,
+    // );
 
     Some(PoseAbs {
         x,
