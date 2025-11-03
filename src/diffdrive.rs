@@ -648,7 +648,7 @@ pub async fn diffdrive_control_task_new(
     /* =================== Demo Circle Trajectories ===================== */
     let circle_radius = 0.2; // 50cm radius
     let circle_duration = 8.0; // 20 seconds
-    let wd = (2.0 * PI) / circle_duration; // rad/s, desired angular velocity
+    let wd = (2.0 * PI) / circle_duration;   // rad/s, desired angular velocity
     /* ================================================================== */
 
     /* ================ Demo Bezier Curve Trajectories ================== */
