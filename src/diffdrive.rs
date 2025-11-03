@@ -626,8 +626,7 @@ pub async fn diffdrive_control_task_new(
 
     if mocap {
         defmt::info!("mocap is on, true initial position is recorded.")
-    }
-    else {
+    } else {
         defmt::info!("mocap is on, initial position is set to the origin (0, 0, 0).")
     }
 
@@ -648,7 +647,8 @@ pub async fn diffdrive_control_task_new(
     /* =================== Demo Circle Trajectories ===================== */
     let circle_radius = 0.2; // 50cm radius
     let circle_duration = 8.0; // 20 seconds
-    let wd = (2.0 * PI) / circle_duration;   // rad/s, desired angular velocity
+    let wd = (2.0 * PI) / circle_duration; // rad/s, desired angular velocity
+
     /* ================================================================== */
 
     /* ================ Demo Bezier Curve Trajectories ================== */
@@ -675,7 +675,6 @@ pub async fn diffdrive_control_task_new(
     let start = Instant::now();
 
     loop {
-        
         ticker.next().await;
 
         pose = {
@@ -689,9 +688,13 @@ pub async fn diffdrive_control_task_new(
             robot.s.y = pose.y;
             robot.s.theta = SO2::new(pose.yaw);
             defmt::info!("Using mocap pose: ({}, {}, {})", pose.x, pose.y, pose.yaw);
-        }
-        else {
-            defmt::warn!("No mocap data, using last pose: ({}, {}, {})", pose.x, pose.y, pose.yaw);
+        } else {
+            defmt::warn!(
+                "No mocap data, using last pose: ({}, {}, {})",
+                pose.x,
+                pose.y,
+                pose.yaw
+            );
         }
 
         let t = Instant::now() - start;
@@ -738,8 +741,7 @@ pub async fn diffdrive_control_task_new(
                 control_output.2,
                 control_output.3,
             )
-        }
-        else {
+        } else {
             // drive blindly with the last known pose and desired speeds and angles from diff flatness computation.
             defmt::info!("no mocap data, drive blind with actions.");
             let ur = (2.0 * vd + robot.l * w_rad) / (2.0 * robot.r);
@@ -749,8 +751,7 @@ pub async fn diffdrive_control_task_new(
 
         if mocap {
             led.on();
-        }
-        else {
+        } else {
             led.off();
         }
 
@@ -821,10 +822,7 @@ pub async fn diffdrive_control_task_new(
 
         if t_sec >= circle_duration {
             motor.set_speed(0.0, 0.0).await;
-            defmt::info!(
-                "Diffdrive trajectory following complete after {} s",
-                t_sec
-            );
+            defmt::info!("Diffdrive trajectory following complete after {} s", t_sec);
             break;
         }
     }
