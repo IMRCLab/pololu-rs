@@ -311,8 +311,6 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
 }
 /* ================================================================================== */
 
-/// 非阻塞“排水”一次：若 signal 已触发，会立刻返回并消费；
-/// 若没有触发，1 微秒后超时返回（不消费）。
 pub async fn drain_signal_once(sig: &Signal<Raw, ()>) {
     match select(sig.wait(), Timer::after(Duration::from_micros(1))).await {
         Either::First(_) => {
@@ -322,96 +320,11 @@ pub async fn drain_signal_once(sig: &Signal<Raw, ()>) {
     }
 }
 
-/// 如果你担心竞态（多次触发），可以排水两三次
 pub async fn drain_signal(sig: &Signal<Raw, ()>, repeats: u8) {
     for _ in 0..repeats {
         match select(sig.wait(), Timer::after(Duration::from_micros(1))).await {
             Either::First(_) => { /* drained one */ }
-            Either::Second(_) => break, // 已经没有残留了
+            Either::Second(_) => break,
         }
     }
 }
-
-/*let func_select = TASK_SELECT_SIG.wait().await;
-if func_select == 0 {
-    TASK_SELECT_UART_STOP_SIG.signal(()); // Stop top uart task
-    defmt::info!("TELE-OPERATION Mode is selected!!!!!");
-
-    spawner
-        .spawn(robot_command_control_task(devices.uart))
-        .unwrap();
-
-    spawner
-        .spawn(motor_control_task(
-            devices.motor,
-            encoder_count_left,
-            encoder_count_right,
-        ))
-        .unwrap();
-} else if func_select == 1 {
-    // Mocap trajectory following mode.
-    TASK_SELECT_UART_STOP_SIG.signal(()); // Stop top uart task
-    defmt::info!("TRAJ-FOLLOWING Mode (With Mocap) is selected!!!!!");
-
-    let sdlogger = devices.sdlogger.take();
-    let led = devices.led.take();
-
-    spawner
-        .spawn(uart_motioncap_receiving_task(devices.uart, cfg))
-        .unwrap();
-
-    spawner.spawn(mocap_update_task()).unwrap();
-
-    spawner
-        .spawn(wheel_speed_inner_loop(
-            devices.motor,
-            encoder_count_left,
-            encoder_count_right,
-        ))
-        .unwrap();
-
-    spawner
-        .spawn(
-            diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
-                ControlMode::WithMocapController,
-                sdlogger,
-                led,
-                devices.config,
-            ),
-        )
-        .unwrap();
-} else if func_select == 2 {
-    // Directduty trajectory following mode.
-    TASK_SELECT_UART_STOP_SIG.signal(()); // Stop top uart task
-    defmt::info!("TRAJ-FOLLOWING Mode (Direct Duty) is selected!!!!!");
-
-    let sdlogger = devices.sdlogger.take();
-    let led = devices.led.take();
-
-    spawner
-        .spawn(uart_motioncap_receiving_task(devices.uart, cfg))
-        .unwrap();
-
-    spawner.spawn(mocap_update_task()).unwrap();
-
-    spawner
-        .spawn(wheel_speed_inner_loop(
-            devices.motor,
-            encoder_count_left,
-            encoder_count_right,
-        ))
-        .unwrap();
-
-    spawner
-        .spawn(
-            diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
-                ControlMode::DirectDuty,
-                sdlogger,
-                led,
-                devices.config,
-            ),
-        )
-        .unwrap();
-} else {
-    defmt::info!("Unknown Mode is selected!!!!!");
-} */
