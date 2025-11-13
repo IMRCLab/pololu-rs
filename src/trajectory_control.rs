@@ -1,3 +1,5 @@
+#![allow(clippy::never_loop)]
+
 use crate::math::SO2;
 use crate::orchestrator_signal::{STOP_TRAJ_OUTER_SIG, STOP_WHEEL_INNER_SIG, TRAJ_PAUSE_SIG, TRAJ_RESUME_SIG, STOP_MOCAP_UPDATE_SIG};
 use core::cell::RefCell;
