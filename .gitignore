@@ -6,7 +6,7 @@
 */logs
 */build
 */log
-*.png
+/datavis/plots/*.png
 *.pdf
 **/__pycache__/
 *.swp
