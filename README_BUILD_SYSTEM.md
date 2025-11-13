@@ -18,10 +18,11 @@ The `./run` script provides a convenient way to build and flash different robot 
 chmod +x run
 
 # Examples:
-./run                    # Default config, main binary
-./run zumo              # Zumo config, main binary
-./run zumo teleop       # Zumo config, teleop_control binary
-./run 3pi trajectory_cascade    # 3Pi config, trajectory_following binary
+./run                             # Default config, main binary
+./run zumo                        # Zumo config, main binary
+./run zumo teleop                 # Zumo config, teleop_control binary
+./run 3pi menu                    # 3Pi config, menu binary
+./run 3pi trajectory_following    # 3Pi config, trajectory_following binary
 ```
 
 ### Using Cargo Directly
@@ -37,8 +38,9 @@ cargo run --release --features zumo
 cargo run --release --features 3pi
 
 # Specific binaries
+cargo run --release --bin programm_entrance --features 3pi
 cargo run --release --bin teleop_control --features zumo
-cargo run --release --bin trajectory_following_cascade --features 3pi
+cargo run --release --bin trajectory_following --features 3pi
 ```
 
 ## � Complete `./run` Script Reference
@@ -54,28 +56,31 @@ cargo run --release --bin trajectory_following_cascade --features 3pi
 
 ### All Available Commands
 
-| Command                                   | Robot Config | Binary                       | Description                              |
-| ----------------------------------------- | ------------ | ---------------------------- | ---------------------------------------- |
-| `./run`                                   | Default      | Main                         | Default joystick_control.rs, main binary |
-| `./run zumo`                              | Zumo         | Main                         | Zumo-specific config, main binary        |
-| `./run 3pi`                               | 3Pi          | Main                         | 3Pi-specific config, main binary         |
-| `./run zumo teleop`                       | Zumo         | teleop_control               | Zumo config, teleop binary               |
-| `./run 3pi teleop`                        | 3Pi          | teleop_control               | 3Pi config, teleop binary                |
-| `./run zumo trajectory_following_cascade` | Zumo         | trajectory_following_cascade | Zumo config, trajectory binary           |
-| `./run 3pi trajectory_following_cascade`  | 3Pi          | trajectory_following_cascade | 3Pi config, trajectory binary            |
-| `./run zumo build`                        | Zumo         | -                            | Build only (no flash)                    |
-| `./run 3pi build`                         | 3Pi          | -                            | Build only (no flash)                    |
+| Command                           | Robot Config | Binary               | Description                              |
+| --------------------------------- | ------------ | -------------------- | ---------------------------------------- |
+| `./run`                           | Default      | Main                 | Default joystick_control.rs, main binary |
+| `./run zumo`                      | Zumo         | Main                 | Zumo-specific config, main binary        |
+| `./run 3pi`                       | 3Pi          | Main                 | 3Pi-specific config, main binary         |
+| `./run zumo menu`                 | Zumo         | programm_entrance    | Zumo config, menu binary                 |
+| `./run 3pi menu`                  | 3Pi          | programm_entrance    | 3Pi config, menu binary                  |
+| `./run zumo teleop`               | Zumo         | teleop_control       | Zumo config, teleop binary               |
+| `./run 3pi teleop`                | 3Pi          | teleop_control       | 3Pi config, teleop binary                |
+| `./run zumo trajectory_following` | Zumo         | trajectory_following | Zumo config, trajectory binary           |
+| `./run 3pi trajectory_following`  | 3Pi          | trajectory_following | 3Pi config, trajectory binary            |
+| `./run zumo build`                | Zumo         | -                    | Build only (no flash)                    |
+| `./run 3pi build`                 | 3Pi          | -                    | Build only (no flash)                    |
 
 ### Equivalent Cargo Commands
 
-| `./run` Command                | Equivalent Cargo Command                                                |
-| ------------------------------ | ----------------------------------------------------------------------- |
-| `./run`                        | `cargo run --release`                                                   |
-| `./run zumo`                   | `cargo run --release --features zumo`                                   |
-| `./run 3pi`                    | `cargo run --release --features 3pi`                                    |
-| `./run zumo teleop`            | `cargo run --release --bin teleop_control --features zumo`              |
-| `./run 3pi trajectory_cascade` | `cargo run --release --bin trajectory_following_cascade --features 3pi` |
-| `./run zumo build`             | `cargo build --release --features zumo`                                 |
+| `./run` Command                  | Equivalent Cargo Command                                        |
+| -------------------------------- | --------------------------------------------------------------- |
+| `./run`                          | `cargo run --release`                                           |
+| `./run zumo`                     | `cargo run --release --features zumo`                           |
+| `./run 3pi`                      | `cargo run --release --features 3pi`                            |
+| `./run 3pi menu`                 | `cargo run --release --bin programm_entrance --features 3pi`    |
+| `./run zumo teleop`              | `cargo run --release --bin teleop_control --features zumo`      |
+| `./run 3pi trajectory_following` | `cargo run --release --bin trajectory_following --features 3pi` |
+| `./run zumo build`               | `cargo build --release --features zumo`                         |
 
 ## 🔍 Technical Implementation
 
