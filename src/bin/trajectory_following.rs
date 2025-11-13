@@ -7,6 +7,7 @@ use {defmt_rtt as _, panic_probe as _};
 use embassy_executor::Spawner;
 use embassy_rp::init;
 
+use pololu3pi2040_rs::encoder::{EncoderPair, encoder_left_task, encoder_right_task};
 use pololu3pi2040_rs::init::init_all;
 use pololu3pi2040_rs::trajectory_control::{
     ControlMode, diffdrive_outer_loop_command_controlled_traj_following_from_sdcard,
@@ -14,7 +15,6 @@ use pololu3pi2040_rs::trajectory_control::{
 };
 use pololu3pi2040_rs::trajectory_uart::{UartCfg, uart_motioncap_receiving_task};
 use pololu3pi2040_rs::{
-    encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     // trajectory_control::diffdrive_outer_loop_command_controlled_tuning,
     led::LED_SHARED,
     sdlog::SDLOGGER_SHARED,

@@ -83,6 +83,7 @@ async fn main(spawner: Spawner) {
             devices.motor,
             encoder_count_left,
             encoder_count_right,
+            devices.config,
         ))
         .unwrap();
 }

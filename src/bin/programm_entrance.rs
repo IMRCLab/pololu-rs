@@ -252,6 +252,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                                 devices.motor,
                                 encoder_count_left,
                                 encoder_count_right,
+                                devices.config,
                             ))
                             .unwrap();
                     }

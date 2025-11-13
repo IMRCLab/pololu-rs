@@ -10,7 +10,6 @@ use embassy_time::Timer;
 
 use pololu3pi2040_rs::{
     button::{button_task_b, button_task_c},
-    // encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     imu::read_imu_task,
     init::init_all,
@@ -59,6 +58,7 @@ async fn main(spawner: Spawner) {
             motors,
             encoder_count_left,
             encoder_count_right,
+            devices.config,
         ))
         .unwrap();
 
