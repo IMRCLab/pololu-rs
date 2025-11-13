@@ -151,8 +151,7 @@ Then:
 
 ```bash
 # Examples:
-./run                   # Default config, main binary\
-./run 3pi menu          # 3Pi config, functionality select menu
+./run                    # Default config, main binary
 ./run zumo              # Zumo config, main binary
 ./run zumo teleop       # Zumo config, teleop_control binary
 ./run 3pi trajectory    # 3Pi config, trajectory_following binary
@@ -195,17 +194,17 @@ This firmware supports both **Zumo** and **3Pi** robots with different physical 
 
 | Parameter       | Zumo Robot | 3Pi Robot | Default/Testing |
 | --------------- | ---------- | --------- | --------------- |
-| Gear Ratio      | 100.31     | 15.25     | 75.81           |
+| Gear Ratio      | 100.31     | 15.25     | 100.31          |
 | Wheel Radius    | 0.02m      | 0.016m    | 0.02m           |
 | Wheel Base      | 0.099m     | 0.0842m   | 0.099m          |
 | Motor Direction | Reversed   | Normal    | Reversed        |
-| Encoder CPR     | 227.81     | 89.56     | 227.81          |
+| Encoder CPR     | 1203.72    | 183.0     | 1203.72         |
 
 ### Quick Start Examples:
 ```bash
-./run zumo teleop       # Flash teleop control to Zumo
-./run 3pi trajectory    # Flash trajectory following to 3Pi  
-./run                   # Use default config for testing
+./run zumo teleop                 # Flash teleop control to Zumo
+./run 3pi trajectory_following    # Flash trajectory following to 3Pi  
+./run                             # Use default config for testing
 ```
 
 ## USB Logging
@@ -229,7 +228,7 @@ tio /dev/ttyACM0
   - `uart.rs`: UART0 driver.
   - `packet.rs`: Defines the packet according to [Crazyflie_Packet](https://github.com/IMRCLab/crazyflie-link-cpp/blob/startTraj_example/examples/PacketUtils.hpp).
 
-  **Robot-specific adaptions in joystick_control.rs**
+  **Robot-specific adaptions in application layer**
   - `joystick_control.rs`: Default/testing configuration (currently Zumo parameters)
   - `trajectory_control.rs`: Trajectory following controller.
   - `trajectory_read.rs`: Read trajectory from preset json file.
@@ -237,8 +236,7 @@ tio /dev/ttyACM0
   - `trajectory_uart.rs`: Receive poses from Mocap.
   - `bin/`: Binary targets
     - `teleop_control.rs`: Teleop control application
-    - `trajectory_following_cascade.rs`: Cascade Trajectory following application
-    - `trajectory_following_diffdrive.rs`: Trajectory following with differential flatness actions application
+    - `trajectory_following.rs`: Cascade Trajectory following application
   - `imu/`: IMU library.
     - `lis3mdl.rs`: Driver for the 3-axis magnetometer.
     - `lsm6dso.rs`: Driver for the combined 3-axis accelerometer and 3-axis gyrometer.
@@ -307,7 +305,7 @@ The SD card logging is built based on [Crazyflie micro sd card deck](https://www
 
 ## Uart
 ### Packet Type
-3 different packet types are defined in `packet.rs`:
+3 example packet types are defined in `packet.rs`:
 - `CmdLegacyPacketU16`: including 4 U16 values.
 - `CmdLegacyPacketF32`: including 4 F32 values.
 - `CmdLegacyPacketMix`: including 2 U16 values adn 2 F32 values.
@@ -316,13 +314,6 @@ The SD card logging is built based on [Crazyflie micro sd card deck](https://www
 Register a function `uart_receive_task` as an asychronous task to asychronously receive the new message.
 
 * Notice: Even though the header defined in the Crazyflie-link sending example is `0xFF`, the `set_Channel((uint8_t) 0x00)` and `set_Port((uint8_t)0x03)` will change the header to `0x3C`.
-
-### Notice
-* The UART task runs now in asychronous mode.
-
-### TODO:
-* Define sending funtion
-* The packet sent by the crazyflie-link code always contains an extra byte(0x09) at the beginning, need to find out the reason.
 
 
 ## Motor
@@ -342,3 +333,112 @@ Provide `read_imu_task` function to read and estimate the euler angles. The task
 Since there is 2 different robot types, we need to specify the parameters for different robots. There are 2 ways to set them:
 - By using the `./run` script with the corresponding feature. 
 - By editing the [`ROBOTCFG.CFG`](https://github.com/IMRCLab/pololu3pi2040-rs/blob/feat/trajectory_following/cfg/ROBOTCFG.CFG) and copy it to the onboard SD Card, the robot will automatically detect the file and load the params. (Be careful that this will overide the values set by the feature selecting in the `./run` script)
+
+
+## Trajectory File Example
+The trajectory waypoints can be either generated online or loaded from json file in certain format. Some example trajectory files are provided in `TRAJs` folder.
+
+
+# How to use
+## Menu
+- Prepare the Robots:
+  - Prepare the nRF Dongle and write down the address for the robot(if multiple dongles are running together then each dongle should have different address)
+  - Change the `robot_id` according to the Dongle address of the current robot in file `src/bin/programm_entrance.rs`, the `robot_id` can be found here:
+    ```
+    spawner
+      .spawn(orchestrator(spawner, devices, UartCfg { robot_id: 10 }))
+      .unwrap();
+    ```
+  - Connect the Raspberry-Debug-Probe and a USB-C cable to the Pololu.
+  - Flash the firmware to the robot using the following command:
+    ```
+    ./run 3pi menu
+    ```
+  - Paste the tuned robot configuration file in folder `cfg` to a micro sd card. Please DO NOT CHANGE the name of the configuration file, the file system depends on the file name to distinguish configuration file from other files.
+  -  Paste the trajectory file to a micro sd card. Please DO NOT CHANGE the name of the trajectory file, the file system depends on the file name to distinguish configuration file from other files.
+- Prepare the Trajectory Following ROS Node:
+  - Connect a Crazyradio PA or Crazyradio 2 and a joystick to your PC.
+  - Change the address for each robot in `ground_robot_ros/src/pololu_ros/config/controller_interface.yaml`.
+  - Open ground_robot_ros folder and build the ros2 workspace using:
+    ```
+    colcon build
+    ```
+  - Open a terminal and run:
+    ```
+    source install/setup.bash
+    ros2 run pololu_ros controller_interface
+    ```
+- Use the buttons on the joystick to select different functionalities.
+  ![joystick_menu](./pics/joystick.png)
+  
+
+## Tele-Operation
+Take Pololu 3Pi as an example, PLEASE FOLLOW THE STEPS:
+- Prepare the Robots
+  - Prepare the nRF Dongle and write down the address for the robot(if multiple dongles are running together then each dongle should have different address)
+  - Connect the Raspberry-Debug-Probe and a USB-C cable to the Pololu.
+  - Flash the firmware to the robot using the following command:
+    ```
+    ./run 3pi teleop
+    ```
+- Prepare the Joystick ROS Node
+  - Connect a Crazyradio PA or Crazyradio 2 and 1 or more joysticks onto the PC.
+  - Change the address for each robot in `ground_robot_ros/src/pololu_ros/config/teleop.yaml`.
+  - Open ground_robot_ros folder and build the ros2 workspace using:
+    ```
+    colcon build --cmake-args -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+    source install/setup.bash
+    ```
+  - Run the `teleop` Node using:
+    ```
+    ros2 launch pololu_ros teleop_launch.py
+    ```
+- Then we can use the joystick to teleoperate different robots.
+  
+
+## Trajectory Following
+Also take Polulu 3Pi as an example, PLEASE FOLLOW THE STEPS:
+- Prepare the Robots:
+  - Prepare the nRF Dongle and write down the address for the robot(if multiple dongles are running together then each dongle should have different address)
+  - Change the `robot_id` according to the Dongle address of the current robot in file `src/bin/trajectory_following.rs`, the `robot_id` can be found here:
+    ```
+    spawner.spawn(uart_motioncap_receiving_task(
+            devices.uart,
+            UartCfg { robot_id: 10 },
+    )).unwrap();
+    ```
+  - Connect the Raspberry-Debug-Probe and a USB-C cable to the Pololu.
+  - Flash the firmware to the robot using the following command:
+    ```
+    ./run 3pi trajectory_following
+    ```
+  - Paste the tuned robot configuration file in folder `cfg` to a micro sd card. Please DO NOT CHANGE the name of the configuration file, the file system depends on the file name to distinguish configuration file from other files.
+  - Paste the trajectory file to a micro sd card. Please DO NOT CHANGE the name of the trajectory file, the file system depends on the file name to distinguish configuration file from other files.
+  - Insert the sd card to the port on the robot.
+- Prepare the Trajectory Following ROS Node:
+  - Connect a Crazyradio PA or Crazyradio 2.
+  - Change the address for each robot in `ground_robot_ros/src/pololu_ros/config/mocap_broadcast.yaml`.
+  - Open ground_robot_ros folder and build the ros2 workspace using:
+    ```
+    colcon build --cmake-args -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+    ```
+  - Open a terminal and run:
+    ```
+    source install/setup.bash
+    ros2 run pololu_ros mocap_broadcast
+    ```
+  - Open a new terminal and tun:
+    ```
+    source install/setup.bash
+    ros2 launch motion_capture_tracking launch.py 
+    ```
+- Run Trajectory:
+  - Put the robot on the correct starting position written in the trajectory file. 
+  - Press `t` for starting the trajectory(for all robots); Press `s` for stop(for all robots).
+  - The actual trajectory would be saved in a csv file in the sd card, some plotting function is also provided in folder `datavis`. User could use the following command to plot the trajectories and part of the error w.r.t the given trajectory:
+    ```
+    python3 my_display.py path/to/your/csv
+    ```
+- Notice for Rerunning the Trajectory:
+  - If the robot is taken out of the flightspace then the 2 ros processes should be restarted.
+  - Restart the robot manually so that the trajectory csv will not be overwritten.

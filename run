@@ -42,8 +42,7 @@ case $TARGET in
         $CARGO_CMD run --release --bin pololu3pi2040-rs $FEATURES
         ;;
     "menu")
-        # No target specified - use main binary
-        echo "Target: main binary"
+        echo "Target: menu binary"
         echo "Running: cargo run --release --bin programm_entrance $FEATURES"
         $CARGO_CMD run --release --bin programm_entrance $FEATURES
         ;;
@@ -52,15 +51,10 @@ case $TARGET in
         echo "Running: cargo run --release --bin teleop_control $FEATURES"
         $CARGO_CMD run --release --bin teleop_control $FEATURES
         ;;
-    "trajectory")
-        echo "Target: trajectory_following_cascade binary"
-        echo "Running: cargo run --release --bin trajectory_following_cascade $FEATURES"
-        $CARGO_CMD run --release --bin trajectory_following_cascade $FEATURES
-        ;;
-    "trajectory_following_diffdrive")
-        echo "Target: trajectory_following_diffdrive binary"
-        echo "Running: cargo run --release --bin trajectory_following_diffdrive $FEATURES"
-        $CARGO_CMD run --release --bin trajectory_following_diffdrive $FEATURES
+    "trajectory_following")
+        echo "Target: trajectory_following binary"
+        echo "Running: cargo run --release --bin trajectory_following $FEATURES"
+        $CARGO_CMD run --release --bin trajectory_following $FEATURES
         ;;
     "build")
         echo "Target: build only (no flash)"

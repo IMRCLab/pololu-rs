@@ -2,7 +2,7 @@ use crate::math::SO2;
 use crate::orchestrator_signal::{STOP_TRAJ_OUTER_SIG, STOP_WHEEL_INNER_SIG, TRAJ_PAUSE_SIG, TRAJ_RESUME_SIG, STOP_MOCAP_UPDATE_SIG};
 use core::cell::RefCell;
 use core::f32::consts::PI;
-use defmt::info;
+use defmt::{info};
 use embassy_futures::block_on;
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_futures::select::{Either, select, select3, Either3};
@@ -956,6 +956,7 @@ pub async fn diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
 #[embassy_executor::task]
 pub async fn mocap_update_task() {
     loop {
+        
         match select(STATE_SIG.wait(), STOP_MOCAP_UPDATE_SIG.wait()).await {
             Either::First(new_pose) => {
                 let mut s = LAST_STATE.lock().await;
