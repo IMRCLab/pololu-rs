@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Debugging - Pololu Docs</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Debugging";
+        var mkdocs_page_input_path = "debugging.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> Pololu Docs
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../hardware/">Hardware</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../software/">Software</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../build/">Build & Flashing</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Debugging</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#debugging-with-usb">Debugging with USB</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#debugging-with-raspberry-pi-debug-probe">Debugging with Raspberry Pi Debug Probe</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#debug-setup">Debug Setup</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#print-new-debug-information">Print New Debug Information</a>
+    </li>
+        </ul>
+    </li>
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../ros/">ROS Interface</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../usage/">Usage</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../troubleshooting/">Troubleshooting</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">Pololu Docs</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Debugging</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="debugging">Debugging</h1>
+<p>This document provides the users with 2 different ways to debugging the firmware.</p>
+<div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
+
+<h2 id="debugging-with-usb">Debugging with USB</h2>
+<pre><code class="language-bash">sudo apt install tio
+tio /dev/ttyACM0
+</code></pre>
+<p>(use ctrl+t q to exit)</p>
+<div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
+
+<h2 id="debugging-with-raspberry-pi-debug-probe">Debugging with Raspberry Pi Debug Probe</h2>
+<p>The logging is mainly based on <a href="https://probe.rs/docs/getting-started/installation/">probe-rs</a>, <a href="https://docs.rs/defmt/latest/defmt/">defmt</a> and <a href="https://docs.rs/defmt-rtt/latest/defmt_rtt/">defmt-rtt</a>.
+There is also a useful <a href="https://murraytodd.medium.com/our-first-rust-blinky-program-on-raspberry-pi-pico-w-376211f1074d">blog</a> to learn how to use them very quickly.</p>
+<ul>
+<li>Notice: The installation command on the home page of <a href="https://probe.rs/">probe-rs</a> doesn't work for me due to some package conflicts. If so you could try following the <a href="https://probe.rs/docs/getting-started/installation/">instructions</a> and install it from source.</li>
+</ul>
+<hr />
+<h3 id="debug-setup">Debug Setup</h3>
+<ul>
+<li>You will need a Raspberry Pi Debug Probe(for debugging) and a USB-C Cabel(for flashing).</li>
+<li>
+<p>connect the probe properly to the Pololu. If the official probe is used, the connection should be:</p>
+<pre><code>Yellow(SWDIO) -&gt; SWDIO
+Green(SWCLK)  -&gt; SWCLK
+Black(GND)    -&gt; GND
+</code></pre>
+<p>Then connect the Pololu with the USB-C cabel to your PC, and the debug probe as well and uncomment in <code>config.toml</code></p>
+<pre><code>runner = "probe-rs run --chip RP2040 --protocol swd"
+</code></pre>
+</li>
+<li>
+<p>If you would like to directly observed the debug information in the terminal, run:</p>
+<pre><code>cargo run --release
+</code></pre>
+</li>
+<li>
+<p>If you would like to save the logging information into a csv file, run:</p>
+<pre><code>cargo run --release &gt; file_name.csv
+</code></pre>
+</li>
+</ul>
+<p><strong>OR</strong> </p>
+<p>flash in bootloader mode and without debug information in the terminal by uncommenting </p>
+<pre><code>runner = "elf2uf2-rs -d"
+</code></pre>
+<p>in config.toml and then press "B" and "Reset" on the robot
+and flash with</p>
+<pre><code>cargo run --release
+</code></pre>
+<p>or use the recommended <code>build_system</code>.</p>
+<hr />
+<h3 id="print-new-debug-information">Print New Debug Information</h3>
+<p>The code only print a test value(constant). When new debug information is needed, use:</p>
+<pre><code>info!(&quot;New Sensor Data: {}&quot;, value);
+</code></pre>
+<div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../build/" class="btn btn-neutral float-left" title="Build & Flashing"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../ros/" class="btn btn-neutral float-right" title="ROS Interface">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../build/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../ros/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

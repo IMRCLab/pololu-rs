@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Software - Pololu Docs</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Software";
+        var mkdocs_page_input_path = "software.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> Pololu Docs
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../hardware/">Hardware</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Software</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#firmware-architecture">Firmware Architecture</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#modules-description">Modules Description</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#led-module">LED Module</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#shared-led-handle">Shared LED Handle</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#led-structure">Led Structure</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#methods">Methods</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#button-module">Button Module</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#buttons-structure">Buttons Structure</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#button-tasks">Button Tasks</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#notes">Notes</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#buzzer-module">Buzzer Module</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#core-structures">Core Structures</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#core-functions">Core Functions</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#notes-provided">Notes Provided</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#preset-startup-sound">Preset Startup Sound</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#motor-module">Motor Module</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#core-structures_1">Core Structures</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#initialization">Initialization</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#encoder-module">Encoder Module</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#core-structures_2">Core Structures</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#quadrature-decoding">Quadrature Decoding</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#async-encoder-tasks">Async Encoder Tasks</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#high-level-velocity-functions">High-Level Velocity Functions</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#initialization_1">Initialization</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#imu-module">IMU Module</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#imupack">ImuPack</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#initialization_2">Initialization</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#reading-sensor-data">Reading Sensor Data</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#orientation-filtering">Orientation Filtering</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#imu-task">IMU Task</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#uart-module">UART Module</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#shared-uart-handle">Shared UART Handle</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#channels">Channels</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#low-level-uart-hardware-task">Low-Level UART Hardware Task</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#packet-receive-task">Packet Receive Task</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#uart-send-functions">UART Send Functions</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#sd-logging-module">SD Logging Module</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#sd-card-initialization">SD Card Initialization</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#code-structure">Code Structure</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#file-naming-rules">File Naming Rules</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#notes_1">Notes</a>
+    </li>
+        </ul>
+    </li>
+        </ul>
+    </li>
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../build/">Build & Flashing</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../debugging/">Debugging</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../ros/">ROS Interface</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../usage/">Usage</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../troubleshooting/">Troubleshooting</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">Pololu Docs</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Software</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="software-overview">Software Overview</h1>
+<p>This page describes the structure, modules, and control architecture of the Rust firmware for the<br />
+<strong>Pololu 3pi+ 2040</strong> and <strong>Pololu Zumo 2040</strong> robots.</p>
+<p>The firmware is fully async using the <a href="https://github.com/embassy-rs/embassy">Embassy</a> framework and modularized for extensibility: motor control, IMU filtering, encoder reading, UART packet decoding, SD logging, tele-operation via joystick and trajectory execution.</p>
+<div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
+
+<h2 id="firmware-architecture">Firmware Architecture</h2>
+<p>The overall architecture consists of:</p>
+<pre><code>src/
+├── main.rs                     # Entry point of the firmware
+├── init.rs                     # Initialization for all devices
+├── lib.rs                      # Feature-based module selection
+├── led.rs                      # LED driver
+├── buzzer.rs                   # Buzzer driver
+├── diffdrive.rs                # Differential flatness &amp; trajectory math
+├── motor.rs                    # Motor driver
+├── encoder.rs                  # Basic encoder (PIO) driver
+├── encoder_lib.rs              # Higher-level encoder API built on encoder.rs
+├── uart.rs                     # UART0 driver
+├── packet.rs                   # Crazyflie-compatible packet definitions
+├── sdlog.rs                    # SD logging + parameter loading
+├── orchestrator_signal.rs      # Signals and channels for async tasks
+
+│
+├── joystick_control.rs         # Default/testing teleop configuration
+├── trajectory_control.rs       # Main trajectory-following controller
+├── trajectory_read.rs          # Load trajectory from JSON
+├── trajectory_signal.rs        # Event/update signals
+├── trajectory_uart.rs          # Receive MoCap poses via UART
+
+│
+├── imu/                        # IMU module
+│   ├── lis3mdl.rs              # Magnetometer driver
+│   ├── lsm6dso.rs              # Accel + Gyro driver
+│   ├── shared_i2c.rs           # Shared I2C bus with Mutex
+│   ├── complementary_filter.rs # Roll/Pitch/Yaw estimation (complementary filter)
+│   ├── madgwick.rs             # Madgwick AHRS filter
+│   ├── read_robot_config_from_sd.rs   # Load robot parameters from SD config file
+│   └── robot_parameters_default.rs    # Default fallback robot parameters
+
+│
+└── bin/                        # Application binaries
+    ├── programm_entrance.rs    # Unified program launcher
+    ├── teleop_control.rs       # Teleoperation mode
+    └── trajectory_following.rs # Cascade trajectory-following controller
+
+memory.x                        # RP2040 memory layout
+.cargo/
+└── config.toml                 # Target: thumbv6m-none-eabi
+
+Cargo.toml                      # Project metadata, dependencies, feature flags
+build.rs                        # Ensures memory.x is included
+run                             # Helper script for flashing/building
+</code></pre>
+<div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
+
+<h2 id="modules-description">Modules Description</h2>
+<hr />
+<h3 id="led-module">LED Module</h3>
+<p>The LED module provides a simple interface for controlling the robot’s on-board LED (GPIO25 for 3pi/Pololu boards).<br />
+It supports turning the LED on/off and asynchronous blinking.</p>
+<hr />
+<h4 id="shared-led-handle">Shared LED Handle</h4>
+<pre><code class="language-rust">LED_SHARED: Mutex&lt;Option&lt;Led&gt;&gt;
+</code></pre>
+<p>A global mutex stores the LED instance so tasks can safely access it concurrently.</p>
+<hr />
+<h4 id="led-structure">Led Structure</h4>
+<pre><code class="language-rust">struct Led {
+    pin: Output&lt;'static&gt;,
+}
+</code></pre>
+<p>Created using:</p>
+<pre><code class="language-rust">Led::new(output_pin)
+</code></pre>
+<hr />
+<h4 id="methods">Methods</h4>
+<p><strong>Turn LED on</strong></p>
+<pre><code class="language-rust">led.on()
+</code></pre>
+<p><strong>Turn LED off</strong></p>
+<pre><code class="language-rust">led.off()
+</code></pre>
+<p><strong>Blink asynchronously</strong></p>
+<pre><code class="language-rust">led.blink(interval_ms, count).await
+</code></pre>
+<p>This alternates LED on/off with the given interval.</p>
+<div style="height:2px; background:#1e90ff; margin:32px 0;"></div>
+
+<h3 id="button-module">Button Module</h3>
+<p>The button module provides asynchronous handling of the robot’s physical buttons using Embassy’s async GPIO interface. Each button runs in its own lightweight task and triggers on falling edges.</p>
+<hr />
+<h4 id="buttons-structure">Buttons Structure</h4>
+<pre><code class="language-rust">pub struct Buttons {
+    pub btn_a: Input&lt;'static&gt;,
+    pub btn_b: Input&lt;'static&gt;,
+    pub btn_c: Input&lt;'static&gt;,
+}
+</code></pre>
+<p>Button A needs to be handled separately because it shares <code>GPIO25</code> with the LED on Pololu boards.</p>
+<hr />
+<h4 id="button-tasks">Button Tasks</h4>
+<p>Each button has a dedicated async task:</p>
+<ul>
+<li>Waits for a falling edge</li>
+<li>Confirms the pin is low (pressed)</li>
+<li>Prints a <code>defmt</code> debug message</li>
+<li>Includes a small delay for debouncing</li>
+</ul>
+<p>Example task behavior (simplified):</p>
+<pre><code class="language-rust">wait_for_falling_edge().await;
+if button.is_low() {
+    info!(&quot;Button X pressed!&quot;);
+}
+</code></pre>
+<p>Buttons supported:</p>
+<ul>
+<li>Button A (PIN 25)</li>
+<li>Button B (PIN 1)</li>
+<li>Button C (PIN 0)</li>
+</ul>
+<hr />
+<h4 id="notes">Notes</h4>
+<ul>
+<li>All buttons are active-low (pressed = low).</li>
+<li>Button A conflicts with the LED pin; LED should be disabled when using Button A.</li>
+<li>Tasks are spawned during initialization (<code>init_all()</code> or <code>main()</code>).</li>
+</ul>
+<div style="height:2px; background:#1e90ff; margin:32px 0;"></div>
+
+<h3 id="buzzer-module">Buzzer Module</h3>
+<p>The buzzer module provides PWM-based audio playback for tones, beeps, and simple music.
+It modifies the PWM frequency dynamically to generate musical notes.</p>
+<hr />
+<h4 id="core-structures">Core Structures</h4>
+<pre><code class="language-rust">pub struct Buzzer&lt;'a&gt; {
+    pwm: Pwm&lt;'a&gt;,
+    top: u16,
+}
+</code></pre>
+<ul>
+<li><code>pwm</code>: PWM slice output</li>
+<li><code>top</code>: PWM counter top value (controls resolution and tone accuracy)</li>
+</ul>
+<p>A global mutex wraps the buzzer for async-safe access (BuzzerController).</p>
+<h4 id="core-functions">Core Functions</h4>
+<pre><code class="language-rust">pub fn tone(&amp;mut self, freq_hz: u32, duty_ratio: f32)
+</code></pre>
+<p>Plays a tone by reconfiguring the PWM divider.</p>
+<pre><code class="language-rust">pub fn stop(&amp;mut self)
+</code></pre>
+<p>Silences the buzzer.</p>
+<pre><code class="language-rust">pub async fn beep(&amp;mut self, freq: u32, duty: f32, interval_ms: u64, count: usize)
+</code></pre>
+<p>Repeats the same tone several times.</p>
+<h4 id="notes-provided">Notes Provided</h4>
+<pre><code>C4, D4, E4, F4, G4, A4, B4, C5
+</code></pre>
+<p>Useful for building scales or melodies.</p>
+<h4 id="preset-startup-sound">Preset Startup Sound</h4>
+<pre><code class="language-rust">play_startup_sound(&amp;buzzer).await;
+</code></pre>
+<p>Plays a short sci-fi style boot sound (frequency sweep → oscillation → confirmation ping).</p>
+<div style="height:2px; background:#1e90ff; margin:32px 0;"></div>
+
+<h3 id="motor-module">Motor Module</h3>
+<p>The motor module provides an async-safe and high-level interface for controlling the left and right DC motors of the robot. It handles PWM speed control, direction control, and shared access through Embassy mutexes.</p>
+<hr />
+<h4 id="core-structures_1">Core Structures</h4>
+<h5 id="motor"><strong><code>Motor</code></strong></h5>
+<p>Represents a single motor, which includes:</p>
+<ul>
+<li><code>PwmOutput&lt;'a&gt;</code> — PWM channel for motor speed  </li>
+<li><code>Output&lt;'a&gt;</code> — direction GPIO pin  </li>
+<li><code>top: u16</code> — PWM counter maximum value  </li>
+</ul>
+<p><strong>Responsibilities</strong>:</p>
+<ul>
+<li>Clamp speed input to <code>[-1.0, 1.0]</code></li>
+<li>Map speed magnitude to PWM duty cycle</li>
+<li>Switch direction pin based on speed sign</li>
+</ul>
+<p><strong>Key Method</strong>:</p>
+<pre><code class="language-rust">pub fn set_speed(&amp;mut self, speed: f32)
+</code></pre>
+<p>Direction logic:</p>
+<ul>
+<li><code>speed &gt;= 0</code> → forward</li>
+<li><code>speed &lt; 0</code> → backward</li>
+</ul>
+<p>PWM duty is proportional to <code>abs(speed)</code>.</p>
+<hr />
+<h5 id="motorcontroller"><strong><code>MotorController</code></strong></h5>
+<p>Controls both motors simultaneously using Embassy mutexes.</p>
+<pre><code class="language-rust">pub async fn set_speed(&amp;self, left: f32, right: f32)
+</code></pre>
+<p>This method locks each motor asynchronously and applies speed commands. Used by teleoperation tasks and trajectory controllers.</p>
+<hr />
+<h4 id="initialization">Initialization</h4>
+<p>Motors are initialized using:</p>
+<pre><code class="language-rust">pub fn init_motor(pwm_left: PwmOutput&lt;'static&gt;, dir_left: Output&lt;'static&gt;, pwm_right: PwmOutput&lt;'static&gt;, dir_right: Output&lt;'static&gt;, top: u16,) -&gt; MotorController
+</code></pre>
+<p>This function:</p>
+<ul>
+<li>Allocates static storage using <code>StaticCell</code>.</li>
+<li>Wraps each motor in <code>Mutex&lt;ThreadModeRawMutex, Motor&gt;</code>.</li>
+<li>Returns a <code>MotorController</code> managing both motors.</li>
+</ul>
+<p>Designed to be called inside <code>init_all()</code>.</p>
+<div style="height:2px; background:#1e90ff; margin:32px 0;"></div>
+
+<h3 id="encoder-module">Encoder Module</h3>
+<p>The encoder module provides PIO-based quadrature decoding for the left and right wheel encoders.<br />
+It maintains shared tick counters and provides helper functions for computing RPM and angular speed.</p>
+<hr />
+<h4 id="core-structures_2">Core Structures</h4>
+<p><strong><code>EncoderPair</code></strong><br />
+Holds two hardware PIO encoders:
+- <code>encoder_left: PioEncoder&lt;PIO0, SM0&gt;</code>
+- <code>encoder_right: PioEncoder&lt;PIO0, SM1&gt;</code></p>
+<p>Constructed using A/B pin pairs for each wheel.</p>
+<p><strong><code>EncoderCounters</code></strong><br />
+Shared tick counters stored in:
+- <code>left: Mutex&lt;i32&gt;</code>
+- <code>right: Mutex&lt;i32&gt;</code></p>
+<p>Initialized via:</p>
+<pre><code class="language-rust">pub fn init_encoder_counts() -&gt; EncoderCounters
+</code></pre>
+<hr />
+<h4 id="quadrature-decoding">Quadrature Decoding</h4>
+<p>Quadrature transitions are decoded using a 4×4 lookup table (<code>LUT</code>).</p>
+<pre><code class="language-rust">const LUT: [[i8; 4]; 4] = [
+    /*prev\curr: 00, 01, 10, 11 */
+    [0, 1, -1, 0], // 00 -&gt;
+    [-1, 0, 0, 1], // 01 -&gt;
+    [1, 0, 0, -1], // 10 -&gt;
+    [0, -1, 1, 0], // 11 -&gt;
+];
+</code></pre>
+<p>Each PIO FIFO entry is processed to accumulate tick deltas.</p>
+<hr />
+<h4 id="async-encoder-tasks">Async Encoder Tasks</h4>
+<p>Two tasks run continuously:</p>
+<pre><code class="language-rust">pub async fn encoder_left_task(
+    mut encoder: PioEncoder&lt;'static, PIO0, 0&gt;,
+    counter: &amp;'static Mutex&lt;NoopRawMutex, i32&gt;,
+)
+
+pub async fn encoder_right_task(
+    mut encoder: PioEncoder&lt;'static, PIO0, 1&gt;,
+    counter: &amp;'static Mutex&lt;NoopRawMutex, i32&gt;,
+)
+</code></pre>
+<p>Each task:</p>
+<ul>
+<li>Reads AB state</li>
+<li>Computes tick delta using LUT</li>
+<li>Updates the shared counter with direction correction</li>
+</ul>
+<hr />
+<h4 id="high-level-velocity-functions">High-Level Velocity Functions</h4>
+<p><strong>RPM:</strong></p>
+<pre><code class="language-rust">get_left_rpm(counter, cpr_wheel, interval_ms)
+
+get_right_rpm(counter, cpr_wheel, interval_ms)
+
+get_rpms(left, right, cpr_wheel, interval_ms)
+</code></pre>
+<p><strong>Angular velocity (rad/s):</strong></p>
+<pre><code class="language-rust">pub async fn get_wheel_speed_in_rad(
+    left_counter: &amp;'static Mutex&lt;NoopRawMutex, i32&gt;,
+    right_counter: &amp;'static Mutex&lt;NoopRawMutex, i32&gt;,
+    cpr_wheel: f32,
+    interval_ms: u64,
+    dt: f32, // equal to interval_ms but in second, just for saving one divide calculation
+) -&gt; (f32, f32)
+</code></pre>
+<p><strong>Instantaneous speed (non-blocking):</strong></p>
+<pre><code class="language-rust">pub fn wheel_speed_from_counts_now(
+    left_counter: &amp;Mutex&lt;NoopRawMutex, i32&gt;,
+    right_counter: &amp;Mutex&lt;NoopRawMutex, i32&gt;,
+    cpr_wheel: f32,
+    prev_left: i32,
+    prev_right: i32,
+    dt: f32, // in sec
+) -&gt; ((f32, f32), (i32, i32))
+</code></pre>
+<hr />
+<h4 id="initialization_1">Initialization</h4>
+<p>The quadrature encoders are initialized in two layers:</p>
+<h5 id="1-load-the-pio-program">1. Load the PIO Program</h5>
+<pre><code class="language-rust">let program = PioEncoderProgram::new(&amp;mut pio_common);
+</code></pre>
+<p>This loads the custom quadrature-decoder PIO assembly program into the PIO instruction memory.</p>
+<h5 id="2-create-left-and-right-pioencoder-instances">2. Create Left and Right <code>PioEncoder</code> Instances</h5>
+<pre><code class="language-rust">let encoders = EncoderPair::new(&amp;mut pio_common, sm0, sm1, pin_left_a, pin_left_b, pin_right_a, pin_right_b);
+</code></pre>
+<p>This:</p>
+<ul>
+<li>Converts GPIOs into PIO pins  </li>
+<li>Enables pull-ups on A/B lines  </li>
+<li>Sets pin directions to input  </li>
+<li>Configures FIFO as RX-only  </li>
+<li>Sets PIO clock divider  </li>
+<li>Binds each encoder to a state machine  </li>
+<li>Enables both state machines</li>
+</ul>
+<p><code>EncoderPair</code> now exposes:</p>
+<ul>
+<li><code>encoder_left</code></li>
+<li><code>encoder_right</code></li>
+</ul>
+<p>Each is a fully configured quadrature reader.</p>
+<h5 id="3-initialize-shared-tick-counters">3. Initialize Shared Tick Counters</h5>
+<pre><code class="language-rust">let counters = init_encoder_counts();
+</code></pre>
+<p>This allocates:</p>
+<ul>
+<li><code>counters.left  → Mutex&lt;i32&gt;</code></li>
+<li><code>counters.right → Mutex&lt;i32&gt;</code></li>
+</ul>
+<p>Used by the async tasks.</p>
+<h5 id="4-start-async-encoder-tasks">4. Start Async Encoder Tasks</h5>
+<pre><code class="language-rust">spawner.spawn(encoder_left_task(encoders.encoder_left, counters.left));
+spawner.spawn(encoder_right_task(encoders.encoder_right, counters.right));
+</code></pre>
+<p>Each task:</p>
+<ul>
+<li>Continuously reads A/B transitions  </li>
+<li>Uses LUT-based decoding  </li>
+<li>Updates the corresponding counter</li>
+</ul>
+<div style="height:2px; background:#1e90ff; margin:32px 0;"></div>
+
+<h3 id="imu-module">IMU Module</h3>
+<p>The IMU module provides drivers and filtering for the 9-axis sensor suite:</p>
+<ul>
+<li><strong>LSM6DSO</strong> (accelerometer + gyroscope)</li>
+<li><strong>LIS3MDL</strong> (magnetometer)</li>
+<li><strong>Complementary filter</strong> for roll/pitch/yaw estimation  </li>
+<li>Optional <strong>Madgwick filter</strong> (currently disabled)</li>
+</ul>
+<p>A shared async I2C bus is used for all sensors, since both imu sensors share the same I2C Bus.</p>
+<hr />
+<h4 id="imupack">ImuPack</h4>
+<p><code>ImuPack</code> bundles all IMU components:</p>
+<ul>
+<li><code>i2c: Mutex&lt;I2C&gt;</code> — shared async I2C bus  </li>
+<li><code>lsm6dso</code> — accelerometer + gyroscope driver  </li>
+<li><code>lis3mdl</code> — magnetometer driver  </li>
+<li><code>complementary</code> — global complementary filter instance  </li>
+</ul>
+<p>Created using:</p>
+<pre><code class="language-rust">pub fn new(i2c: &amp;'a Mutex&lt;ThreadModeRawMutex, T&gt;) -&gt; Self
+</code></pre>
+<hr />
+<h4 id="initialization_2">Initialization</h4>
+<pre><code class="language-rust">pub async fn init(&amp;mut self) -&gt; Result&lt;(), T::Error&gt;
+</code></pre>
+<p>Initializes:</p>
+<ul>
+<li>LSM6DSO  </li>
+<li>LIS3MDL  </li>
+</ul>
+<p>Returns an error if any sensor fails to respond.</p>
+<hr />
+<h4 id="reading-sensor-data">Reading Sensor Data</h4>
+<pre><code class="language-rust">pub async fn read_all(&amp;mut self) -&gt; Result&lt;([f32; 3], [f32; 3], [f32; 3]), T::Error&gt;
+</code></pre>
+<p>Each returned value is a <code>[f32; 3]</code> vector.</p>
+<hr />
+<h4 id="orientation-filtering">Orientation Filtering</h4>
+<p>The complementary filter is stored in a <code>StaticCell</code>:</p>
+<pre><code class="language-rust">complementary.update(gyro, accel, mag, dt)
+
+complementary.get_angles_deg()
+</code></pre>
+<p>Madgwick filter code exists but is commented out.</p>
+<hr />
+<h4 id="imu-task">IMU Task</h4>
+<pre><code class="language-rust">pub async fn read_imu_task(mut imu: ImuPack&lt;'static, I2c&lt;'static, I2C0, Async&gt;&gt;)
+</code></pre>
+<p>Async task that:</p>
+<ul>
+<li>Initializes the IMU  </li>
+<li>Continuously reads accel/gyro/mag  </li>
+<li>Updates the complementary filter  </li>
+<li>Runs at 100 Hz (10 ms interval)</li>
+</ul>
+<div style="height:2px; background:#1e90ff; margin:32px 0;"></div>
+
+<h3 id="uart-module">UART Module</h3>
+<p>The UART module provides:
+- A low-level asynchronous UART hardware task<br />
+- A packet-decoding task<br />
+- TX/RX channels for inter-task communication<br />
+- Helper functions for sending command / state packets<br />
+- A loopback system for broadcasting robot states  </p>
+<p>It is the communication backbone between the robot and external controllers (PC, joystick node, Mocap node, etc.).</p>
+<hr />
+<h4 id="shared-uart-handle">Shared UART Handle</h4>
+<pre><code class="language-rust">pub type SharedUart = &amp;'a Mutex&lt;Uart&lt;Async&gt;&gt;;
+</code></pre>
+<p>Wrapped in a mutex for async-safe access.</p>
+<hr />
+<h4 id="channels">Channels</h4>
+<ul>
+<li>
+<p><strong>UART_TX_CHANNEL</strong><br />
+  Tasks → UART hardware layer (Sends byte buffers)</p>
+</li>
+<li>
+<p><strong>UART_RX_CHANNEL</strong><br />
+  UART hardware layer → Decoder task (Receives 1 byte at a time)</p>
+</li>
+</ul>
+<hr />
+<h4 id="low-level-uart-hardware-task">Low-Level UART Hardware Task</h4>
+<pre><code class="language-rust">uart_hw_task(uart)
+</code></pre>
+<p>This task continuously waits on two futures:</p>
+<ul>
+<li>Incoming TX request from <code>UART_TX_CHANNEL</code></li>
+<li>Incoming RX byte from UART hardware</li>
+</ul>
+<p>It uses <code>select()</code> to process whichever event arrives first.</p>
+<p>Responsibilities:</p>
+<ul>
+<li>On TX: write bytes to UART</li>
+<li>On RX: forward byte to <code>UART_RX_CHANNEL</code></li>
+</ul>
+<h4 id="packet-receive-task">Packet Receive Task</h4>
+<pre><code class="language-rust">uart_receive_task()
+</code></pre>
+<p>A standalone task that:</p>
+<ul>
+<li>Reads bytes from <code>UART_RX_CHANNEL</code></li>
+<li>Reconstructs framed packets based on their length</li>
+<li>Supports multiple packet formats:<ul>
+<li><code>CmdLegacyPacketU16</code></li>
+<li><code>CmdLegacyPacketMix</code></li>
+<li><code>CmdLegacyPacketF32</code></li>
+<li><code>MocapPosesPacketF32Test</code></li>
+</ul>
+</li>
+</ul>
+<p>Packet structure:</p>
+<ul>
+<li>Byte 0 → packet length</li>
+<li>Byte 1 → header (<code>0x3C</code> expected)</li>
+<li>Remaining bytes → payload</li>
+</ul>
+<p>When one full packet is collected, it is decoded and printed/debugged.</p>
+<h4 id="uart-send-functions">UART Send Functions</h4>
+<p><strong>Send raw bytes</strong></p>
+<pre><code class="language-rust">pub fn uart_send(data: &amp;[u8])
+</code></pre>
+<p>Uses <code>UART_TX_CHANNEL.try_send()</code> to schedule transmission.</p>
+<p><strong>Pack state-loopback messages</strong></p>
+<pre><code class="language-rust">pub fn pack_state_loopback(pkt: &amp;StateLoopBackPacketF32) -&gt; Vec&lt;u8, 64&gt;
+
+pub fn uart_send_state_loopback(pkt: &amp;StateLoopBackPacketF32)
+</code></pre>
+<p>Used to broadcast full robot state (pos, vel, quaternion).</p>
+<p><strong>Robot State Loopback Task</strong></p>
+<pre><code class="language-rust">pub async fn state_loopback_task()
+</code></pre>
+<p>Reads robot state packets from <code>ROBOT_STATE_CH</code>, packages them, and sends them through UART.</p>
+<p>Allows external systems (PC/ROS) to monitor:</p>
+<ul>
+<li>Position</li>
+<li>Velocity</li>
+<li>Orientation</li>
+</ul>
+<p>in real-time.</p>
+<div style="height:2px; background:#1e90ff; margin:32px 0;"></div>
+
+<h3 id="sd-logging-module">SD Logging Module</h3>
+<p>The SD logging module provides:</p>
+<ul>
+<li>Full SD card initialization via SPI0</li>
+<li>FAT filesystem mounting (<code>embedded-sdmmc</code>)</li>
+<li>
+<p>Automatic loading of:</p>
+<ul>
+<li>Trajectory file (<code>TRJ0001.JSN</code>)</li>
+<li>Robot config file (<code>ROBOTCFG_*.CFG</code>)</li>
+</ul>
+</li>
+<li>
+<p>Automatic allocation of a unique log file (<code>TR00–TR99</code>)</p>
+</li>
+<li>CSV + binary logging utilities for:<ul>
+<li>robot motion</li>
+<li>trajectory controller debugging</li>
+</ul>
+</li>
+</ul>
+<p>This module is required for trajectory-following experiments and logging-based debugging.</p>
+<h4 id="sd-card-initialization">SD Card Initialization</h4>
+<p>SD card init is performed using:</p>
+<pre><code class="language-rust">pub fn init_sd_logger(
+    spi: Peri&lt;'static, SPI0&gt;,
+    sck: Peri&lt;'static, PIN_18&gt;,
+    mosi: Peri&lt;'static, PIN_19&gt;,
+    miso: Peri&lt;'static, PIN_20&gt;,
+    cs: Peri&lt;'static, PIN_21&gt;,
+) -&gt; Result&lt;(SdLogger, RobotConfig), SdError&gt;
+</code></pre>
+<p>This function performs:</p>
+<ol>
+<li>SPI0 setup<ul>
+<li>400 kHz bootstrap frequency</li>
+<li>16 MHz normal operation</li>
+</ul>
+</li>
+<li>Volume manager creation
+   use
+   <code>rust
+   VolumeManager&lt;SdCard, DummyClock&gt;</code></li>
+<li>Open FAT volume + root directory</li>
+<li>Load Trajectory (<code>TRJ0001.JSN</code>)
+   Uses a 48 KB scratch buffer for JSON.</li>
+<li>Load Robot Configuration</li>
+<li>Allocate a new log file
+   The logger cycles from:
+   <code>TR00 → TR01 → … → TR99</code>
+   and picks the first unused slot.</li>
+</ol>
+<p>Returns:</p>
+<ul>
+<li><code>SdLogger</code> — handle used for writing</li>
+<li><code>RobotConfig</code> — parsed config stored in SD</li>
+</ul>
+<hr />
+<h4 id="code-structure">Code Structure</h4>
+<h5 id="sdlogger">SdLogger</h5>
+<p><code>SdLogger</code> wraps a FAT file object:</p>
+<pre><code class="language-rust">pub struct SdLogger {
+    file: File&lt;'static, Sd&lt;'static&gt;, DummyClock, MAX_DIRS, MAX_FILES, MAX_VOLUMES&gt;,
+}
+</code></pre>
+<p>Provides file I/O for logging.</p>
+<h5 id="basic-logging-functions">Basic Logging Functions</h5>
+<p><strong>Write raw bytes</strong></p>
+<pre><code class="language-rust">pub fn write(&amp;mut self, data: &amp;[u8])
+</code></pre>
+<p><strong>Flush the file</strong></p>
+<pre><code class="language-rust">pub fn flush(&amp;mut self)
+</code></pre>
+<p>Must be called after all logging tasks finish.</p>
+<p><strong>Read entire file (debug only)</strong></p>
+<pre><code class="language-rust">pub fn read_all(&amp;mut self)
+</code></pre>
+<h5 id="csv-logging-helpers">CSV Logging Helpers</h5>
+<p><strong>Write CSV header (trajectory control)</strong></p>
+<pre><code class="language-rust">pub fn write_traj_control_header(&amp;mut self)
+</code></pre>
+<p><strong>Append one trajectory-control row (CSV)</strong></p>
+<pre><code class="language-rust">pub fn log_traj_control_as_csv(&amp;mut self, data: &amp;TrajControlLog)
+</code></pre>
+<h5 id="binary-logging-helpers">Binary Logging Helpers</h5>
+<p>Binary logging is more compact and suitable for high-frequency data rates.</p>
+<pre><code class="language-rust">pub fn log_motion_as_bin(&amp;mut self, log: &amp;MotionLog)
+</code></pre>
+<p>Internally uses <code>mem::transmute</code> to convert the struct to a byte slice.</p>
+<h5 id="log-data-structures">Log Data Structures</h5>
+<p><code>TrajControlLog</code></p>
+<p>Full trajectory controller logging:</p>
+<pre><code class="language-rust">pub struct TrajControlLog {
+    pub timestamp_ms: u32,
+    pub target_x: f32, pub target_y: f32, pub target_theta: f32,
+    pub actual_x: f32, pub actual_y: f32, pub actual_theta: f32,
+    pub target_vx: f32, pub target_vy: f32, pub target_vz: f32,
+    pub actual_vx: f32, pub actual_vy: f32, pub actual_vz: f32,
+    pub target_qw: f32, pub target_qx: f32, pub target_qy: f32, pub target_qz: f32,
+    pub actual_qw: f32, pub actual_qx: f32, pub actual_qy: f32, pub actual_qz: f32,
+    pub xerror: f32, pub yerror: f32, pub thetaerror: f32,
+    pub ul: f32, pub ur: f32, pub dutyl: f32, pub dutyr: f32,
+}
+</code></pre>
+<p>This could be extended if needed.</p>
+<h4 id="file-naming-rules">File Naming Rules</h4>
+<table>
+<thead>
+<tr>
+<th>Purpose</th>
+<th>File Name</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Robot configuration</td>
+<td><code>ROBOTCFG.CFG</code></td>
+<td>Must follow naming format</td>
+</tr>
+<tr>
+<td>Trajectory</td>
+<td><code>TRJ0001.JSN</code></td>
+<td>Must exist for trajectory following</td>
+</tr>
+<tr>
+<td>Log files</td>
+<td><code>TR00</code>–<code>TR99</code></td>
+<td>Automatically chosen</td>
+</tr>
+</tbody>
+</table>
+<h4 id="notes_1">Notes</h4>
+<ul>
+<li>JSON trajectory must fit into the 48 KB scratch buffer</li>
+<li>Must call <code>.flush()</code> before removing SD card</li>
+<li>SPI0 conflicts with line sensors; they must be disabled during SD use</li>
+<li>If robot configuration is missing, defaults are loaded</li>
+</ul>
+<div style="height:2px; background:#1e90ff; margin:32px 0;"></div>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../hardware/" class="btn btn-neutral float-left" title="Hardware"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../build/" class="btn btn-neutral float-right" title="Build & Flashing">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../hardware/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../build/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

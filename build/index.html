@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Build & Flashing - Pololu Docs</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Build \u0026 Flashing";
+        var mkdocs_page_input_path = "build.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> Pololu Docs
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../hardware/">Hardware</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../software/">Software</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Build & Flashing</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#quick-start">Quick Start</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#hardware-preperation">Hardware Preperation</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#using-the-run-script-recommended">Using the ./run Script (Recommended)</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#using-cargo-directly">Using Cargo Directly</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#complete-run-script-reference">Complete ./run Script Reference</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#script-syntax">Script Syntax</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#all-available-commands">All Available Commands</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#equivalent-cargo-commands">Equivalent Cargo Commands</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#technical-implementation">Technical Implementation</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#feature-flag-system">Feature Flag System</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#code-structure">Code Structure</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#librs-conditional-compilation">lib.rs Conditional Compilation</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#cargotoml-feature-definition">Cargo.toml Feature Definition</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#key-differences-between-robot-modules">Key Differences Between Robot Modules</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#development-workflows">Development Workflows</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#adding-a-new-robot-configuration">Adding a New Robot Configuration</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#testing-different-configurations">Testing Different Configurations</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#troubleshooting">Troubleshooting</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#common-issues-solutions">Common Issues &amp; Solutions</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#verification-commands">Verification Commands</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#notes">Notes</a>
+    </li>
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../debugging/">Debugging</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../ros/">ROS Interface</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../usage/">Usage</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../troubleshooting/">Troubleshooting</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">Pololu Docs</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Build & Flashing</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="pololu-3pizumo-robot-build-system-documentation">Pololu 3Pi/Zumo Robot Build System Documentation</h1>
+<p>This document provides brief documentation for building and running the <a href="https://github.com/IMRCLab/pololu3pi2040-rs">Pololu 3Pi+ 2040 robot firmware</a> with multiple robot support and different firmware tasks. It covers the <code>./run</code> build script usage, feature flag system, and multi-robot configuration workflow.</p>
+<div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
+
+<h2 id="quick-start">Quick Start</h2>
+<hr />
+<h3 id="hardware-preperation">Hardware Preperation</h3>
+<ul>
+<li>You will need a Raspberry Pi Debug Probe(for debugging) and a USB-C Cabel(for flashing).</li>
+<li>
+<p>connect the probe properly to the Pololu. If the official probe is used, the connection should be:</p>
+<pre><code>Yellow(SWDIO) -&gt; SWDIO
+Green(SWCLK)  -&gt; SWCLK
+Black(GND)    -&gt; GND
+</code></pre>
+<p>Then connect the Pololu with the USB-C cabel to your PC, and the debug probe as well and uncomment in <code>config.toml</code></p>
+<pre><code>runner = "probe-rs run --chip RP2040 --protocol swd"
+</code></pre>
+</li>
+</ul>
+<hr />
+<h3 id="using-the-run-script-recommended">Using the <code>./run</code> Script (Recommended)</h3>
+<p>The <code>./run</code> script provides a convenient way to build and flash different robot configurations.</p>
+<pre><code class="language-bash"># Make executable (first time only)
+chmod +x run
+
+# Examples:
+./run                             # Default config, main binary
+./run zumo                        # Zumo config, main binary
+./run zumo teleop                 # Zumo config, teleop_control binary
+./run 3pi menu                    # 3Pi config, menu binary
+./run 3pi trajectory_following    # 3Pi config, trajectory_following binary
+</code></pre>
+<hr />
+<h3 id="using-cargo-directly">Using Cargo Directly</h3>
+<pre><code class="language-bash"># Default configuration
+cargo run --release
+
+# Zumo robot
+cargo run --release --features zumo
+
+# 3Pi robot  
+cargo run --release --features 3pi
+
+# Specific binaries
+cargo run --release --bin programm_entrance --features 3pi
+cargo run --release --bin teleop_control --features zumo
+cargo run --release --bin trajectory_following --features 3pi
+</code></pre>
+<div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
+
+<h2 id="complete-run-script-reference">Complete <code>./run</code> Script Reference</h2>
+<hr />
+<h3 id="script-syntax">Script Syntax</h3>
+<pre><code class="language-bash">./run [robot_type] [target]
+</code></pre>
+<p><strong>Parameters:</strong>
+- <code>robot_type</code> (optional): <code>zumo</code>, <code>3pi</code>, or empty for default
+- <code>target</code> (optional): <code>teleop</code>, <code>trajectory</code>, <code>build</code>, or empty for main binary</p>
+<hr />
+<h3 id="all-available-commands">All Available Commands</h3>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Robot Config</th>
+<th>Binary</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>./run</code></td>
+<td>Default</td>
+<td>Main</td>
+<td>Default joystick_control.rs, main binary</td>
+</tr>
+<tr>
+<td><code>./run zumo</code></td>
+<td>Zumo</td>
+<td>Main</td>
+<td>Zumo-specific config, main binary</td>
+</tr>
+<tr>
+<td><code>./run 3pi</code></td>
+<td>3Pi</td>
+<td>Main</td>
+<td>3Pi-specific config, main binary</td>
+</tr>
+<tr>
+<td><code>./run zumo menu</code></td>
+<td>Zumo</td>
+<td>programm_entrance</td>
+<td>Zumo config, menu binary</td>
+</tr>
+<tr>
+<td><code>./run 3pi menu</code></td>
+<td>3Pi</td>
+<td>programm_entrance</td>
+<td>3Pi config, menu binary</td>
+</tr>
+<tr>
+<td><code>./run zumo teleop</code></td>
+<td>Zumo</td>
+<td>teleop_control</td>
+<td>Zumo config, teleop binary</td>
+</tr>
+<tr>
+<td><code>./run 3pi teleop</code></td>
+<td>3Pi</td>
+<td>teleop_control</td>
+<td>3Pi config, teleop binary</td>
+</tr>
+<tr>
+<td><code>./run zumo trajectory_following</code></td>
+<td>Zumo</td>
+<td>trajectory_following</td>
+<td>Zumo config, trajectory binary</td>
+</tr>
+<tr>
+<td><code>./run 3pi trajectory_following</code></td>
+<td>3Pi</td>
+<td>trajectory_following</td>
+<td>3Pi config, trajectory binary</td>
+</tr>
+<tr>
+<td><code>./run zumo build</code></td>
+<td>Zumo</td>
+<td>-</td>
+<td>Build only (no flash)</td>
+</tr>
+<tr>
+<td><code>./run 3pi build</code></td>
+<td>3Pi</td>
+<td>-</td>
+<td>Build only (no flash)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="equivalent-cargo-commands">Equivalent Cargo Commands</h3>
+<table>
+<thead>
+<tr>
+<th><code>./run</code> Command</th>
+<th>Equivalent Cargo Command</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>./run</code></td>
+<td><code>cargo run --release</code></td>
+</tr>
+<tr>
+<td><code>./run zumo</code></td>
+<td><code>cargo run --release --features zumo</code></td>
+</tr>
+<tr>
+<td><code>./run 3pi</code></td>
+<td><code>cargo run --release --features 3pi</code></td>
+</tr>
+<tr>
+<td><code>./run 3pi menu</code></td>
+<td><code>cargo run --release --bin programm_entrance --features 3pi</code></td>
+</tr>
+<tr>
+<td><code>./run zumo teleop</code></td>
+<td><code>cargo run --release --bin teleop_control --features zumo</code></td>
+</tr>
+<tr>
+<td><code>./run 3pi trajectory_following</code></td>
+<td><code>cargo run --release --bin trajectory_following --features 3pi</code></td>
+</tr>
+<tr>
+<td><code>./run zumo build</code></td>
+<td><code>cargo build --release --features zumo</code></td>
+</tr>
+</tbody>
+</table>
+<div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
+
+<h2 id="technical-implementation">Technical Implementation</h2>
+<p>The build system uses Rust's conditional compilation with feature flags to select robot-specific modules at compile time.</p>
+<hr />
+<h3 id="feature-flag-system">Feature Flag System</h3>
+<ol>
+<li><strong>Feature Selection</strong>: Robot type determined by <code>--features zumo</code> or <code>--features 3pi</code></li>
+<li><strong>Module Selection</strong>: <code>lib.rs</code> conditionally compiles the appropriate joystick control module</li>
+<li><strong>Re-export</strong>: Selected module is re-exported as <code>joystick_control</code> for transparent usage</li>
+<li><strong>Compilation</strong>: Main code imports from <code>joystick_control</code> without knowing the underlying implementation</li>
+</ol>
+<hr />
+<h3 id="code-structure">Code Structure</h3>
+<h4 id="librs-conditional-compilation"><code>lib.rs</code> Conditional Compilation</h4>
+<pre><code class="language-rust">// Default joystick control (for testing)
+#[cfg(not(any(feature = &quot;zumo&quot;, feature = &quot;3pi&quot;)))]
+pub mod joystick_control;
+
+// Robot-specific modules
+#[cfg(feature = &quot;zumo&quot;)]
+pub mod joystick_control_zumo;
+#[cfg(feature = &quot;zumo&quot;)]
+pub use joystick_control_zumo as joystick_control;
+
+#[cfg(feature = &quot;3pi&quot;)]
+pub mod joystick_control_3pi;
+#[cfg(feature = &quot;3pi&quot;)]
+pub use joystick_control_3pi as joystick_control;
+</code></pre>
+<h4 id="cargotoml-feature-definition"><code>Cargo.toml</code> Feature Definition</h4>
+<pre><code class="language-toml">[features]
+default = []    # No default robot (uses joystick_control.rs)
+zumo = []       # Empty feature flag for Zumo
+3pi = []        # Empty feature flag for 3Pi
+</code></pre>
+<hr />
+<h3 id="key-differences-between-robot-modules">Key Differences Between Robot Modules</h3>
+<table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>Zumo</th>
+<th>3Pi</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Module File</strong></td>
+<td><code>joystick_control_zumo.rs</code></td>
+<td><code>joystick_control_3pi.rs</code></td>
+<td><code>joystick_control.rs</code></td>
+</tr>
+<tr>
+<td><strong>Motor Control</strong></td>
+<td><code>motor.set_speed(-duty_left, -duty_right)</code></td>
+<td><code>motor.set_speed(duty_left, duty_right)</code></td>
+<td>Zumo parameters</td>
+</tr>
+<tr>
+<td><strong>Encoder CPR</strong></td>
+<td>909.72</td>
+<td>358.32</td>
+<td>909.72</td>
+</tr>
+<tr>
+<td><strong>Physical Constants</strong></td>
+<td>Zumo values</td>
+<td>3Pi values</td>
+<td>Zumo values</td>
+</tr>
+</tbody>
+</table>
+<div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
+
+<h2 id="development-workflows">Development Workflows</h2>
+<hr />
+<h3 id="adding-a-new-robot-configuration">Adding a New Robot Configuration</h3>
+<ol>
+<li>Create new joystick control module (e.g., <code>joystick_control_newrobot.rs</code>)</li>
+<li>Add feature flag in <code>Cargo.toml</code>:
+   <code>toml
+   [features]
+   newrobot = []</code></li>
+<li>Update <code>lib.rs</code>:
+   <code>rust
+   #[cfg(feature = "newrobot")]
+   pub mod joystick_control_newrobot;
+   #[cfg(feature = "newrobot")]
+   pub use joystick_control_newrobot as joystick_control;</code></li>
+<li>Update <code>./run</code> script validation logic</li>
+</ol>
+<hr />
+<h3 id="testing-different-configurations">Testing Different Configurations</h3>
+<pre><code class="language-bash"># Verify all configurations compile
+cargo check                    # Default
+cargo check --features zumo    # Zumo
+cargo check --features 3pi     # 3Pi
+
+# Build without flashing
+./run zumo build
+./run 3pi build
+</code></pre>
+<div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
+
+<h2 id="troubleshooting">Troubleshooting</h2>
+<hr />
+<h3 id="common-issues-solutions">Common Issues &amp; Solutions</h3>
+<p><strong>Script not executable:</strong></p>
+<pre><code class="language-bash">chmod +x run
+</code></pre>
+<p><strong>Invalid robot type error:</strong></p>
+<pre><code>Error: Invalid robot type 'typo'. Use 'zumo', '3pi', or leave empty for default
+</code></pre>
+<p><strong>Solution</strong>: Check spelling and use exactly <code>zumo</code> or <code>3pi</code></p>
+<p><strong>Invalid target error:</strong></p>
+<pre><code>Error: Invalid target 'typo'. Use 'teleop', 'trajectory', 'build', or leave empty for main binary
+</code></pre>
+<p><strong>Solution</strong>: Use valid targets: <code>teleop</code>, <code>trajectory</code>, <code>build</code>, or leave empty</p>
+<p><strong>Feature compilation errors:</strong></p>
+<pre><code class="language-bash"># Test individual configurations
+cargo check                    # Default config
+cargo check --features zumo    # Zumo config
+cargo check --features 3pi     # 3Pi config
+</code></pre>
+<p><strong>Script execution issues:</strong></p>
+<pre><code class="language-bash"># Make sure you're in the project root
+ls -la | grep run    # Should show the run script
+
+# Check script permissions
+ls -la run           # Should show executable permissions (x)
+</code></pre>
+<hr />
+<h3 id="verification-commands">Verification Commands</h3>
+<pre><code class="language-bash"># Build verification (without flashing)
+./run zumo build      # Should compile Zumo config
+./run 3pi build       # Should compile 3Pi config
+./run build          # Invalid - will show error
+
+# Feature flag verification
+cargo build --release --features zumo
+cargo build --release --features 3pi
+cargo build --release    # Default config
+</code></pre>
+<div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
+
+<h2 id="notes">Notes</h2>
+<ul>
+<li><strong>Release Mode</strong>: The <code>./run</code> script always builds in <code>--release</code> mode for optimized embedded code</li>
+<li><strong>Backward Compatibility</strong>: Default configuration maintains compatibility with existing code</li>
+<li><strong>Module Interface</strong>: All robot configurations expose the same public interface for seamless switching</li>
+<li><strong>Testing</strong>: Use default configuration (<code>./run</code>) for rapid development and testing</li>
+<li><strong>Production</strong>: Use specific robot features (<code>./run zumo</code> or <code>./run 3pi</code>) for deployment</li>
+<li>
+<p><strong>Version Conflict</strong>: The newest version <code>1.89.0</code> of <code>rustc</code> is released on 4th Aug 2025. However, the flashing with <code>elf2uf2-rs -d</code> might suffers some temporary issues. For example, an error <code>unregonized ABI</code> occurs because of the generated elf header doesn't match the requirements of the elf2uf2 runner. (The generated 8th bit of the header is <code>03</code>, which indicates that the OS/ABI type is <code>UNIX - GNU</code>, but actually should be <code>00</code>, which indicates <code>UNIX - System V</code>). There are 2 ways to solve this issue:</p>
+<ul>
+<li>
+<p>If you really need the newest rustc, then each time after you build the project you should enter you target folder and do:</p>
+<pre><code>printf '\x00' | dd of=teleop_control bs=1 seek=7 count=1 conv=notrunc
+</code></pre>
+<p>This will change the 8th bit from <code>03</code> to <code>00</code> and then you can flash this as usual (don't build it again).</p>
+</li>
+<li>
+<p>The other way is to downgrade rustc to <code>1.87.0</code> by using:</p>
+<pre><code>rustup toolchain install 1.87.0
+rustup default 1.87.0
+rustup component add rust-src --toolchain 1.87.0
+rustup target add thumbv6m-none-eabi --toolchain 1.87.0
+</code></pre>
+</li>
+</ul>
+</li>
+</ul>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../software/" class="btn btn-neutral float-left" title="Software"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../debugging/" class="btn btn-neutral float-right" title="Debugging">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../software/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../debugging/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
