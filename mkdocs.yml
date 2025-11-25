@@ -1,0 +1,11 @@
+site_name: Pololu Docs
+nav:
+  - Home: index.md
+  - Hardware: hardware.md
+  - Software: software.md
+  - Build & Flashing: build.md
+  - Debugging: debugging.md
+  - ROS Interface: ros.md
+  - Usage: usage.md
+  - Troubleshooting: troubleshooting.md
+theme: readthedocs
