@@ -3,8 +3,6 @@
 
 use {defmt_rtt as _, panic_probe as _};
 
-use core::cmp::min;
-
 use defmt::info;
 use embassy_executor::Spawner;
 use embassy_futures::select::{Either, Either3, select, select3};
@@ -19,7 +17,6 @@ use pololu3pi2040_rs::orchestrator_signal::{
     STOP_MOCAP_UART_SIG, STOP_MOCAP_UPDATE_SIG, STOP_MOTOR_CTRL_SIG, STOP_TELEOP_UART_SIG,
     STOP_TRAJ_OUTER_SIG, STOP_WHEEL_INNER_SIG, decode_functionality_select_command,
 };
-use pololu3pi2040_rs::uart::SharedUart;
 use pololu3pi2040_rs::{
     encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     joystick_control::{teleop_motor_control_task, teleop_uart_task},
@@ -30,6 +27,7 @@ use pololu3pi2040_rs::{
         mocap_update_task, wheel_speed_inner_loop,
     },
     trajectory_uart::{UartCfg, uart_motioncap_receiving_task},
+    uart::{UART_RX_CHANNEL, uart_hw_task},
 };
 
 #[embassy_executor::main]
@@ -59,36 +57,28 @@ async fn main(spawner: Spawner) {
 }
 
 #[embassy_executor::task]
-pub async fn functionality_mode_selection_uart_task(uart: SharedUart<'static>, cfg: UartCfg) {
-    let mut len_buf = [0u8; 1];
+pub async fn functionality_mode_selection_uart_task(cfg: UartCfg) {
+    // let mut len_buf = [0u8; 1];
     let mut frame: HVec<u8, FRAME_MAX> = HVec::new();
 
     loop {
-        let read_len_fut = async {
-            let mut u = uart.lock().await;
-            match u.read(&mut len_buf).await {
-                Ok(()) => Some(len_buf[0]),
-                Err(_) => None,
-            }
-        };
+        let read_len_fut = UART_RX_CHANNEL.receive();
         let timeout_fut = Timer::after(Duration::from_millis(1));
         let stop_fut = STOP_MENU_UART_SIG.wait();
 
-        let len: Option<u8> = match select3(read_len_fut, timeout_fut, stop_fut).await {
-            Either3::First(v) => v,     // read len
-            Either3::Second(_) => None, // timeout, continue looping
-            Either3::Third(_) => break, // Stop top uart task signal
+        let len_opt: Option<u8> = match select3(read_len_fut, timeout_fut, stop_fut).await {
+            Either3::First(b) => Some(b), // read len
+            Either3::Second(_) => None,   // timeout, continue looping
+            Either3::Third(_) => break,   // Stop top uart task signal
         };
 
-        let Some(_len) = len else {
+        let Some(len) = len_opt else {
             // TimeOut Or Error
             Timer::after(Duration::from_micros(400)).await;
             continue;
         };
 
-        let len = len_buf[0];
         if !(len == LEN_FUNC_SELECT_CMD) {
-            // info!("len {}", len);
             continue; // illegal Length
         }
 
@@ -98,43 +88,28 @@ pub async fn functionality_mode_selection_uart_task(uart: SharedUart<'static>, c
         let mut got = 0usize;
 
         while got < need {
-            // maximally read 18 bytes at a time
-            let mut chunk = [0u8; 18];
-            let take = min(need - got, chunk.len());
-
-            let read_chunk_fut = async {
-                let mut u = uart.lock().await;
-                u.read(&mut chunk[..take]).await.is_ok()
-            };
-            let timeout_chunk_fut = Timer::after(Duration::from_millis(2));
+            let read_byte_fut = UART_RX_CHANNEL.receive();
+            let timeout_fut = Timer::after(Duration::from_millis(2));
             let stop_fut = STOP_MENU_UART_SIG.wait();
 
-            let ok: bool = match select3(read_chunk_fut, timeout_chunk_fut, stop_fut).await {
-                Either3::First(ok) => ok,
-                Either3::Second(_) => false,
+            let byte_opt: Option<u8> = match select3(read_byte_fut, timeout_fut, stop_fut).await {
+                Either3::First(b) => Some(b),
+                Either3::Second(_) => None,
                 Either3::Third(_) => {
                     return;
                 }
             };
 
-            if !ok {
-                // Current frame is lost, abandon and quit reading this frame
-                Timer::after(Duration::from_micros(300)).await;
-                got = 0;
+            let Some(b) = byte_opt else {
+                // timeout or error → drop frame
                 frame.clear();
+                got = 0;
                 break;
-            }
+            };
 
-            // attach to frame
-            let _ = frame.extend_from_slice(&chunk[..take]);
-            // info!("rec: {}", frame[0]);
-            // for &b in &chunk[..take] {
-            //     let _ = frame.push(b);
-            // }
-            got += take;
+            frame.push(b).ok();
+            got += 1;
         }
-
-        // info!("rec: {}", frame[0]);
 
         if got != need {
             continue;
@@ -182,9 +157,12 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
         .spawn(encoder_right_task(encoder_right, encoder_count_right))
         .unwrap();
 
+    // ============= spawn low level uart task ======================
+    spawner.spawn(uart_hw_task(devices.uart)).unwrap();
+
     // ============== spawn func select task ========================
     spawner
-        .spawn(functionality_mode_selection_uart_task(devices.uart, cfg))
+        .spawn(functionality_mode_selection_uart_task(cfg))
         .unwrap();
     let mut mode = Mode::Menu;
 
@@ -239,13 +217,13 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                     Mode::Menu => {
                         defmt::info!("Menu");
                         spawner
-                            .spawn(functionality_mode_selection_uart_task(devices.uart, cfg))
+                            .spawn(functionality_mode_selection_uart_task(cfg))
                             .unwrap();
                     }
                     Mode::TeleOp => {
                         defmt::info!("TELE-OPERATION Mode is selected!!!!!");
 
-                        spawner.spawn(teleop_uart_task(devices.uart, cfg)).unwrap();
+                        spawner.spawn(teleop_uart_task(cfg)).unwrap();
 
                         spawner
                             .spawn(teleop_motor_control_task(
@@ -259,9 +237,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                     Mode::TrajMocap => {
                         defmt::info!("TRAJ-FOLLOWING Mode (With Mocap) is selected!!!!!");
 
-                        spawner
-                            .spawn(uart_motioncap_receiving_task(devices.uart, cfg))
-                            .unwrap();
+                        spawner.spawn(uart_motioncap_receiving_task(cfg)).unwrap();
                         spawner.spawn(mocap_update_task()).unwrap();
                         spawner
                             .spawn(wheel_speed_inner_loop(
@@ -283,9 +259,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                     Mode::TrajDuty => {
                         defmt::info!("TRAJ-FOLLOWING Mode (Directduty) is selected!!!!!");
 
-                        spawner
-                            .spawn(uart_motioncap_receiving_task(devices.uart, cfg))
-                            .unwrap();
+                        spawner.spawn(uart_motioncap_receiving_task(cfg)).unwrap();
                         spawner.spawn(mocap_update_task()).unwrap();
                         spawner
                             .spawn(wheel_speed_inner_loop(

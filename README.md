@@ -224,9 +224,12 @@ tio /dev/ttyACM0
   - `buzzer.rs`: Buzzer driver.
   - `diffdrive.rs`: differential flatness computation for trajectory generation and following
   - `motor.rs`: Driver of both motors.
-  - `encoder.rs`: Encoder driver for both encoders using PIO.
+  - `encoder.rs`: Basic Encoder driver for both encoders using PIO.
+  - `encoder_lib.rs`: Higher-level Encoder API for both encoders based on `encoder.rs`.
   - `uart.rs`: UART0 driver.
   - `packet.rs`: Defines the packet according to [Crazyflie_Packet](https://github.com/IMRCLab/crazyflie-link-cpp/blob/startTraj_example/examples/PacketUtils.hpp).
+  - `sdlog.rs`: Driver and utils for trajectory logging and parameter loading.
+  - `orchestrator_signal.rs`: Storing signals and channels for incooperating different tasks.
 
   **Robot-specific adaptions in application layer**
   - `joystick_control.rs`: Default/testing configuration (currently Zumo parameters)
@@ -235,19 +238,22 @@ tio /dev/ttyACM0
   - `trajectory_signal.rs`: Event/Update signals definition.
   - `trajectory_uart.rs`: Receive poses from Mocap.
   - `bin/`: Binary targets
-    - `teleop_control.rs`: Teleop control application
-    - `trajectory_following.rs`: Cascade Trajectory following application
+    - `programm_entrance.rs`: Uniform programm entrance for all applications.
+    - `teleop_control.rs`: Teleop control application.
+    - `trajectory_following.rs`: Cascade Trajectory following application.
   - `imu/`: IMU library.
     - `lis3mdl.rs`: Driver for the 3-axis magnetometer.
     - `lsm6dso.rs`: Driver for the combined 3-axis accelerometer and 3-axis gyrometer.
     - `shared_i2c.rs`: A shared I2C bus for reusing the same I2C for the combined 3-axis accelerometer and 3-axis gyrometer.
     - `complementary_filter.rs`: Complementary filter to estimate Roll/Pitch/Yaw.
     - `madgwick.rs`: Madgwick filter to estimate Roll/Pitch/Yaw (under developing).
+    - `read_robot_config_from_sd.rs`: Structures and functions for reading robot parameters from a configuration file in the sd card
+    - `robot_parameters_default.rs`: If no sd card is available, the robot parameters will be loaded defaultly from here.
 - `memory.x`: Defines the memory layout of RP2040 (SRAM and Flash).
 - `.cargo/config.toml`: Specifies the target platform as `thumbv6m-none-eabi` for RP2040.
 - `Cargo.toml`: Declares project metadata, Rust edition, dependencies, and feature flags for robot selection.
 - `build.rs`: A custom build script to ensure the `memory.x` linker script is properly included during compilation.
-- `run`: Build script for easy robot and binary selection (see [README_BUILD_SYSTEM.md](README_BUILD_SYSTEM.md)).
+- `run`: Build script for easy robot and binary selection.
 - `README_BUILD_SYSTEM.md`: Comprehensive documentation for the build system and robot configurations. `thumbv6m-none-eabi` for RP2040.
 - `Cargo.toml`: Declares project metadata, Rust edition, and dependencies.
 - `build.rs`: A custom build script to ensure the `memory.x` linker script is properly included during compilation.

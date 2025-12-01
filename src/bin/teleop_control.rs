@@ -11,6 +11,7 @@ use pololu3pi2040_rs::{
     init::init_all,
     joystick_control::{get_gear_ratio, teleop_motor_control_task, teleop_uart_task},
     trajectory_uart::UartCfg,
+    uart::uart_hw_task,
 };
 
 #[embassy_executor::main]
@@ -59,8 +60,9 @@ async fn main(spawner: Spawner) {
     }
 
     // === Start Receiving Command ===
+    spawner.spawn(uart_hw_task(devices.uart)).unwrap();
     spawner
-        .spawn(teleop_uart_task(devices.uart, UartCfg { robot_id: 10 }))
+        .spawn(teleop_uart_task(UartCfg { robot_id: 10 }))
         .unwrap();
 
     // === Start Encoder Task ===
