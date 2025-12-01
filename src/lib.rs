@@ -51,7 +51,7 @@ pub mod joystick_control;
 pub mod led;
 pub mod math;
 pub mod motor;
-pub mod odometry;
+pub mod orchestrator_signal;
 pub mod packet;
 pub mod read_robot_config_from_sd;
 pub mod robot_parameters_default;

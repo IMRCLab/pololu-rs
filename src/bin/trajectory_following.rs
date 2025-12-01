@@ -14,20 +14,34 @@ use pololu3pi2040_rs::trajectory_control::{
     mocap_update_task, wheel_speed_inner_loop,
 };
 use pololu3pi2040_rs::trajectory_uart::{UartCfg, uart_motioncap_receiving_task};
+use pololu3pi2040_rs::uart::uart_hw_task;
+use pololu3pi2040_rs::{
+    // trajectory_control::diffdrive_outer_loop_command_controlled_tuning,
+    led::LED_SHARED,
+    sdlog::SDLOGGER_SHARED,
+};
+
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
     let p = init(Default::default());
-    let devices = init_all(p);
+    let mut devices = init_all(p);
+
+    if let Some(led_dev) = devices.led.take() {
+        let mut g = LED_SHARED.lock().await;
+        *g = Some(led_dev);
+    }
+    if let Some(sd) = devices.sdlogger.take() {
+        let mut g = SDLOGGER_SHARED.lock().await;
+        *g = Some(sd);
+    }
 
     Timer::after_millis(3000).await;
 
     // =========================== Start uart task for receiving pose information from UART ===========================
     // ===================================== (will update STATE_SIG and LAST_STATE) ===================================
+    spawner.spawn(uart_hw_task(devices.uart)).unwrap();
     spawner
-        .spawn(uart_motioncap_receiving_task(
-            devices.uart,
-            UartCfg { robot_id: 10 },
-        ))
+        .spawn(uart_motioncap_receiving_task(UartCfg { robot_id: 10 }))
         .unwrap();
     // ================================================================================================================
 
@@ -59,6 +73,7 @@ async fn main(spawner: Spawner) {
             devices.motor,
             encoder_count_left,
             encoder_count_right,
+            devices.config,
         ))
         .unwrap();
     // ================================================================================================================
@@ -67,7 +82,7 @@ async fn main(spawner: Spawner) {
     // =============== Semi - Automatically tests different gains with straight line trajectory ============================
     // spawner
     //     .spawn(diffdrive_outer_loop_command_controlled_tuning(
-    //         //ControlMode::DirectDuty,
+    //         // ControlMode::DirectDuty,
     //         ControlMode::WithMocapController,
     //         devices.sdlogger,
     //         devices.led,
@@ -78,10 +93,8 @@ async fn main(spawner: Spawner) {
     spawner
         .spawn(
             diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
-                //ControlMode::DirectDuty,
+                // ControlMode::DirectDuty,
                 ControlMode::WithMocapController,
-                devices.sdlogger,
-                devices.led,
                 devices.config,
             ),
         )

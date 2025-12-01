@@ -1,14 +1,15 @@
-use core::cmp::min;
 use defmt::*;
-use embassy_futures::select::{Either, select};
+use embassy_futures::select::{Either3, select3};
 use embassy_time::{Duration, Timer};
 use heapless::Vec as HVec;
 
 use crate::math::{quat_decompress, rpy_from_quaternion};
-use crate::trajectory_signal::{
-    FIRST_MESSAGE, LAST_STATE, PoseAbs, START_EVENT, STATE_SIG, TRAJECTORY_CONTROL_EVENT,
+use crate::orchestrator_signal::{
+    LEN_FUNC_SELECT_CMD, LEN_STOP_RESUME_CMD, Mode, ORCH_CH, OrchestratorMsg, STOP_MOCAP_UART_SIG,
+    TRAJ_PAUSE_SIG, TRAJ_RESUME_SIG, decode_functionality_select_command,
 };
-use crate::uart::SharedUart; // = Mutex<Raw, Uart<'static, Async>>
+use crate::trajectory_signal::{FIRST_MESSAGE, LAST_STATE, PoseAbs, STATE_SIG};
+use crate::uart::UART_RX_CHANNEL;
 
 #[derive(Clone, Copy)]
 pub struct UartCfg {
@@ -18,80 +19,70 @@ pub struct UartCfg {
 const FRAME_MAX: usize = 54;
 const LEN_POSE: u8 = 18;
 const LEN_START: u8 = 10;
-const LEN_TRAJECTORY_CMD: u8 = 3;
 
 #[embassy_executor::task]
-pub async fn uart_motioncap_receiving_task(uart: SharedUart<'static>, cfg: UartCfg) {
+pub async fn uart_motioncap_receiving_task(cfg: UartCfg) {
     let mut seen_first = false;
-    let mut len_buf = [0u8; 1];
+    // let mut len_buf = [0u8; 1];
     let mut frame: HVec<u8, FRAME_MAX> = HVec::new();
 
     loop {
         // Read Length Buffer Byte First
-        //info!("Waiting for mocap UART data...");
-        let len: Option<u8> = {
-            let read_len = async {
-                let mut u = uart.lock().await;
-                match u.read(&mut len_buf).await {
-                    Ok(()) => Some(len_buf[0]), // read 1 byte
-                    Err(_) => None,
-                }
-            };
+        let read_len_fut = UART_RX_CHANNEL.receive();
+        let timeout_len_fut = Timer::after(Duration::from_millis(1));
+        let stop_fut = STOP_MOCAP_UART_SIG.wait();
 
-            match select(read_len, Timer::after(Duration::from_millis(1))).await {
-                Either::First(v) => v,     // Some(byte) or None
-                Either::Second(_) => None, // Timeout
+        let len_opt: Option<u8> = match select3(read_len_fut, timeout_len_fut, stop_fut).await {
+            Either3::First(v) => Some(v),
+            Either3::Second(_) => None,
+            Either3::Third(_) => {
+                info!("mocap uart: stop signal on len -> exit");
+                return;
             }
         };
 
-        let Some(_len) = len else {
+        let Some(len) = len_opt else {
             // TimeOut Or Error
             Timer::after(Duration::from_micros(400)).await;
             continue;
         };
 
-        let len = len_buf[0];
-        if !(len == LEN_POSE || len == LEN_START || len == LEN_TRAJECTORY_CMD) {
-            // info!("here1");
+        // let len = len_buf[0];
+        if !(len == LEN_POSE
+            || len == LEN_START
+            || len == LEN_FUNC_SELECT_CMD
+            || len == LEN_STOP_RESUME_CMD)
+        {
             continue; // illegal Length
         }
 
-        // -------- read payload，until [len] bytes --------
+        // ================= Read PAYLOAD =================
         frame.clear();
         let need = len as usize;
         let mut got = 0usize;
 
         while got < need {
-            // maximally read 32 bytes at a time
+            let read_byte_fut = UART_RX_CHANNEL.receive();
+            let timeout_fut = Timer::after(Duration::from_millis(2));
+            let stop_fut = STOP_MOCAP_UART_SIG.wait();
 
-            let mut chunk = [0u8; 18];
-            let take = min(need - got, chunk.len());
-
-            let ok: bool = {
-                let read_chunk = async {
-                    let mut u = uart.lock().await;
-                    u.read(&mut chunk[..take]).await.is_ok()
-                };
-                match select(read_chunk, Timer::after(Duration::from_millis(2))).await {
-                    Either::First(ok) => ok,
-                    Either::Second(_) => false,
+            let byte_opt: Option<u8> = match select3(read_byte_fut, timeout_fut, stop_fut).await {
+                Either3::First(b) => Some(b),
+                Either3::Second(_) => None,
+                Either3::Third(_) => {
+                    info!("mocap uart: stop signal on payload -> exit");
+                    return;
                 }
             };
 
-            if !ok {
-                // Current frame is lost, abandon and quit reading this frame
-                Timer::after(Duration::from_micros(300)).await;
-                got = 0;
+            let Some(b) = byte_opt else {
                 frame.clear();
+                got = 0;
                 break;
-            }
+            };
 
-            // attach to frame
-            let _ = frame.extend_from_slice(&chunk[..take]);
-            // for &b in &chunk[..take] {
-            //     let _ = frame.push(b);
-            // }
-            got += take;
+            frame.push(b).ok();
+            got += 1;
         }
 
         if got != need {
@@ -99,21 +90,38 @@ pub async fn uart_motioncap_receiving_task(uart: SharedUart<'static>, cfg: UartC
         }
 
         // -------- Decoding --------
-        //info!("Received frame len={}", len);
-        if len == LEN_TRAJECTORY_CMD {
+        if len == LEN_FUNC_SELECT_CMD {
+            info!("here_mocap");
+            if let Some(sel) = decode_functionality_select_command(&frame, cfg.robot_id) {
+                let target = match sel {
+                    0 => Mode::Menu,
+                    1 => Mode::TeleOp,
+                    2 => Mode::TrajMocap,
+                    3 => Mode::TrajDuty,
+                    _ => Mode::Menu,
+                };
+                let _ = ORCH_CH.try_send(OrchestratorMsg::SwitchTo(target));
+                return;
+            }
+            continue;
+        }
+
+        if len == LEN_STOP_RESUME_CMD {
             if let Some(start_trajectory) = decode_trajectory_command(&frame, cfg.robot_id) {
-                TRAJECTORY_CONTROL_EVENT.signal(start_trajectory);
+                // TRAJECTORY_CONTROL_EVENT.signal(start_trajectory);
                 info!("Trajectory control command received: {}", start_trajectory);
+
+                if start_trajectory {
+                    TRAJ_RESUME_SIG.signal(true);
+                    info!("Trajectory following resume!!");
+                } else {
+                    TRAJ_PAUSE_SIG.signal(true);
+                    info!("Trajectory following pause!!");
+                }
             }
             continue;
         }
-        if len == LEN_START {
-            if is_start_event(&frame) {
-                START_EVENT.signal(());
-                info!("start event received"); // This won't be triggered since the ros node is not sending this start event.
-            }
-            continue;
-        }
+
         if len == LEN_POSE {
             if let Some(pose) = decode_abs_pose(&frame, cfg.robot_id) {
                 {
@@ -133,25 +141,22 @@ pub async fn uart_motioncap_receiving_task(uart: SharedUart<'static>, cfg: UartC
     }
 }
 
-fn is_start_event(payload: &[u8]) -> bool {
-    payload.len() == 10 && (payload[0] & 0xF3) == 0x80 && payload[1] == 0x05
-}
-
 fn decode_trajectory_command(payload: &[u8], robot_id: u8) -> Option<bool> {
-    // Check frame format: should be 3 bytes with specific header
-    if payload.len() != 3 || payload[0] != 0x3C {
+    // Check frame format: should be 4 bytes with specific header
+    // [0x3C 0x(address) 0xAA 0x00(0x01)]
+    if payload.len() != 4 || payload[0] != 0x3C {
         //related to channel and port number
         // PORT 3 identifier
         return None;
     }
 
     // Check if command is for this robot (255 = broadcast to all)
-    if payload[1] != robot_id && payload[1] != 255 {
+    if payload[1] != robot_id && payload[1] != 255 && payload[2] != 0xAA {
         return None;
     }
 
     // Return command: 1 = start trajectory, 0 = stop trajectory
-    match payload[2] {
+    match payload[3] {
         1 => Some(true),  // Start trajectory
         0 => Some(false), // Stop trajectory
         _ => None,        // Invalid command

@@ -17,6 +17,11 @@ path = "src/bin/trajectory_following.rs"
 test = false
 bench = false
 
+[[bin]]
+name = "programm_entrance"
+path = "src/bin/programm_entrance.rs"
+test = false
+bench = false
 
 [dependencies]
 cortex-m = { version = "0.7.6" }
@@ -54,6 +59,7 @@ serde-json-core = "0.5"
 libm = "0.2"
 
 micro_qp = { path = "./libs/micro_qp" }
+fixed = "1.29.0"
 
 [profile.release]
 debug = 2

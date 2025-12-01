@@ -2,7 +2,7 @@
 use static_cell::StaticCell;
 
 use crate::button::Buttons;
-use crate::buzzer::Buzzer;
+use crate::buzzer::{BuzzerController, init_buzzer};
 use crate::encoder::{EncoderCounters, EncoderPair, init_encoder_counts};
 use crate::led::Led;
 use crate::motor::{MotorController, init_motor};
@@ -38,8 +38,8 @@ static I2C_CELL: StaticCell<Mutex<ThreadModeRawMutex, I2c<'static, I2C0, i2c::As
     StaticCell::new();
 
 pub struct InitDevices<'a> {
-    pub led: Led,
-    pub buzzer: Buzzer,
+    pub led: Option<Led>,
+    pub buzzer: BuzzerController,
     pub buttons: Buttons,
     pub motor: MotorController,
     pub encoders: EncoderPair<'static>,
@@ -54,11 +54,16 @@ pub struct InitDevices<'a> {
 pub fn init_all(p: embassy_rp::Peripherals) -> InitDevices<'static> {
     // === LED Initialization ===
     let led_pin = Output::new(p.PIN_25, Level::Low);
-    let led = Led::new(led_pin);
+    let led = Some(Led::new(led_pin));
 
     // === Buzzer Initialization ===
-    let buzzer_pin = Output::new(p.PIN_7, Level::High);
-    let buzzer = Buzzer::new(buzzer_pin);
+    // let buzzer_pin = Output::new(p.PIN_7, Level::High);
+    // let buzzer = Buzzer::new(buzzer_pin);
+
+    let mut buzzer_config = PWM_config::default();
+    buzzer_config.top = 10000;
+    let buzzer_pwm = Pwm::new_output_b(p.PWM_SLICE3, p.PIN_7, buzzer_config.clone());
+    let buzzer = init_buzzer(buzzer_pwm, 10000);
 
     // === Buttons Initialization ===
     let btn_c = Input::new(p.PIN_0, Pull::Up);

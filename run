@@ -41,6 +41,11 @@ case $TARGET in
         echo "Running: cargo run --release --bin pololu3pi2040-rs $FEATURES"
         $CARGO_CMD run --release --bin pololu3pi2040-rs $FEATURES
         ;;
+    "menu")
+        echo "Target: menu binary"
+        echo "Running: cargo run --release --bin programm_entrance $FEATURES"
+        $CARGO_CMD run --release --bin programm_entrance $FEATURES
+        ;;
     "teleop")
         echo "Target: teleop_control binary"
         echo "Running: cargo run --release --bin teleop_control $FEATURES"

@@ -10,12 +10,14 @@ use embassy_time::Timer;
 
 use pololu3pi2040_rs::{
     button::{button_task_b, button_task_c},
+    // buzzer::play_startup_sound,
     encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     imu::read_imu_task,
     init::init_all,
-    joystick_control::{CONTROL_CMD_UNICYCLE, ControlCommandUnicycle, motor_control_task},
+    joystick_control::{CONTROL_CMD_UNICYCLE, ControlCommandUnicycle, teleop_motor_control_task},
+    packet::StateLoopBackPacketF32,
     sdlog::*,
-    uart::uart_receive_task,
+    uart::{uart_hw_task, uart_receive_task, uart_send_state_loopback},
 };
 
 #[embassy_executor::main]
@@ -25,11 +27,13 @@ async fn main(spawner: Spawner) {
     let mut devices = init_all(p);
 
     // === LED Initialization ===
-    let mut led = devices.led;
+    let mut led = devices.led.unwrap();
 
     // === Buzzer Initialization ===
-    let mut buzzer = devices.buzzer;
-    buzzer.buzzer_warn(1000, 2).await;
+    let _buzzer = devices.buzzer;
+    // play_twinkle(&buzzer).await;
+    // play_jingle_bells(&buzzer).await;
+    // play_startup_sound(&buzzer).await;
 
     // === Buttons Task ===
     let buttons = devices.buttons;
@@ -54,7 +58,7 @@ async fn main(spawner: Spawner) {
     // Start the PI controller task instead of direct motor control
     let motors = devices.motor;
     spawner
-        .spawn(motor_control_task(
+        .spawn(teleop_motor_control_task(
             motors,
             encoder_count_left,
             encoder_count_right,
@@ -68,7 +72,8 @@ async fn main(spawner: Spawner) {
 
     // === UART Task ===
     let uart_rec = devices.uart;
-    spawner.spawn(uart_receive_task(uart_rec)).unwrap();
+    spawner.spawn(uart_hw_task(uart_rec)).unwrap();
+    spawner.spawn(uart_receive_task()).unwrap();
 
     // === SdLogger ===
     let motion = MotionLog {
@@ -114,6 +119,21 @@ async fn main(spawner: Spawner) {
         defmt::info!("Set command: v={} m/s, omega={} rad/s", v, omega);
     };
 
+    let sendback = StateLoopBackPacketF32 {
+        header: 0xA1,
+        robot_id: 10,
+        pos_x: 1.2,
+        pos_y: 2.3,
+        pos_z: 3.4,
+        vel_x: 0.1,
+        vel_y: 0.2,
+        vel_z: 0.3,
+        qw: 1.0,
+        qx: 0.0,
+        qy: 0.0,
+        qz: 0.0,
+    };
+
     loop {
         led.blink(100, 1).await;
 
@@ -124,11 +144,13 @@ async fn main(spawner: Spawner) {
 
         // Step 2: Step up to 0.4 m/s for 4 seconds
         defmt::info!("=== Step 2: Step up to 0.4 m/s for 4 seconds ===");
-        set_wheel_speed(0.5, 0.0).await;
+        set_wheel_speed(0.0, 0.0).await;
         Timer::after_millis(1000).await;
 
-        set_wheel_speed(-0.4, 0.0).await;
+        set_wheel_speed(-0.0, 0.0).await;
         Timer::after_millis(1000).await;
+
+        uart_send_state_loopback(&sendback);
 
         // Step 3: Set back to zero for 4 seconds
         defmt::info!("=== Step 3: Back to zero for 4 seconds ===");

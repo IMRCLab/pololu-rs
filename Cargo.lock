@@ -1126,6 +1126,7 @@ dependencies = [
  "embedded-io-async",
  "embedded-sdmmc",
  "embedded-storage",
+ "fixed",
  "heapless 0.8.0",
  "libm",
  "log",

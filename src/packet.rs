@@ -87,7 +87,7 @@ pub struct CmdLegacyPacketTeleop {
 impl CmdLegacyPacketTeleop {
     pub fn from_bytes(data: &[u8]) -> Option<Self> {
         if data.len() != 16 {
-            warn!("Invalid Teleop packet length");
+            defmt::warn!("Invalid Teleop packet length");
             return None;
         }
         Some(Self {
@@ -109,14 +109,14 @@ pub struct CmdTeleopPacketMix {
 
 impl CmdTeleopPacketMix {
     pub fn from_bytes(data: &[u8]) -> Option<Self> {
-        if data.len() != 10 {
-            warn!("Invalid Teleop packet length");
+        if data.len() != 9 {
+            defmt::warn!("Invalid Teleop packet length");
             return None;
         }
         Some(Self {
-            header: data[1],
-            linear_velocity: f32::from_le_bytes([data[2], data[3], data[4], data[5]]),
-            steering_angle: f32::from_le_bytes([data[6], data[7], data[8], data[9]]),
+            header: data[0],
+            linear_velocity: f32::from_le_bytes([data[1], data[2], data[3], data[4]]),
+            steering_angle: f32::from_le_bytes([data[5], data[6], data[7], data[8]]),
         })
     }
 }
@@ -162,10 +162,10 @@ pub struct MocapPosesPacketF32 {
 impl MocapPosesPacketF32 {
     pub fn from_bytes(data: &[u8]) -> Option<Self> {
         if data.len() != 18 {
-            warn!("Invalid Poses packet length");
+            defmt::warn!("Invalid Poses packet length");
             return None;
         }
-        info!("buffer: {}", data);
+        defmt::info!("buffer: {}", data);
         Some(Self {
             header: data[0],
             robot_id: data[1],
@@ -175,4 +175,20 @@ impl MocapPosesPacketF32 {
             quat: u32::from_le_bytes([data[14], data[15], data[16], data[17]]),
         })
     }
+}
+
+#[derive(Debug)]
+pub struct StateLoopBackPacketF32 {
+    pub header: u8,
+    pub robot_id: u8,
+    pub pos_x: f32,
+    pub pos_y: f32,
+    pub pos_z: f32,
+    pub vel_x: f32,
+    pub vel_y: f32,
+    pub vel_z: f32,
+    pub qw: f32,
+    pub qx: f32,
+    pub qy: f32,
+    pub qz: f32,
 }
