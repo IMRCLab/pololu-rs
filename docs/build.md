@@ -171,17 +171,19 @@ zumo = []       # Empty feature flag for Zumo
 
 1. Create new joystick control module (e.g., `joystick_control_newrobot.rs`)
 2. Add feature flag in `Cargo.toml`:
-   ```toml
-   [features]
-   newrobot = []
-   ```
+```toml
+[features]
+newrobot = []
+```
+   
 3. Update `lib.rs`:
-   ```rust
-   #[cfg(feature = "newrobot")]
-   pub mod joystick_control_newrobot;
-   #[cfg(feature = "newrobot")]
-   pub use joystick_control_newrobot as joystick_control;
-   ```
+```rust
+#[cfg(feature = "newrobot")]
+pub mod joystick_control_newrobot;
+#[cfg(feature = "newrobot")]
+pub use joystick_control_newrobot as joystick_control;
+```
+    
 4. Update `./run` script validation logic
 
 ---

@@ -8,17 +8,15 @@ This page describes all available programms for the robots, including Universal 
     - Prepare the nRF Dongle and write down the address for the robot(if multiple dongles are running together then each dongle should have different address)
     - Change the `robot_id` according to the Dongle address of the current robot in file `src/bin/programm_entrance.rs`, the `robot_id` can be found here:
 
-            spawner
-            .spawn(orchestrator(spawner, devices, UartCfg { robot_id: 10 }))
-            .unwrap();
+            spawner.spawn(orchestrator(spawner, devices, UartCfg { robot_id: 10 })).unwrap();
 
     - Connect the Raspberry-Debug-Probe and a USB-C cable to the Pololu.
     - Flash the firmware to the robot using the following command:
 
             ./run 3pi menu
 
-    - Paste the tuned robot configuration file in folder `cfg` to a micro sd card. Please DO NOT CHANGE the name of the configuration file, the file system depends on the file name to distinguish configuration file from other files.
-    -  Paste the trajectory file to a micro sd card. Please DO NOT CHANGE the name of the trajectory file, the file system depends on the file name to distinguish configuration file from other files.
+    - Change the name of the corresponding robot configuration file in folder `cfg` to `ROBOTCFG.CFG` and paste the tuned robot configuration file into a micro sd card. Please **DO NOT CHANGE** the name of the configuration file, the file system depends on the file name to distinguish configuration file from other files.
+    - Change the trajectory file name to `TRJ0001.JSN` and paste it into a micro sd card. Please **DO NOT CHANGE** the name of the trajectory file, the file system depends on the file name to distinguish trajectory file from other files.
 - Prepare the Trajectory Following ROS Node:
     - Connect a Crazyradio PA or Crazyradio 2 and a joystick to your PC.
     - Change the address for each robot in `workstation_ros/src/pololu_ros/config/controller_interface.yaml`.
@@ -66,8 +64,10 @@ This page describes all available programms for the robots, including Universal 
 3. **Send Program**: Press X button to send the program to the robot
 4. **Start Execution**: Press A button to start the program
 5. **Control/Monitor**: 
-   - For teleop: Use left stick to control the robot
-   - For trajectories: Robot executes automatically
+   
+      - For teleop: Use left stick to control the robot
+      - For trajectories: Robot executes automatically
+
 6. **Stop**: Press B to stop individual robot or BACK for emergency stop
 
 <div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
@@ -79,7 +79,7 @@ In addition to the controller interface node with the menu, there is another nod
 - Xbox controller (wired or wireless with USB adapter)
 - Compatible joystick device recognized by `joy_linux`
 
-### Setup Steps:
+### Setup Steps
 - Prepare the Robots
     - Prepare the nRF Dongle and write down the address for the robot(if multiple dongles are running together then each dongle should have different address)
     - Connect the Raspberry-Debug-Probe and a USB-C cable to the Pololu.
@@ -119,8 +119,8 @@ Also take Polulu 3Pi as an example, PLEASE FOLLOW THE STEPS:
 
             ./run 3pi trajectory_following
 
-    - Paste the tuned robot configuration file in folder `cfg` to a micro sd card. Please DO NOT CHANGE the name of the configuration file, the file system depends on the file name to distinguish configuration file from other files.
-    - Paste the trajectory file to a micro sd card. Please DO NOT CHANGE the name of the trajectory file, the file system depends on the file name to distinguish configuration file from other files.
+    - Change the name of the corresponding robot configuration file in folder `cfg` to `ROBOTCFG.CFG` and paste the tuned robot configuration file into a micro sd card. Please **DO NOT CHANGE** the name of the configuration file, the file system depends on the file name to distinguish configuration file from other files.
+    - Change the trajectory file name to `TRJ0001.JSN` and paste it into a micro sd card. Please **DO NOT CHANGE** the name of the trajectory file, the file system depends on the file name to distinguish trajectory file from other files.
     - Insert the sd card to the port on the robot.
 - Prepare the Trajectory Following ROS Node:
     - Connect a Crazyradio PA or Crazyradio 2.
