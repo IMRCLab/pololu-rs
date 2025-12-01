@@ -10,7 +10,7 @@ use embassy_time::Timer;
 
 use pololu3pi2040_rs::{
     button::{button_task_b, button_task_c},
-    buzzer::play_startup_sound,
+    // buzzer::play_startup_sound,
     encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     imu::read_imu_task,
     init::init_all,
@@ -30,7 +30,7 @@ async fn main(spawner: Spawner) {
     let mut led = devices.led.unwrap();
 
     // === Buzzer Initialization ===
-    let buzzer = devices.buzzer;
+    let _buzzer = devices.buzzer;
     // play_twinkle(&buzzer).await;
     // play_jingle_bells(&buzzer).await;
     // play_startup_sound(&buzzer).await;
