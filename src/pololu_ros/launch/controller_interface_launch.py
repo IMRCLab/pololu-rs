@@ -12,7 +12,11 @@ def generate_launch_description():
         get_package_share_directory('pololu'),
         'config',
         'controller_interface.yaml')
-
+    tracking_params = os.path.join(
+        get_package_share_directory('pololu'),
+        'config',
+        'motion_capture.yaml')
+    
     # Declare launch arguments
     config_arg = DeclareLaunchArgument(
         'config_file',
@@ -49,5 +53,12 @@ def generate_launch_description():
             parameters=[LaunchConfiguration('config_file')],
             output='screen',
             emulate_tty=True,  # For colored output
+        ),
+                Node(
+            package='motion_capture_tracking',
+            executable='motion_capture_tracking_node',
+            name='motion_capture_tracking',
+            output='screen',
+            parameters=[tracking_params]
         ),
     ])

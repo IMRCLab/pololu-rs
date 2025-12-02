@@ -11,7 +11,7 @@
       yawrate:
         axis: 4  # Right stick X-axis for left/right turning
         max: 20.0 # deg/s
-        deadband: 1.0 # 5% deadband for turning
+        deadband: 2.0 # 5% deadband for turning
       thrust:
         axis: 2  # Left stick Y-axis for forward/backward
         max: 20000.0 # ---> mapped to 0 - maxspeed in [m/s]

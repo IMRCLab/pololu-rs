@@ -189,6 +189,8 @@ private:
         if (teleop_activated[selected_robot_] == 1) {
             teleopCommand(selected_robot_);
         }   
+        broadcastPosition();
+
     }
 
     void teleopCommand(int robot_id){
@@ -237,8 +239,8 @@ private:
                 // split the compressed quaternion uint32_t into 2 uint16_t for packing in a supported variable type
                 uint16_t quat_first = comp & 0xFFFF;
                 uint16_t quat_second = (comp >> 16) & 0xFFFF;
-                RCLCPP_INFO(logger_, "ID: %d", getName(pose.name));
-                RCLCPP_INFO(logger_, "pose is x=%.4f, y=%.4f, z=%.4f", (float)pose.pose.position.x, (float)pose.pose.position.y, (float)pose.pose.position.z);
+                //RCLCPP_INFO(logger_, "ID: %d", getName(pose.name));
+                //RCLCPP_INFO(logger_, "pose is x=%.4f, y=%.4f, z=%.4f", (float)pose.pose.position.x, (float)pose.pose.position.y, (float)pose.pose.position.z);
                 // connection_[i]->send(PacketUtils::cmdLegacy_Pololu_Teleop(twist_[i].linear.z, twist_[i].angular.z));
 
                 //only broadcast to robots that are currently not in teleoperation mode:
