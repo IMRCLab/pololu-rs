@@ -24,14 +24,20 @@ test = false
 bench = false
 
 [[bin]]
-name = "trajectory_following_diffdrive"
-path = "src/bin/trajectory_following_diffdrive.rs"
+name = "trajectory_following"
+path = "src/bin/trajectory_following.rs"
 test = false
 bench = false
 
 [[bin]]
 name = "programm_entrance"
 path = "src/bin/programm_entrance.rs"
+test = false
+bench = false
+
+[[bin]]
+name = "trajectory_following_gain_tuning"
+path = "src/bin/trajectory_following_gain_tuning.rs"
 test = false
 bench = false
 
@@ -69,6 +75,7 @@ serde = { version = "1", default-features = false, features = ["derive"] }
 serde-json-core = "0.5"
 
 libm = "0.2"
+fixed = "1.29.0"
 
 micro_qp = { path = "./libs/micro_qp" }
 

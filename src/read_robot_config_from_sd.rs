@@ -106,7 +106,7 @@ pub fn parse_robot_config_from_bytes(buf: &[u8]) -> RobotConfig {
             match k {
                 "robot_id" => {
                     if let Some(x) = parse_u64(v) {
-                        cfg.joystick_control_dt_ms = x;
+                        cfg.robot_id = x as u8;
                     }
                 }
                 "joystick_control_dt_ms" => {

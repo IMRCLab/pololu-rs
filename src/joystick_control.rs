@@ -4,10 +4,11 @@ use crate::orchestrator_signal::{
     LEN_FUNC_SELECT_CMD, Mode, ORCH_CH, OrchestratorMsg, STOP_MOTOR_CTRL_SIG, STOP_TELEOP_UART_SIG,
     decode_functionality_select_command,
 };
-use crate::packet::{CmdLegacyPacketF32, CmdTeleopPacketMix};
+use crate::packet::{CmdLegacyPacketF32, CmdTeleopPacketMix, StateLoopBackPacketF32};
+use crate::read_robot_config_from_sd::RobotConfig;
 use crate::trajectory_uart::UartCfg;
-use crate::uart::SharedUart;
-use core::cmp::min;
+use crate::uart::UART_RX_CHANNEL;
+use crate::uart::{SharedUart, update_robot_state};
 use defmt::info;
 use embassy_futures::select::{Either, Either3, select, select3};
 use embassy_sync::blocking_mutex::raw::{NoopRawMutex, ThreadModeRawMutex};
@@ -152,7 +153,17 @@ pub async fn teleop_motor_control_task(
     motor: MotorController,
     left_counter: &'static Mutex<NoopRawMutex, i32>,
     right_counter: &'static Mutex<NoopRawMutex, i32>,
+    cfg: Option<RobotConfig>,
 ) {
+    let robot_cfg: RobotConfig;
+    if let Some(_) = cfg {
+        defmt::info!("Load Robot Params from SD CARD!");
+        robot_cfg = cfg.unwrap();
+    } else {
+        defmt::info!("Load Robot Params from DEFAULT!");
+        robot_cfg = RobotConfig::default();
+    }
+
     // initial filter coefficient 0.0
     let mut filtered_rpm_left = 0.0;
     let mut filtered_rpm_right = 0.0;
@@ -166,7 +177,7 @@ pub async fn teleop_motor_control_task(
     let kp = 25.0;
     let ki = 1.0;
 
-    let mut ticker = Ticker::every(Duration::from_millis(JOYSTICK_CONTROL_DT));
+    let mut ticker = Ticker::every(Duration::from_millis(robot_cfg.joystick_control_dt_ms));
 
     loop {
         match select(ticker.next(), STOP_MOTOR_CTRL_SIG.wait()).await {
@@ -185,17 +196,17 @@ pub async fn teleop_motor_control_task(
         let v = cmd.v; // m/s
         let omega = cmd.omega; //rad/s
 
-        let v_left = v - omega * WHEEL_BASE / 2.0;
-        let v_right = v + omega * WHEEL_BASE / 2.0;
+        let v_left = v - omega * robot_cfg.wheel_base / 2.0;
+        let v_right = v + omega * robot_cfg.wheel_base / 2.0;
 
-        let rpm_left_target = v_left / (2.0 * PI * WHEEL_RADIUS) * 60.0;
-        let rpm_right_target = v_right / (2.0 * PI * WHEEL_RADIUS) * 60.0;
+        let rpm_left_target = v_left / (2.0 * PI * robot_cfg.wheel_radius) * 60.0;
+        let rpm_right_target = v_right / (2.0 * PI * robot_cfg.wheel_radius) * 60.0;
 
         let (rpm_left_now, rpm_right_now) = get_rpms(
             left_counter,
             right_counter,
-            ENCODER_CPR,
-            JOYSTICK_CONTROL_DT,
+            robot_cfg.encoder_cpr,
+            robot_cfg.joystick_control_dt_ms,
         )
         .await;
         filtered_rpm_left = alpha * rpm_left_now + (1.0 - alpha) * filtered_rpm_left;
@@ -234,48 +245,43 @@ pub async fn teleop_motor_control_task(
         // Apply robot-specific motor direction corrections
         motor
             .set_speed(
-                duty_left * MOTOR_DIRECTION_LEFT,
-                duty_right * MOTOR_DIRECTION_RIGHT,
+                duty_left * robot_cfg.motor_direction_left,
+                duty_right * robot_cfg.motor_direction_right,
             )
             .await;
 
-        // Timer::after(Duration::from_millis(JOYSTICK_CONTROL_DT)).await;
+        update_robot_state(StateLoopBackPacketF32 {
+            header: 0xA1,
+            robot_id: 1,
+            pos_x: 1.0,
+            pos_y: 2.0,
+            pos_z: 3.0,
+            vel_x: 4.0,
+            vel_y: 5.0,
+            vel_z: 6.0,
+            qw: 1.0,
+            qx: 0.0,
+            qy: 0.0,
+            qz: 0.0,
+        });
+
+        Timer::after(Duration::from_millis(robot_cfg.joystick_control_dt_ms)).await;
     }
 }
 /* ========================== Joy Stick Speed Control Task =============================== */
 
 /* ============== uart teleop command receiving task with nonlinear mapping ============== */
 #[embassy_executor::task]
-pub async fn teleop_uart_task(uart: SharedUart<'static>, cfg: UartCfg) {
-    let mut len_buf = [0u8; 1];
+pub async fn teleop_uart_task(cfg: UartCfg) {
     let mut frame: HVec<u8, 32> = HVec::new();
 
     loop {
-        let read_len_fut = async {
-            let mut u = uart.lock().await;
-            match u.read(&mut len_buf).await {
-                Ok(()) => Some(len_buf[0]), // read 1 byte
-                Err(_) => None,
-            }
-        };
-
+        let read_len_fut = UART_RX_CHANNEL.receive();
         let timeout_len_fut = Timer::after(Duration::from_millis(1));
-        // let stop_fut = STOP_MOCAP_UART_SIG.wait();
-
-        // let timeout_fut = Timer::after(Duration::from_millis(1000));
-        // let read_byte_fut = async {
-        //     let mut uart = uart.lock().await;
-        //     let mut b = [0u8; 1];
-        //     // buffer.push(b[0]).ok();
-        //     match uart.read(&mut b).await {
-        //         Ok(_) => Some(b[0]),
-        //         Err(_) => None,
-        //     }
-        // };
         let stop_fut = STOP_TELEOP_UART_SIG.wait();
 
         let len: Option<u8> = match select3(read_len_fut, timeout_len_fut, stop_fut).await {
-            Either3::First(v) => v,
+            Either3::First(v) => Some(v),
             Either3::Second(_) => None,
             Either3::Third(_) => {
                 info!("mocap uart: stop signal on len -> exit");
@@ -283,13 +289,13 @@ pub async fn teleop_uart_task(uart: SharedUart<'static>, cfg: UartCfg) {
             }
         };
 
-        let Some(_len) = len else {
+        let Some(len) = len else {
             // TimeOut Or Error
             Timer::after(Duration::from_micros(400)).await;
             continue;
         };
 
-        let len = len_buf[0];
+        // let len = len_buf[0];
         if !(len == TELEOP_PACK_LEN || len == LEN_FUNC_SELECT_CMD) {
             continue; // illegal Length
         }
@@ -300,38 +306,27 @@ pub async fn teleop_uart_task(uart: SharedUart<'static>, cfg: UartCfg) {
         let mut got = 0usize;
 
         while got < need {
-            // maximally read 32 bytes at a time
-
-            let mut chunk = [0u8; 18];
-            let take = min(need - got, chunk.len());
-
-            let read_chunk_fut = async {
-                let mut u = uart.lock().await;
-                u.read(&mut chunk[..take]).await.is_ok()
-            };
-            let timeout_chunk_fut = Timer::after(Duration::from_millis(2));
+            let read_byte_fut = UART_RX_CHANNEL.receive();
+            let timeout_fut = Timer::after(Duration::from_millis(2));
             let stop_fut = STOP_TELEOP_UART_SIG.wait();
 
-            let ok: bool = match select3(read_chunk_fut, timeout_chunk_fut, stop_fut).await {
-                Either3::First(ok) => ok,
-                Either3::Second(_) => false,
+            let b_opt: Option<u8> = match select3(read_byte_fut, timeout_fut, stop_fut).await {
+                Either3::First(b) => Some(b),
+                Either3::Second(_) => None,
                 Either3::Third(_) => {
                     info!("uart: stop signal on payload -> exit");
                     return;
                 }
             };
 
-            if !ok {
-                // Current frame is lost, abandon and quit reading this frame
-                Timer::after(Duration::from_micros(300)).await;
-                got = 0;
+            let Some(b) = b_opt else {
                 frame.clear();
+                got = 0;
                 break;
-            }
+            };
 
-            // attach to frame
-            let _ = frame.extend_from_slice(&chunk[..take]);
-            got += take;
+            frame.push(b).ok();
+            got += 1;
         }
 
         if got != need {
@@ -392,3 +387,91 @@ pub async fn teleop_uart_task(uart: SharedUart<'static>, cfg: UartCfg) {
     }
 }
 /* ============== uart teleop command receiving task with nonlinear mapping ============== */
+
+/* ===================================== Unused ========================================== */
+/* ================ Joy Stick Speed Control Task (without pd controller) ================= */
+// #[embassy_executor::task]
+// pub async fn motor_task(motor: MotorController) {
+//     loop {
+//         let cmd = CONTROL_CMD.lock().await.clone();
+//         motor
+//             .set_speed(
+//                 (cmd.left_speed as f32) / 10000.0,
+//                 (cmd.right_speed as f32) / 10000.0,
+//             )
+//             .await;
+
+//         // 50ms
+//         Timer::after(Duration::from_millis(50)).await;
+//     }
+// }
+
+// /* ===================== simple uart teleop command receiving task ======================= */
+// #[embassy_executor::task]
+// pub async fn robot_command_task(uart: SharedUart<'static>) {
+//     let mut buffer: Vec<u8, 32> = Vec::new();
+
+//     loop {
+//         let timeout = Timer::after(Duration::from_millis(500));
+//         let byte_future = async {
+//             let mut uart = uart.lock().await;
+//             let mut b = [0u8; 1];
+//             match uart.read(&mut b).await {
+//                 Ok(_) => Some(b[0]),
+//                 Err(_) => None,
+//             }
+//         };
+
+//         match select(timeout, byte_future).await {
+//             Either::First(_) => {
+//                 {
+//                     let mut lock = CONTROL_CMD.lock().await;
+//                     *lock = ControlCommand {
+//                         left_speed: 0.0,
+//                         right_speed: 0.0,
+//                     };
+//                     debug_warn!("UART timeout, stop motors");
+//                 }
+//                 buffer.clear();
+//                 continue;
+//             }
+
+//             Either::Second(Some(byte)) => {
+//                 if buffer.is_empty() && !(byte == 9 || byte == 13 || byte == 17) {
+//                     continue;
+//                 }
+
+//                 buffer.push(byte).ok();
+
+//                 if buffer.len() == 2 && buffer[1] != 0x3C {
+//                     buffer.clear();
+//                     continue;
+//                 }
+
+//                 let expected_len = buffer[0] as usize + 1;
+//                 if buffer.len() == expected_len {
+//                     if let Some(pkt) = CmdLegacyPacketF32::from_bytes(&buffer) {
+//                         let cmd = ControlCommand {
+//                             left_speed: pkt.left_pwm_duty * pkt.left_direction,
+//                             right_speed: pkt.right_pwm_duty * pkt.right_direction,
+//                         };
+
+//                         {
+//                             let mut lock = CONTROL_CMD.lock().await;
+//                             *lock = cmd;
+//                         }
+
+//                         info!("Updated Control: {}, {}", cmd.left_speed, cmd.right_speed);
+//                     }
+//                     buffer.clear();
+//                 }
+//             }
+
+//             Either::Second(None) => {
+//                 continue;
+//             }
+//         }
+//     }
+// }
+// /* ===================== simple uart teleop command receiving task ======================= */
+// /* ===================================== Unused ========================================== */

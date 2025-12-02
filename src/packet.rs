@@ -176,3 +176,19 @@ impl MocapPosesPacketF32 {
         })
     }
 }
+
+#[derive(Debug)]
+pub struct StateLoopBackPacketF32 {
+    pub header: u8,
+    pub robot_id: u8,
+    pub pos_x: f32,
+    pub pos_y: f32,
+    pub pos_z: f32,
+    pub vel_x: f32,
+    pub vel_y: f32,
+    pub vel_z: f32,
+    pub qw: f32,
+    pub qx: f32,
+    pub qy: f32,
+    pub qz: f32,
+}

@@ -8,6 +8,7 @@ use embassy_rp::{
     spi::{self, Spi},
 };
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex as Raw;
+use embassy_sync::channel::Channel;
 use embassy_sync::mutex::Mutex;
 use embassy_time::Delay;
 use embedded_hal_bus::spi::{ExclusiveDevice, NoDelay};
@@ -30,6 +31,29 @@ const MAX_FILES: usize = 4;
 const MAX_VOLUMES: usize = 1;
 
 pub static SDLOGGER_SHARED: Mutex<Raw, Option<SdLogger>> = Mutex::new(None);
+
+// ===================== SD Command System =====================
+/// Commands that can be sent to the SD logger task
+#[derive(Clone)]
+pub enum SdCommand {
+    /// Save current robot config to SD card
+    SaveConfig(RobotConfig),
+    // LogTrajectory(...), // Future use
+}
+
+/// Channel for sending commands to the SD logger task
+pub static SD_COMMAND_CHANNEL: Channel<Raw, SdCommand, 4> = Channel::new();
+
+/// Channel for receiving results from SD operations
+pub static SD_RESULT_CHANNEL: Channel<Raw, bool, 1> = Channel::new();
+
+/// Request to save config to SD and wait for result
+pub async fn request_save_config(config: RobotConfig) -> bool {
+    // Send command
+    SD_COMMAND_CHANNEL.send(SdCommand::SaveConfig(config)).await;
+    // Wait for result
+    SD_RESULT_CHANNEL.receive().await
+}
 
 // === Time Resources ===
 pub struct DummyClock;
@@ -405,5 +429,74 @@ impl SdLogger {
         let bytes: &[u8] = unsafe { slice::from_raw_parts(ptr, size) };
 
         let _ = self.file.write(bytes);
+    }
+
+    /// Write robot config to a string format suitable for SD card
+    pub fn write_config(&mut self, config: &RobotConfig) -> bool {
+        use core::fmt::Write;
+        let mut s: String<1024> = String::new();
+
+        let _ = writeln!(s, "# Robot Configuration File");
+        let _ = writeln!(s, "# Auto-saved via UART command");
+        let _ = writeln!(s, "");
+        let _ = writeln!(s, "robot_id={}", config.robot_id);
+        let _ = writeln!(
+            s,
+            "joystick_control_dt_ms={}",
+            config.joystick_control_dt_ms
+        );
+        let _ = writeln!(s, "traj_following_dt_s={}", config.traj_following_dt_s);
+        let _ = writeln!(s, "wheel_radius={}", config.wheel_radius);
+        let _ = writeln!(s, "wheel_base={}", config.wheel_base);
+        let _ = writeln!(s, "motor_direction_left={}", config.motor_direction_left);
+        let _ = writeln!(s, "motor_direction_right={}", config.motor_direction_right);
+        let _ = writeln!(s, "motor_max_duty_left={}", config.motor_max_duty_left);
+        let _ = writeln!(s, "motor_max_duty_right={}", config.motor_max_duty_right);
+        let _ = writeln!(s, "k_clip={}", config.k_clip);
+        let _ = writeln!(s, "kp_inner={}", config.kp_inner);
+        let _ = writeln!(s, "ki_inner={}", config.ki_inner);
+        let _ = writeln!(s, "kd_inner={}", config.kd_inner);
+        let _ = writeln!(s, "kx_traj={}", config.kx_traj);
+        let _ = writeln!(s, "ky_traj={}", config.ky_traj);
+        let _ = writeln!(s, "ktheta_traj={}", config.ktheta_traj);
+        let _ = writeln!(s, "gear_ratio={}", config.gear_ratio);
+        let _ = writeln!(s, "encoder_cpr={}", config.encoder_cpr);
+        let _ = writeln!(s, "max_speed={}", config.max_speed);
+        let _ = writeln!(s, "max_omega={}", config.max_omega);
+        let _ = writeln!(s, "wheel_max={}", config.wheel_max);
+
+        self.write(s.as_bytes());
+        self.flush();
+        true
+    }
+}
+
+// ===================== SD Logger Task =====================
+/// Task that handles all SD card operations
+/// This task owns the SD logger and processes commands from other tasks
+#[embassy_executor::task]
+pub async fn sd_logger_task(mut sdlogger: Option<SdLogger>) {
+    defmt::info!("SD Logger Task started");
+
+    loop {
+        // Wait for a command
+        let cmd = SD_COMMAND_CHANNEL.receive().await;
+
+        let success = match cmd {
+            SdCommand::SaveConfig(config) => {
+                if let Some(ref mut logger) = sdlogger {
+                    defmt::info!("Saving config to SD card...");
+                    let result = logger.write_config(&config);
+                    defmt::info!("Config save result: {}", result);
+                    result
+                } else {
+                    defmt::warn!("No SD logger available for config save");
+                    false
+                }
+            }
+        };
+
+        // Send result back
+        let _ = SD_RESULT_CHANNEL.try_send(success);
     }
 }

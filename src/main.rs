@@ -6,17 +6,18 @@ use {defmt_rtt as _, panic_probe as _};
 use embassy_executor::Spawner;
 use embassy_rp::init;
 
+use embassy_executor::task;
 use embassy_time::Timer;
 
 use pololu3pi2040_rs::{
     button::{button_task_b, button_task_c},
-    // encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     imu::read_imu_task,
     init::init_all,
     joystick_control::{CONTROL_CMD_UNICYCLE, ControlCommandUnicycle, teleop_motor_control_task},
+    packet::StateLoopBackPacketF32,
     sdlog::*,
-    uart::uart_receive_task,
+    uart::{uart_hw_task, uart_param_sync_task, uart_receive_task, uart_send_state_loopback},
 };
 
 #[embassy_executor::main]
@@ -29,8 +30,10 @@ async fn main(spawner: Spawner) {
     let mut led = devices.led.unwrap();
 
     // === Buzzer Initialization ===
-    let mut buzzer = devices.buzzer;
-    buzzer.buzzer_warn(1000, 2).await;
+    let buzzer = devices.buzzer;
+    // play_twinkle(&buzzer).await;
+    // play_jingle_bells(&buzzer).await;
+    //play_startup_sound(&buzzer).await;
 
     // === Buttons Task ===
     let buttons = devices.buttons;
@@ -59,6 +62,7 @@ async fn main(spawner: Spawner) {
             motors,
             encoder_count_left,
             encoder_count_right,
+            devices.config,
         ))
         .unwrap();
 
@@ -68,41 +72,22 @@ async fn main(spawner: Spawner) {
 
     // === UART Task ===
     let uart_rec = devices.uart;
-    spawner.spawn(uart_receive_task(uart_rec)).unwrap();
+    spawner.spawn(uart_hw_task(uart_rec)).unwrap();
+    spawner.spawn(uart_receive_task()).unwrap();
 
-    // === SdLogger ===
-    let motion = MotionLog {
-        timestamp_ms: 12345,
-        target_vx: 0.2,
-        target_vy: 0.3,
-        target_vz: 0.4,
-        target_qw: 0.5,
-        target_qx: 0.2,
-        target_qy: 0.6,
-        target_qz: 0.3,
-        actual_vx: 0.18,
-        actual_vy: 0.28,
-        actual_vz: 0.38,
-        actual_qw: 0.18,
-        actual_qx: 0.28,
-        actual_qy: 0.38,
-        actual_qz: 0.48,
-        roll: 1.5,
-        pitch: 0.2,
-        yaw: 90.0,
-        motor_left: 1200,
-        motor_right: 1300,
-    };
-
-    if let Some(sd) = devices.sdlogger.as_mut() {
-        sd.write_csv_header();
-        defmt::info!("Start Sd card writing test!");
-        sd.log_motion_as_bin(&motion);
-        sd.flush(); // This is super important!!!!!!
-        defmt::info!("Finish Sd card writing test!");
+    // === UART Parameter Sync Task ===
+    // Send robot parameters via UART upon startup
+    if let Some(config) = devices.config.clone() {
+        spawner.spawn(uart_param_sync_task(config)).unwrap();
     } else {
-        defmt::warn!("No SD card / SdLogger disabled, skip logging");
+        defmt::warn!("No robot config available - skipping parameter sync");
     }
+
+    // === SD Logger Task ===
+    // Spawn task to handle all SD card operations (logging, config save, etc.)
+    spawner
+        .spawn(sd_logger_task(devices.sdlogger.take()))
+        .unwrap();
 
     // === Control Logic - Step Function Tests ===
     defmt::info!("Starting step function tests for wheel speed control");
@@ -114,27 +99,44 @@ async fn main(spawner: Spawner) {
         defmt::info!("Set command: v={} m/s, omega={} rad/s", v, omega);
     };
 
+    let sendback = StateLoopBackPacketF32 {
+        header: 0xA1,
+        robot_id: 1,
+        pos_x: 1.2,
+        pos_y: 2.3,
+        pos_z: 3.4,
+        vel_x: 0.1,
+        vel_y: 0.2,
+        vel_z: 0.3,
+        qw: 1.0,
+        qx: 0.0,
+        qy: 0.0,
+        qz: 0.0,
+    };
+
     loop {
         led.blink(100, 1).await;
 
-        // Step 1: Keep speed at zero for 2 seconds
-        defmt::info!("=== Step 1: Zero speed for 2 seconds ===");
-        set_wheel_speed(0.0, 0.0).await;
-        Timer::after_millis(1000).await;
+        // // Step 1: Keep speed at zero for 2 seconds
+        // defmt::info!("=== Step 1: Zero speed for 2 seconds ===");
+        // set_wheel_speed(0.0, 0.0).await;
+        // Timer::after_millis(1000).await;
 
-        // Step 2: Step up to 0.4 m/s for 4 seconds
-        defmt::info!("=== Step 2: Step up to 0.4 m/s for 4 seconds ===");
-        set_wheel_speed(0.5, 0.0).await;
-        Timer::after_millis(1000).await;
+        // // Step 2: Step up to 0.4 m/s for 4 seconds
+        // defmt::info!("=== Step 2: Step up to 0.4 m/s for 4 seconds ===");
+        // set_wheel_speed(0.0, 0.0).await;
+        // Timer::after_millis(1000).await;
 
-        set_wheel_speed(-0.4, 0.0).await;
-        Timer::after_millis(1000).await;
+        // set_wheel_speed(-0.0, 0.0).await;
+        // Timer::after_millis(1000).await;
 
-        // Step 3: Set back to zero for 4 seconds
-        defmt::info!("=== Step 3: Back to zero for 4 seconds ===");
-        set_wheel_speed(0.0, 0.0).await;
-        Timer::after_millis(1000).await;
+        // uart_send_state_loopback(&sendback);
 
-        defmt::info!("=== Test cycle complete, restarting... ===");
+        // // Step 3: Set back to zero for 4 seconds
+        // defmt::info!("=== Step 3: Back to zero for 4 seconds ===");
+        // set_wheel_speed(0.0, 0.0).await;
+        // Timer::after_millis(1000).await;
+
+        // defmt::info!("=== Test cycle complete, restarting... ===");
     }
 }
