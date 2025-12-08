@@ -1,3 +1,7 @@
+<!--I like this page, possible changes: Move troubleshooting advice to the troubleshooting section, incoorparate "notes" in the "flesh" of the section
+
+should we have a separate "how to start adding your own modules" section? Rn I find it a bit hard to find, and it should somehow be the core application, right? -->
+
 # Pololu 3Pi/Zumo Robot Build System Documentation
 
 This document provides brief documentation for building and running the [Pololu 3Pi+ 2040 robot firmware](https://github.com/IMRCLab/pololu3pi2040-rs) with multiple robot support and different firmware tasks. It covers the `./run` build script usage, feature flag system, and multi-robot configuration workflow.
@@ -9,14 +13,8 @@ This document provides brief documentation for building and running the [Pololu 
 ---
 
 ### Hardware Preperation
-* You will need a Raspberry Pi Debug Probe(for debugging) and a USB-C Cabel(for flashing).
-* connect the probe properly to the Pololu. If the official probe is used, the connection should be:
-  
-        Yellow(SWDIO) -> SWDIO
-        Green(SWCLK)  -> SWCLK
-        Black(GND)    -> GND
-
-    Then connect the Pololu with the USB-C cabel to your PC, and the debug probe as well and uncomment in `config.toml`
+* Connect the Pololu using a USB-C cable and the debug probe as described [here](debugging.md).
+* Uncomment the following line in `config.toml`
         
         runner = "probe-rs run --chip RP2040 --protocol swd"
 

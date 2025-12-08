@@ -1,6 +1,8 @@
 site_name: Pololu Docs
 nav:
+
   - Home: index.md
+  - Quickstart: quickstart.md
   - Hardware: hardware.md
   - Software: software.md
   - Build & Flashing: build.md

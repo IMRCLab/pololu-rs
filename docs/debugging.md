@@ -1,5 +1,6 @@
 # Debugging
 This document provides the users with 2 different ways to debugging the firmware.
+<!-- Add a pro/con for the different methods, add sample debugging outputs for the different methods, what should I expect-->
 
 <div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
 
@@ -25,10 +26,13 @@ There is also a useful [blog](https://murraytodd.medium.com/our-first-rust-blink
 * connect the probe properly to the Pololu. If the official probe is used, the connection should be:
   
         Yellow(SWDIO) -> SWDIO
-        Green(SWCLK)  -> SWCLK
+        Orange(SWCLK)  -> SWCLK
         Black(GND)    -> GND
 
-    Then connect the Pololu with the USB-C cabel to your PC, and the debug probe as well and uncomment in `config.toml`
+![Probe-Connections](./images/probe_connect.jpeg)
+
+
+* Then connect the Pololu with the USB-C cabel to your PC, and the debug probe as well and uncomment in `config.toml`
         
         runner = "probe-rs run --chip RP2040 --protocol swd"
 

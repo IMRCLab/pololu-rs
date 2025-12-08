@@ -1,5 +1,10 @@
 # Software Overview
 
+<!-- Here I have to little knowledge to actually improve somtehing. Jiaming and I discussed the inclusion of a "information flow" - graphic, and a shift in each modules explanation towards a more contextualized structure (e.g., how uses the LED function for what, why would this be interesting to somebody usign the lib)
+
+Also: How are the module descriptions ordered? Is there any structure to this?
+ -->
+
 This page describes the structure, modules, and control architecture of the Rust firmware for the  
 **Pololu 3pi+ 2040** and **Pololu Zumo 2040** robots.
 

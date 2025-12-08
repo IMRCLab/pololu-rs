@@ -1,33 +1,14 @@
 # Usage
-This page describes all available programms for the robots, including Universal Menu Interface, Teleoperation Control via Joystick and Trajectory Following with/without Mocap.
+<!--As I moved part of this to the "Quickstart" page I am not 100% sure about the page in general-->
+This page describes the available programms for the robots: The Universal Menu Interface, the Teleoperation Control via Joystick and theTrajectory Following with or without MoCap.
 
 <div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
 
 ## Menu
-- Prepare the Robots:
-    - Prepare the nRF Dongle and write down the address for the robot(if multiple dongles are running together then each dongle should have different address)
-    - Change the `robot_id` according to the Dongle address of the current robot in file `src/bin/programm_entrance.rs`, the `robot_id` can be found here:
 
-            spawner.spawn(orchestrator(spawner, devices, UartCfg { robot_id: 10 })).unwrap();
+The menu functionality allows you to use different controll modalities for the robots. You can navigate it using an Xbox controller and the command line output of your terminal.
 
-    - Connect the Raspberry-Debug-Probe and a USB-C cable to the Pololu.
-    - Flash the firmware to the robot using the following command:
-
-            ./run 3pi menu
-
-    - Change the name of the corresponding robot configuration file in folder `cfg` to `ROBOTCFG.CFG` and paste the tuned robot configuration file into a micro sd card. Please **DO NOT CHANGE** the name of the configuration file, the file system depends on the file name to distinguish configuration file from other files.
-    - Change the trajectory file name to `TRJ0001.JSN` and paste it into a micro sd card. Please **DO NOT CHANGE** the name of the trajectory file, the file system depends on the file name to distinguish trajectory file from other files.
-- Prepare the Trajectory Following ROS Node:
-    - Connect a Crazyradio PA or Crazyradio 2 and a joystick to your PC.
-    - Change the address for each robot in `workstation_ros/src/pololu_ros/config/controller_interface.yaml`.
-    - Open workstation_ros folder and build the ros2 workspace using:
-
-            colcon build
-
-    - Open a terminal and run:
-
-            source install/setup.bash
-            ros2 run pololu_ros controller_interface
+- Use the setup process described in [Quickstart](quickstart.md).
 
 - Use the buttons on the joystick to select different functionalities.
   ![joystick_menu](./images/joystick.png)
@@ -73,7 +54,7 @@ This page describes all available programms for the robots, including Universal 
 <div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
 
 ## Tele-Operation for multiple robots
-In addition to the controller interface node with the menu, there is another node that provides tele-operation functionality for multiple robots, who can simultaneously be controlled by with one controller for each robot respectively.
+In addition to the controller interface node with the menu, there is another node that provides tele-operation functionality for multiple robots, that can be controlled simultaneously with one controller for each robot respectively.
 
 ### Hardware Requirements
 - Xbox controller (wired or wireless with USB adapter)
@@ -81,8 +62,8 @@ In addition to the controller interface node with the menu, there is another nod
 
 ### Setup Steps
 - Prepare the Robots
-    - Prepare the nRF Dongle and write down the address for the robot(if multiple dongles are running together then each dongle should have different address)
-    - Connect the Raspberry-Debug-Probe and a USB-C cable to the Pololu.
+    - Prepare the nRF Dongle and write down the address for the robot(if multiple dongles are running together then each dongle should have different address) <!-- Again I think this is dated, how should it be -->
+    - Connect the Raspberry-Debug-Probe and a USB-C cable to the Pololu as described [here](debugging.md).
     - Flash the firmware to the robot using the following command:
 
             ./run 3pi teleop
@@ -103,18 +84,11 @@ In addition to the controller interface node with the menu, there is another nod
 <div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
 
 ## Trajectory Following
-Also take Polulu 3Pi as an example, PLEASE FOLLOW THE STEPS:
 
-- Prepare the Robots:
-    - Prepare the nRF Dongle and write down the address for the robot(if multiple dongles are running together then each dongle should have different address)
-    - Change the `robot_id` according to the Dongle address of the current robot in file `src/bin/trajectory_following.rs`, the `robot_id` can be found here:
+The trajectory following module allows the robot to follow a predefined trajectory in an open-loop fashion. The following docu is based on the Pololu 3pi
 
-            spawner.spawn(uart_motioncap_receiving_task(
-                    devices.uart,
-                    UartCfg { robot_id: 10 },
-            )).unwrap();
 
-    - Connect the Raspberry-Debug-Probe and a USB-C cable to the Pololu.
+- Prepare the Robots according to the [Quickstart](quickstart.md) manual.
     - Flash the firmware to the robot using the following command:
 
             ./run 3pi trajectory_following
@@ -142,11 +116,14 @@ Also take Polulu 3Pi as an example, PLEASE FOLLOW THE STEPS:
 - Run Trajectory:
     - Put the robot on the correct starting position written in the trajectory file. 
     - Press `t` for starting the trajectory(for all robots); Press `s` for stop(for all robots).
-    - The actual trajectory would be saved in a csv file in the sd card, some plotting function is also provided in folder `datavis`. User could use the following command to plot the trajectories and part of the error w.r.t the given trajectory:
+    - The actual trajectory would be saved in a csv file in the sd card, some plotting function is also provided in folder `datavis`. You can use the following command to plot the trajectories and part of the error w.r.t the given trajectory:
 
             python3 my_display.py path/to/your/csv
 
 - Notice for Rerunning the Trajectory:
     - If the robot is taken out of the flightspace then the 2 ros processes should be restarted.
     - Restart the robot manually so that the trajectory csv will not be overwritten.
+
+
+<!-- No info on the MoCap is given as of now>
 

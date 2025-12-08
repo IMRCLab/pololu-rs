@@ -1,3 +1,4 @@
+<!--Here as well we could think of moving the troubleshooting to the troubleshooting section -->
 # ROS Workspace Setup
 This document explains how to build the ROS Workspace, the use cases for different nodes are described [here](usage.md).
 
