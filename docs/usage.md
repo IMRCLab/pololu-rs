@@ -1,12 +1,12 @@
 # Usage
 <!--As I moved part of this to the "Quickstart" page I am not 100% sure about the page in general-->
-This page describes the available programms for the robots: The Universal Menu Interface, the Teleoperation Control via Joystick and theTrajectory Following with or without MoCap.
+This page describes the available programs for the robots: The Universal Menu Interface, the Teleoperation Control via Joystick and the Trajectory Following with or without MoCap.
 
 <div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
 
 ## Menu
 
-The menu functionality allows you to use different controll modalities for the robots. You can navigate it using an Xbox controller and the command line output of your terminal.
+The menu functionality allows you to use different control modalities for the robots. You can navigate it using an Xbox controller and the command line output of your terminal.
 
 - Use the setup process described in [Quickstart](quickstart.md).
 
@@ -125,5 +125,5 @@ The trajectory following module allows the robot to follow a predefined trajecto
     - Restart the robot manually so that the trajectory csv will not be overwritten.
 
 
-<!-- No info on the MoCap is given as of now>
+<!-- No info on the MoCap is given as of now -->
 

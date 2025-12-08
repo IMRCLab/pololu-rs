@@ -1,4 +1,4 @@
-<!--I like this page, possible changes: Move troubleshooting advice to the troubleshooting section, incoorparate "notes" in the "flesh" of the section
+<!--I like this page, possible changes: Move troubleshooting advice to the troubleshooting section, incorporate "notes" in the "flesh" of the section
 
 should we have a separate "how to start adding your own modules" section? Rn I find it a bit hard to find, and it should somehow be the core application, right? -->
 
@@ -8,11 +8,11 @@ This document provides brief documentation for building and running the [Pololu 
 
 <div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
 
-## Quick Start
+## Setup
 
 ---
 
-### Hardware Preperation
+### Hardware Preparation
 * Connect the Pololu using a USB-C cable and the debug probe as described [here](debugging.md).
 * Uncomment the following line in `config.toml`
         
@@ -20,50 +20,24 @@ This document provides brief documentation for building and running the [Pololu 
 
 ---
 
-### Using the `./run` Script (Recommended)
-
-The `./run` script provides a convenient way to build and flash different robot configurations.
+### Make Executable 
 
 ```bash
-# Make executable (first time only)
-chmod +x run
-
-# Examples:
-./run                             # Default config, main binary
-./run zumo                        # Zumo config, main binary
-./run zumo teleop                 # Zumo config, teleop_control binary
-./run 3pi menu                    # 3Pi config, menu binary
-./run 3pi trajectory_following    # 3Pi config, trajectory_following binary
-```
-
----
-
-### Using Cargo Directly
-
-```bash
-# Default configuration
-cargo run --release
-
-# Zumo robot
-cargo run --release --features zumo
-
-# 3Pi robot  
-cargo run --release --features 3pi
-
-# Specific binaries
-cargo run --release --bin programm_entrance --features 3pi
-cargo run --release --bin teleop_control --features zumo
-cargo run --release --bin trajectory_following --features 3pi
+#make executable (first time only)
+chmod +x run 
 ```
 
 <div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
 
 ## Complete `./run` Script Reference
 
+It is recommended to use the `./run` script, but you can use the equivalent cargo commands if preferred
+
 ---
 
 ### Script Syntax
 ```bash
+
 ./run [robot_type] [target]
 ```
 
@@ -90,6 +64,8 @@ cargo run --release --bin trajectory_following --features 3pi
 | `./run 3pi build`                 | 3Pi          | -                    | Build only (no flash)                    |
 
 ---
+
+
 
 ### Equivalent Cargo Commands
 
@@ -266,7 +242,7 @@ cargo build --release    # Default config
 - **Module Interface**: All robot configurations expose the same public interface for seamless switching
 - **Testing**: Use default configuration (`./run`) for rapid development and testing
 - **Production**: Use specific robot features (`./run zumo` or `./run 3pi`) for deployment
-- **Version Conflict**: The newest version `1.89.0` of `rustc` is released on 4th Aug 2025. However, the flashing with `elf2uf2-rs -d` might suffers some temporary issues. For example, an error `unregonized ABI` occurs because of the generated elf header doesn't match the requirements of the elf2uf2 runner. (The generated 8th bit of the header is `03`, which indicates that the OS/ABI type is `UNIX - GNU`, but actually should be `00`, which indicates `UNIX - System V`). There are 2 ways to solve this issue:
+- **Version Conflict**: The newest version `1.89.0` of `rustc` is released on 4th Aug 2025. However, the flashing with `elf2uf2-rs -d` might suffer some temporary issues. For example, an error `unregonized ABI` occurs because of the generated elf header doesn't match the requirements of the elf2uf2 runner. (The generated 8th bit of the header is `03`, which indicates that the OS/ABI type is `UNIX - GNU`, but actually should be `00`, which indicates `UNIX - System V`). There are 2 ways to solve this issue:
 
     - If you really need the newest rustc, then each time after you build the project you should enter you target folder and do:
 

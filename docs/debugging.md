@@ -1,5 +1,5 @@
 # Debugging
-This document provides the users with 2 different ways to debugging the firmware.
+This document provides the users with 2 different ways to debug the firmware.
 <!-- Add a pro/con for the different methods, add sample debugging outputs for the different methods, what should I expect-->
 
 <div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
@@ -22,7 +22,7 @@ There is also a useful [blog](https://murraytodd.medium.com/our-first-rust-blink
 ---
 
 ### Debug Setup
-* You will need a Raspberry Pi Debug Probe(for debugging) and a USB-C Cabel(for flashing).
+* You will need a Raspberry Pi Debug Probe(for debugging) and a USB-C Cable(for flashing).
 * connect the probe properly to the Pololu. If the official probe is used, the connection should be:
   
         Yellow(SWDIO) -> SWDIO
@@ -32,11 +32,11 @@ There is also a useful [blog](https://murraytodd.medium.com/our-first-rust-blink
 ![Probe-Connections](./images/probe_connect.jpeg)
 
 
-* Then connect the Pololu with the USB-C cabel to your PC, and the debug probe as well and uncomment in `config.toml`
+* Then connect both the Pololu and the Debug Probe with the USB-C cable to your PC, and uncomment in `config.toml`
         
         runner = "probe-rs run --chip RP2040 --protocol swd"
 
-* If you would like to directly observed the debug information in the terminal, run:
+* If you would like to directly observe the debug information in the terminal, run:
 
         cargo run --release
 
@@ -62,7 +62,7 @@ or use the recommended `build_system`.
 ---
 
 ### Print New Debug Information 
-The code only print a test value(constant). When new debug information is needed, use:
+The code only prints a test value(constant). When new debug information is needed, use:
 ```
 info!("New Sensor Data: {}", value);
 ```
