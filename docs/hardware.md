@@ -61,6 +61,21 @@ Below is a high-level overview.
 
 ---
 
+## Extensions and Decks
+Both robots has individual decks that can be stacked on top of the base board to provide additional functionality, mainly for the nRF52840 Dongle and the micro SD card. Since both boards share the same functionality, the BOM files for both decks are provided [here](https://drive.google.com/file/d/1zDv0Pez-LbIcSznfjWsCFHHCus_rqHT5/view?usp=drive_link).
+
+### Pololu Deck
+The Pololu Deck provides compatibility with the **nRF52840 Dongle** for wireless communication and a micro SD card slot for data logging. The deck connects to the base board via the headers on the main board. The manufacture file for the Pololu Deck can be found [here](https://drive.google.com/file/d/1dhY1AWEnPq2iDd2syl0s_TQmvdr8CK_f/view?usp=drive_link). 
+
+![Pololu Deck](./images/Pololu_Deck.jpg)
+
+### Zumo Deck
+The Zumo Deck provides compatibility with the **nRF52840 Dongle** for wireless communication and a micro SD card slot for data logging. The deck connects to the base board via the headers on the main board. For the current Zumo Deck a [crazyflie micro sd card deck](https://www.bitcraze.io/products/micro-sd-card-deck/) would be needed, but later it would be replaced by a single micro sd card port. The manufacture file for the Zumo Deck can be found [here](https://drive.google.com/file/d/1__rsjS6CmzKnZizucRMT-pdMyGOyx9Be/view?usp=drive_link).
+
+![Zumo Deck](./images/Zumo_Deck.jpg)
+
+---
+
 ## Actuators
 
 ---
