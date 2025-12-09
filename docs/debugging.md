@@ -2,18 +2,11 @@
 This document provides the users with 2 different ways to debug the firmware.
 <!-- Add a pro/con for the different methods, add sample debugging outputs for the different methods, what should I expect-->
 
-<div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
 
-## Debugging with USB
-```bash
-sudo apt install tio
-tio /dev/ttyACM0
-```
-(use ctrl+t q to exit)
 
 <div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
 
-## Debugging with Raspberry Pi Debug Probe
+## Debugging with Raspberry Pi Debug Probe (Recommended)
 The logging is mainly based on [probe-rs](https://probe.rs/docs/getting-started/installation/), [defmt](https://docs.rs/defmt/latest/defmt/) and [defmt-rtt](https://docs.rs/defmt-rtt/latest/defmt_rtt/).
 There is also a useful [blog](https://murraytodd.medium.com/our-first-rust-blinky-program-on-raspberry-pi-pico-w-376211f1074d) to learn how to use them very quickly.
 
@@ -66,6 +59,16 @@ The code only prints a test value(constant). When new debug information is neede
 ```
 info!("New Sensor Data: {}", value);
 ```
+
+
+<div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
+
+## Debugging with USB
+```bash
+sudo apt install tio
+tio /dev/ttyACM0
+```
+(use ctrl+t q to exit)
 
 <div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
 

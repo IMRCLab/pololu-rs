@@ -1,5 +1,10 @@
 # Hardware Overview
-<!-- We should add information about the nRF dongle and the Crazyradio here-->
+<!-- We should add information about the nRF dongle here
+!!!
+
+provide dongle board
+
+-->
 
 This page provides an overview of the hardware components used on the  
 **Pololu 3pi+ 2040** and **Pololu Zumo 2040** robots.  
@@ -78,10 +83,7 @@ Below is a high-level overview.
   - GP14 → Right motor speed (PWM7A)  
   - GP15 → Left motor speed (PWM7B)
 
-#### Notes
-- Zumo motors run in **reversed direction** (requires negated duty cycle)  
-- 3pi motors are **normal direction**
-- Needs to be checked before use.
+
 
 ---
 

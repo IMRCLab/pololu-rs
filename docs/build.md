@@ -1,7 +1,3 @@
-<!--I like this page, possible changes: Move troubleshooting advice to the troubleshooting section, incorporate "notes" in the "flesh" of the section
-
-should we have a separate "how to start adding your own modules" section? Rn I find it a bit hard to find, and it should somehow be the core application, right? -->
-
 # Pololu 3Pi/Zumo Robot Build System Documentation
 
 This document provides brief documentation for building and running the [Pololu 3Pi+ 2040 robot firmware](https://github.com/IMRCLab/pololu3pi2040-rs) with multiple robot support and different firmware tasks. It covers the `./run` build script usage, feature flag system, and multi-robot configuration workflow.
@@ -20,7 +16,7 @@ This document provides brief documentation for building and running the [Pololu 
 
 ---
 
-### Make Executable 
+### Make Executable Runscript
 
 ```bash
 #make executable (first time only)
@@ -233,6 +229,24 @@ cargo build --release --features 3pi
 cargo build --release    # Default config
 ```
 
+---
+
+### Version Conflict
+ The newest version `1.89.0` of `rustc` is released on 4th Aug 2025. However, the flashing with `elf2uf2-rs -d` might suffer some temporary issues. For example, an error `unregonized ABI` occurs because of the generated elf header doesn't match the requirements of the elf2uf2 runner. (The generated 8th bit of the header is `03`, which indicates that the OS/ABI type is `UNIX - GNU`, but actually should be `00`, which indicates `UNIX - System V`). There are 2 ways to solve this issue:
+
+- If you really need the newest rustc, then each time after you build the project you should enter you target folder and do:
+
+        printf '\x00' | dd of=teleop_control bs=1 seek=7 count=1 conv=notrunc
+
+    This will change the 8th bit from `03` to `00` and then you can flash this as usual (don't build it again).
+
+- The other way is to downgrade rustc to `1.87.0` by using:
+        
+        rustup toolchain install 1.87.0
+        rustup default 1.87.0
+        rustup component add rust-src --toolchain 1.87.0
+        rustup target add thumbv6m-none-eabi --toolchain 1.87.0
+
 <div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
 
 ## Notes
@@ -242,17 +256,4 @@ cargo build --release    # Default config
 - **Module Interface**: All robot configurations expose the same public interface for seamless switching
 - **Testing**: Use default configuration (`./run`) for rapid development and testing
 - **Production**: Use specific robot features (`./run zumo` or `./run 3pi`) for deployment
-- **Version Conflict**: The newest version `1.89.0` of `rustc` is released on 4th Aug 2025. However, the flashing with `elf2uf2-rs -d` might suffer some temporary issues. For example, an error `unregonized ABI` occurs because of the generated elf header doesn't match the requirements of the elf2uf2 runner. (The generated 8th bit of the header is `03`, which indicates that the OS/ABI type is `UNIX - GNU`, but actually should be `00`, which indicates `UNIX - System V`). There are 2 ways to solve this issue:
 
-    - If you really need the newest rustc, then each time after you build the project you should enter you target folder and do:
-
-            printf '\x00' | dd of=teleop_control bs=1 seek=7 count=1 conv=notrunc
-
-        This will change the 8th bit from `03` to `00` and then you can flash this as usual (don't build it again).
-
-    - The other way is to downgrade rustc to `1.87.0` by using:
-            
-            rustup toolchain install 1.87.0
-            rustup default 1.87.0
-            rustup component add rust-src --toolchain 1.87.0
-            rustup target add thumbv6m-none-eabi --toolchain 1.87.0

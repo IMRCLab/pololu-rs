@@ -15,7 +15,9 @@ This page guides you through a quick first set-up of the system. It aims to prov
     - Change the name of the corresponding robot configuration file in folder `cfg` to `ROBOTCFG.CFG` and paste the tuned robot configuration file into a micro sd card. Please **DO NOT CHANGE** the name of the configuration file, the file system depends on the file name to distinguish configuration file from other files.
     <!-- Where does the file come from, is it just in the workspace???-->
     - Change the trajectory file name to `TRJ0001.JSN` and paste it into a micro sd card. Please **DO NOT CHANGE** the name of the trajectory file, the file system depends on the file name to distinguish trajectory file from other files. 
-    <!-- Same question here, we should also put in a file with "trajectory generation" -->
+    <!-- Same question here, we should also put in a file with "trajectory generation" 
+    
+    Where are the files located -> pointer -->
 - Prepare the Trajectory Following ROS Node:
     - Set up [ROS](ros.md)
     - Connect a Crazyradio PA or Crazyradio 2 <!-- should we explain those in the hardware section -->
@@ -40,3 +42,4 @@ This page guides you through a quick first set-up of the system. It aims to prov
     - Stop your robot with "B"
 
 Congrats! You successfully moved your robot!
+<!-- Link to troubleshooting-->

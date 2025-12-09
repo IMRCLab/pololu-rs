@@ -19,7 +19,7 @@ The firmware is fully async using the [Embassy](https://github.com/embassy-rs/em
 The overall architecture consists of:
 ```
 src/
-├── main.rs                     # Entry point of the firmware
+├── main.rs                     # Testing entry point of the firmware
 ├── init.rs                     # Initialization for all devices
 ├── lib.rs                      # Feature-based module selection
 ├── led.rs                      # LED driver
@@ -32,6 +32,8 @@ src/
 ├── packet.rs                   # Crazyflie-compatible packet definitions
 ├── sdlog.rs                    # SD logging + parameter loading
 ├── orchestrator_signal.rs      # Signals and channels for async tasks
+├── read_robot_config_from_sd.rs   # Load robot parameters from SD config file
+├── robot_parameters_default.rs    # Default fallback robot parameters
 
 │
 ├── joystick_control.rs         # Default/testing teleop configuration
@@ -46,15 +48,13 @@ src/
 │   ├── lsm6dso.rs              # Accel + Gyro driver
 │   ├── shared_i2c.rs           # Shared I2C bus with Mutex
 │   ├── complementary_filter.rs # Roll/Pitch/Yaw estimation (complementary filter)
-│   ├── madgwick.rs             # Madgwick AHRS filter
-│   ├── read_robot_config_from_sd.rs   # Load robot parameters from SD config file
-│   └── robot_parameters_default.rs    # Default fallback robot parameters
+│   └── madgwick.rs             # Madgwick AHRS filter
 
 │
 └── bin/                        # Application binaries
-    ├── programm_entrance.rs    # Unified program launcher
-    ├── teleop_control.rs       # Teleoperation mode
-    └── trajectory_following.rs # Cascade trajectory-following controller
+    ├── programm_entrance.rs    # Entry point of the built firmware
+    ├── teleop_control.rs       # Teleoperation only mode
+    └── trajectory_following.rs # Cascade trajectory-following only mode
 
 memory.x                        # RP2040 memory layout
 .cargo/

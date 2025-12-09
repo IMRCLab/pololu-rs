@@ -1,4 +1,6 @@
-<!--Here as well we could think of moving the troubleshooting to the troubleshooting section -->
+<!--
+
+Mention max four robots, -> troubleshooting more than 4 robs-->
 # ROS Workspace Setup
 This document explains how to build the ROS Workspace, the use cases for different nodes are described [here](usage.md).
 
@@ -23,7 +25,7 @@ git submodule update --init --recursive
 From the workspace root:
 ```bash
 source /opt/ros/<ros_distro>/setup.bash
-colcon build --cmake-args -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+colcon build 
 ```
 Source the environment before running any nodes:
 ```bash
