@@ -6,7 +6,7 @@ section, maybe it can also be combined to "interfaces". I also would like to add
 
 This library provides a high-performance async Rust firmware for [Pololu 3pi+ 2040 robot](https://www.pololu.com/category/300/3pi-plus-2040-robot) and [Pololu Zumo 2040 robot](https://www.pololu.com/category/308/zumo-2040-robot),  
 featuring differential-drive control, tele-operation via joysticks, trajectory following, IMU fusion, SD logging, and ROS 2 support. `Pololu 3pi+` is a differential-drive robot that can move with up to 4m/s. `Pololu Zumo` is a tracked robot that can move on different terrains. These robots are suitable for developing motion planning algorithms and multi-agent algorithms.
-<!-- What about the MC, should we also talk about crazyswarm/crazyflie here??-->
+
 
 ---
 
@@ -75,5 +75,3 @@ GitHub: [pololu](https://github.com/IMRCLab/pololu3pi2040-rs)
 
 ## Disclaimer
 This documentation is based on the firmware at 08.12.2025. It does not claim completeness in any way or form. If you'd like to, you're welcome to provide feedback and suggestions via GitHub.
-<!-- Feel free to edit this disclaimer, I just thought it would be a neat thing to have
--->

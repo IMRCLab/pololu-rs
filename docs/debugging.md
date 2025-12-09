@@ -1,6 +1,6 @@
 # Debugging
 This document provides the users with 2 different ways to debug the firmware.
-<!-- Add a pro/con for the different methods, add sample debugging outputs for the different methods, what should I expect-->
+
 
 
 

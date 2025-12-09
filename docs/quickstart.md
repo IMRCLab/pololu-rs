@@ -5,7 +5,7 @@ This page guides you through a quick first set-up of the system. It aims to prov
 <div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
 
 - Prepare the Robot:
-    - Prepare the [nrf-Dongle]() and write down the dongle address <!-- what is the current workflow here?, where should I take the address from ??? -->
+    - Prepare the [nrf-Dongle](hardware.md#nrf-dongle) and write down the dongle address 
     - Connect the [Raspberry-Debug-Probe](debugging.md) and a USB-C cable to the robot
     - Flash the firmware using the following command (if you want to read on how the flashing works, read [here](build.md)):
     
@@ -20,7 +20,7 @@ This page guides you through a quick first set-up of the system. It aims to prov
     Where are the files located -> pointer -->
 - Prepare the Trajectory Following ROS Node:
     - Set up [ROS](ros.md)
-    - Connect a Crazyradio PA or Crazyradio 2 <!-- should we explain those in the hardware section -->
+    - Connect a Crazyradio PA or Crazyradio 2 
     - Change the address for each robot in `workstation_ros/src/pololu_ros/config/controller_interface.yaml`. <!-- To what? -->
     - Open the workstation_ros folder and build the ros2 workspace using:
 
@@ -42,4 +42,4 @@ This page guides you through a quick first set-up of the system. It aims to prov
     - Stop your robot with "B"
 
 Congrats! You successfully moved your robot!
-<!-- Link to troubleshooting-->
+If you have any trouble try too look at the general [troubleshooting page](troubleshooting.md) or the specific chapters for [Ros](ros.md#troubleshooting) and [Build](build.md#troubleshooting).
