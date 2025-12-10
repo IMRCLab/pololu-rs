@@ -1,10 +1,5 @@
 # Hardware Overview
-<!-- We should add information about the nRF dongle here
-!!!
 
-provide dongle board
-
--->
 
 This page provides an overview of the hardware components used on the  
 **Pololu 3pi+ 2040** and **Pololu Zumo 2040** robots.  

@@ -5,7 +5,8 @@ This page guides you through a quick first set-up of the system. It aims to prov
 <div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
 
 - Prepare the Robot:
-    - Prepare the [nrf-Dongle](hardware.md#nrf-dongle) and write down the dongle address 
+    - Flash the nrf-Dongle with the latest dongle firmware
+    - Connect the nrf-Dongle to the Pololu using the [nrf-Breakout Board](hardware.md)
     - Connect the [Raspberry-Debug-Probe](debugging.md) and a USB-C cable to the robot
     - Flash the firmware using the following command (if you want to read on how the flashing works, read [here](build.md)):
     

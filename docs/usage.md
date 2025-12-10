@@ -85,7 +85,14 @@ In addition to the controller interface node with the menu, there is another nod
 
 ## Trajectory Following <!-- Write something about MoCAP-->
 
-The trajectory following module allows the robot to follow a predefined trajectory in an open-loop fashion. The following docu is based on the Pololu 3pi
+The trajectory following module allows the robot to follow a predefined trajectory in an open-loop fashion. The following docu is based on the Pololu 3pi:
+
+---
+### Trajectory Format
+ <!--- Here I need info on the actual format and where the example file lies --->
+For the robot being able to follow the predefined trajectory, the trajectory must fulfill two criteria
+
+---
 
 
 - Prepare the Robots according to the [Quickstart](quickstart.md) manual.
@@ -124,6 +131,8 @@ The trajectory following module allows the robot to follow a predefined trajecto
     - If the robot is taken out of the flightspace then the 2 ros processes should be restarted.
     - Restart the robot manually so that the trajectory csv will not be overwritten.
 
+## Trajectory Following with motion capture
 
-<!-- No info on the MoCap is given as of now -->
+<!-- I need input here -->
+
 
