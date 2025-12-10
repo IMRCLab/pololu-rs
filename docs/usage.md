@@ -93,23 +93,48 @@ The trajectory following module allows the robot to follow a predefined trajecto
 For the robot being able to follow the predefined trajectory, the trajectory must follow the format layed out in:
 ```
 
-TRAJS/TRJ001.JSN
+TRAJS/TRJ0001.JSN
 ```
 The states have the following format:
 ```
-"states" : [
-        [
-                1.0,    # x position in meters
-                -1.5,   # y position in meters
-                1.57    # yaw in radians
-        ]
-],
-"actions" : [
-        [
-                1.0,    # velocity in m/s
-                0.5     # angular velocity in rad/s
-        ]
-]
+{
+  "result": [
+    {
+        "time_stamp": 0.0,
+        "cost": 120.0,
+        "feasible": 0,
+        "traj_feas": 0,
+        "goal_feas": 0,
+        "start_feas": 0,
+        "col_feas": 0,
+        "x_bounds_feas": 0,
+        "u_bounds_feas": 0,
+        "start": [],
+        "goal": [],
+        "max_jump": -1.0,
+        "max_collision": -1,
+        "goal_distance": -1.0,
+        "start_distance": -1.0,
+        "x_bound_distance": -1.0,
+        "u_bound_distance": -1.0,
+        "num_states": 121,
+        "states" : [                    # the number of states should be one more than the number of actions
+                [
+                        1.0,            # x position in meters
+                        -1.5,           # y position in meters
+                        1.57            # yaw in radians
+                ]
+        ],
+        "actions" : [
+                [
+                        1.0,            # velocity in m/s
+                        0.5             # angular velocity in rad/s
+                ]
+        ],
+        "dt": 0.1                       # time step interval
+    }
+  ]
+}
 ```
 
 ---
