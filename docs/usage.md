@@ -73,7 +73,7 @@ In addition to the controller interface node with the menu, there is another nod
     - Change the address for each robot in `workstation_ros/src/pololu_ros/config/teleop.yaml`.
     - Open workstation_ros folder and build the ros2 workspace using:
 
-            colcon build --cmake-args -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+            colcon build 
             source install/setup.bash
 
     - Run the `teleop` Node using:
@@ -169,7 +169,7 @@ format defined in the [ROS Documentation](https://docs.ros.org/en/noetic/api/geo
     - Change the address for each robot in `workstation_ros/src/pololu_ros/config/mocap_broadcast.yaml`.
     - Open `workstation_ros` folder and build the ros2 workspace using:
 
-            colcon build --cmake-args -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+            colcon build 
 
     - Open a terminal and run:
     
