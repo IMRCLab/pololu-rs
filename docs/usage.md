@@ -85,15 +85,51 @@ In addition to the controller interface node with the menu, there is another nod
 
 ## Trajectory Following <!-- Write something about MoCAP-->
 
-The trajectory following module allows the robot to follow a predefined trajectory in an open-loop fashion. The following docu is based on the Pololu 3pi:
+The trajectory following module allows the robot to follow a predefined trajectory in an closed-loop fashion using external motion tracking. The following docu is based on the Pololu 3pi:
 
 ---
 ### Trajectory Format
  <!--- Here I need info on the actual format and where the example file lies --->
-For the robot being able to follow the predefined trajectory, the trajectory must fulfill two criteria
+For the robot being able to follow the predefined trajectory, the trajectory must follow the format layed out in:
+```
+
+TRAJS/TRJ001.JSN
+```
+The states have the following format:
+```
+"states" : [
+        [
+                1.0,    # x position in meters
+                -1.5,   # y position in meters
+                1.57    # yaw in radians
+        ]
+],
+"actions" : [
+        [
+                1.0,    # velocity in m/s
+                0.5     # angular velocity in rad/s
+        ]
+]
+```
 
 ---
 
+### Motion Capturing
+The motion capturing is based on an external system, that uses a ROS topic to publish the captured robot state. In the pololu firmware the the `interface node` subscribes to this topic and interprets the published states.
+
+To use the motion capturing you need to implement this publisher ROS node. It should publish the robot states in the ROS
+```
+geometry_msgs/Poses
+```
+format defined in the [ROS Documentation](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/Pose.html).
+
+
+
+
+
+---
+
+### Execution
 
 - Prepare the Robots according to the [Quickstart](quickstart.md) manual.
     - Flash the firmware to the robot using the following command:
@@ -131,8 +167,6 @@ For the robot being able to follow the predefined trajectory, the trajectory mus
     - If the robot is taken out of the flightspace then the 2 ros processes should be restarted.
     - Restart the robot manually so that the trajectory csv will not be overwritten.
 
-## Trajectory Following with motion capture
 
-<!-- I need input here -->
 
 
