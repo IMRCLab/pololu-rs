@@ -1,4 +1,6 @@
+use crate::robotstate::LogSnapshot;
 use defmt::{info, warn};
+use heapless::Vec;
 
 #[derive(Debug)]
 pub struct CmdLegacyPacketU16 {
@@ -177,18 +179,57 @@ impl MocapPosesPacketF32 {
     }
 }
 
+//loopback packet for sending out robot state data
+//
+// Structure:
+//   - header: 0xA2 (log snapshot identifier)
+//   - robot_id: u8
+//   - log_snapshot: LogSnapshot (serialized)
+//
+// Wire format (compact with i):
+//   [len:1] [header:1] [robot_id:1] [t_ms:4] [17×i16:34] = 41 bytes total
+//
+// Wire format (f32):
+//   [len:1] [header:1] [robot_id:1] [t_ms:4] [17×f32:68] = 75 bytes total
+//
 #[derive(Debug)]
 pub struct StateLoopBackPacketF32 {
     pub header: u8,
     pub robot_id: u8,
-    pub pos_x: f32,
-    pub pos_y: f32,
-    pub pos_z: f32,
-    pub vel_x: f32,
-    pub vel_y: f32,
-    pub vel_z: f32,
-    pub qw: f32,
-    pub qx: f32,
-    pub qy: f32,
-    pub qz: f32,
+    pub log_snapshot: LogSnapshot,
+}
+
+impl StateLoopBackPacketF32 {
+    pub fn new(robot_id: u8, log_snapshot: LogSnapshot) -> Self {
+        Self {
+            header: 0xA2,
+            robot_id,
+            log_snapshot,
+        }
+    }
+
+    /// Full precision f32 format (75 bytes total)
+    pub fn to_bytes(&self) -> Vec<u8, 80> {
+        let mut v: Vec<u8, 80> = Vec::new();
+        let payload = self.log_snapshot.to_bytes_f32();
+        // len = header(1) + robot_id(1) + payload
+        v.push((2 + payload.len()) as u8).ok();
+        v.push(self.header).ok();
+        v.push(self.robot_id).ok();
+        v.extend_from_slice(&payload).ok();
+        v
+    }
+
+    /// Compact i16 fixed-point format (41 bytes total)
+    /// Returns Vec<u8, 64> for direct use with UART_TX_CHANNEL
+    pub fn to_bytes_compact(&self) -> Vec<u8, 64> {
+        let mut v: Vec<u8, 64> = Vec::new();
+        let payload = self.log_snapshot.to_bytes_compact();
+        // len = header(1) + robot_id(1) + payload
+        v.push((2 + payload.len()) as u8).ok();
+        v.push(self.header).ok();
+        v.push(self.robot_id).ok();
+        v.extend_from_slice(&payload).ok();
+        v
+    }
 }

@@ -4,16 +4,16 @@ use crate::orchestrator_signal::{
     LEN_FUNC_SELECT_CMD, Mode, ORCH_CH, OrchestratorMsg, STOP_MOTOR_CTRL_SIG, STOP_TELEOP_UART_SIG,
     decode_functionality_select_command,
 };
-use crate::packet::{CmdLegacyPacketF32, CmdTeleopPacketMix, StateLoopBackPacketF32};
+use crate::packet::{CmdLegacyPacketF32, CmdTeleopPacketMix};
 use crate::read_robot_config_from_sd::RobotConfig;
 use crate::trajectory_uart::UartCfg;
+use crate::uart::SharedUart;
 use crate::uart::UART_RX_CHANNEL;
-use crate::uart::{SharedUart, update_robot_state};
 use defmt::info;
 use embassy_futures::select::{Either, Either3, select, select3};
 use embassy_sync::blocking_mutex::raw::{NoopRawMutex, ThreadModeRawMutex};
 use embassy_sync::mutex::Mutex;
-use embassy_time::{Duration, Ticker, Timer};
+use embassy_time::{Duration, Instant, Ticker, Timer};
 use heapless::Vec as HVec;
 // Import the global verbosity macros
 use crate::debug_warn;
@@ -249,21 +249,6 @@ pub async fn teleop_motor_control_task(
                 duty_right * robot_cfg.motor_direction_right,
             )
             .await;
-
-        update_robot_state(StateLoopBackPacketF32 {
-            header: 0xA1,
-            robot_id: 1,
-            pos_x: 1.0,
-            pos_y: 2.0,
-            pos_z: 3.0,
-            vel_x: 4.0,
-            vel_y: 5.0,
-            vel_z: 6.0,
-            qw: 1.0,
-            qx: 0.0,
-            qy: 0.0,
-            qz: 0.0,
-        });
 
         Timer::after(Duration::from_millis(robot_cfg.joystick_control_dt_ms)).await;
     }

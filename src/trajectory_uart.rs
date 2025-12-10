@@ -1,6 +1,7 @@
+use crate::robotstate::Pose;
 use defmt::*;
 use embassy_futures::select::{Either3, select3};
-use embassy_time::{Duration, Timer};
+use embassy_time::{Duration, Instant, Timer};
 use heapless::Vec as HVec;
 
 use crate::math::{quat_decompress, rpy_from_quaternion};
@@ -8,7 +9,7 @@ use crate::orchestrator_signal::{
     LEN_FUNC_SELECT_CMD, LEN_STOP_RESUME_CMD, Mode, ORCH_CH, OrchestratorMsg, STOP_MOCAP_UART_SIG,
     TRAJ_PAUSE_SIG, TRAJ_RESUME_SIG, decode_functionality_select_command,
 };
-use crate::trajectory_signal::{FIRST_MESSAGE, LAST_STATE, PoseAbs, STATE_SIG};
+use crate::trajectory_signal::{FIRST_MESSAGE, LAST_STATE, STATE_SIG};
 use crate::uart::UART_RX_CHANNEL;
 
 #[derive(Clone, Copy)]
@@ -163,7 +164,7 @@ fn decode_trajectory_command(payload: &[u8], robot_id: u8) -> Option<bool> {
     }
 }
 
-fn decode_abs_pose(payload: &[u8], robot_id: u8) -> Option<PoseAbs> {
+fn decode_abs_pose(payload: &[u8], robot_id: u8) -> Option<Pose> {
     // frame header check
     // info!("here3 {}", payload);
 
@@ -208,13 +209,15 @@ fn decode_abs_pose(payload: &[u8], robot_id: u8) -> Option<PoseAbs> {
     //     "robot Id: {}, x:{}, y:{}, z:{}, roll:{}, pitch:{}, yaw:{}",
     //     payload[1], x, y, z, roll, pitch, yaw,
     // );
+    let stamp = Instant::now();
 
-    Some(PoseAbs {
+    Some(Pose {
         x,
         y,
         z,
         roll,
         pitch,
         yaw,
+        stamp,
     })
 }

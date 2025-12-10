@@ -12,18 +12,6 @@ test = false
 bench = false
 
 [[bin]]
-name = "trajectory_following_odometry"
-path = "src/bin/trajectory_following_odometry.rs"
-test = false
-bench = false
-
-[[bin]]
-name = "trajectory_following_cascade"
-path = "src/bin/trajectory_following_cascade.rs"
-test = false
-bench = false
-
-[[bin]]
 name = "trajectory_following"
 path = "src/bin/trajectory_following.rs"
 test = false
@@ -32,12 +20,6 @@ bench = false
 [[bin]]
 name = "programm_entrance"
 path = "src/bin/programm_entrance.rs"
-test = false
-bench = false
-
-[[bin]]
-name = "trajectory_following_gain_tuning"
-path = "src/bin/trajectory_following_gain_tuning.rs"
 test = false
 bench = false
 

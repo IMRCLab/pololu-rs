@@ -1,4 +1,3 @@
-use crate::packet::StateLoopBackPacketF32;
 use embassy_futures::select::{Either, select};
 use embassy_rp::uart::{Async, Uart};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
@@ -45,7 +44,6 @@ pub async fn uart_hw_task(uart: &'static Mutex<ThreadModeRawMutex, Uart<'static,
             // ================ TX Ready ================
             Either::First(tx) => {
                 let mut u = uart.lock().await;
-
                 match u.write(&tx).await {
                     Ok(_) => {
                         let _ = u.blocking_flush();
@@ -92,6 +90,7 @@ pub async fn uart_receive_task() {
 
         let expected_len = buffer[0] as usize + 1;
         if buffer.len() == expected_len {
+            defmt::info!("received a package of length {}", expected_len);
             match expected_len {
                 // Command packet: length(1) + header(1) + command_id(1) = 3
                 3 => {
@@ -104,6 +103,11 @@ pub async fn uart_receive_task() {
                     if let Some(req) = ParameterWriteRequest::from_bytes(&buffer) {
                         // Handle parameter write: update config and echo back
                         handle_parameter_write(req.param_id, req.value).await;
+                        defmt::info!(
+                            "UART RX: Parameter write request: id={}, value={}",
+                            req.param_id,
+                            req.value
+                        );
                     }
                 }
                 10 => {
@@ -127,6 +131,7 @@ pub async fn uart_receive_task() {
 }
 
 /// Handle special commands from the dongle
+/// note: not used yet
 async fn handle_command(command_id: u8) {
     match command_id {
         CMD_SAVE_CONFIG_TO_SD => {
@@ -143,6 +148,7 @@ async fn handle_command(command_id: u8) {
 
 /// Save the current robot configuration to SD card
 /// Uses signal/channel to request the main task to perform the actual SD write
+/// note: note implemented in the dongle yet
 async fn save_config_to_sd() -> bool {
     // Request save via signal and wait for result
     request_save_config_to_sd().await
@@ -160,73 +166,5 @@ pub fn uart_send(data: &[u8]) {
     let _ = UART_TX_CHANNEL.try_send(v);
 }
 
-pub fn pack_state_loopback(pkt: &StateLoopBackPacketF32) -> Vec<u8, 64> {
-    let mut v: Vec<u8, 64> = Vec::new();
-
-    // total length = header(1) + robot_id(1) + 10 floats * 4 = 1 + 1 + 40 = 42
-    v.push(1 + 40).ok();
-    v.push(pkt.header).ok();
-    v.push(pkt.robot_id).ok();
-
-    for f in [
-        pkt.pos_x, pkt.pos_y, pkt.pos_z, pkt.vel_x, pkt.vel_y, pkt.vel_z, pkt.qw, pkt.qx, pkt.qy,
-        pkt.qz,
-    ] {
-        v.extend_from_slice(&f.to_le_bytes()).ok();
-    }
-
-    v
-}
-
-pub fn uart_send_state_loopback(pkt: &StateLoopBackPacketF32) {
-    let data = pack_state_loopback(pkt);
-    let _ = UART_TX_CHANNEL.try_send(data);
-}
-
-// ==================== Robot State Sending Task ====================
-pub static ROBOT_STATE_CH: Channel<ThreadModeRawMutex, StateLoopBackPacketF32, 4> = Channel::new();
-
-pub fn update_robot_state(state: StateLoopBackPacketF32) {
-    while ROBOT_STATE_CH.try_receive().is_ok() {}
-
-    let _ = ROBOT_STATE_CH.try_send(state);
-}
-
-#[embassy_executor::task]
-pub async fn state_loopback_task() {
-    loop {
-        let state: StateLoopBackPacketF32 = ROBOT_STATE_CH.receive().await;
-
-        let pkt = StateLoopBackPacketF32 {
-            header: state.header,
-            robot_id: state.robot_id,
-            pos_x: state.pos_x,
-            pos_y: state.pos_y,
-            pos_z: state.pos_z,
-            vel_x: state.vel_x,
-            vel_y: state.vel_y,
-            vel_z: state.vel_z,
-            qw: state.qw,
-            qx: state.qx,
-            qy: state.qy,
-            qz: state.qz,
-        };
-
-        // 3. Send via UART
-        uart_send_state_loopback(&pkt);
-    }
-}
-
-/// Task to send robot parameters via UART upon startup.
-/// This task runs once at startup, sends all parameters, then exits.
-#[embassy_executor::task]
-pub async fn uart_param_sync_task(config: crate::read_robot_config_from_sd::RobotConfig) {
-    // Initialize the global config for runtime updates
-    crate::parameter_sync::init_robot_config(config);
-
-    // Wait a bit for UART to stabilize
-    embassy_time::Timer::after_millis(500).await;
-
-    // Send all parameters to the dongle
-    let _ = crate::parameter_sync::send_robot_parameters_to_dongle(&config).await;
-}
+// NOTE: log_uart_task removed - use robotstate::uart_log_sending_task instead
+// which polls mutexes periodically rather than consuming from a channel

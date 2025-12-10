@@ -6,13 +6,13 @@ use crate::read_robot_config_from_sd::RobotConfig;
 use crate::sdlog::{SD_COMMAND_CHANNEL, SD_RESULT_CHANNEL, SdCommand};
 use crate::uart::UART_TX_CHANNEL;
 
-/// Global robot configuration that can be updated at runtime
+//Global robot configuration that can be updated at runtime
 pub static ROBOT_CONFIG: Mutex<ThreadModeRawMutex, Option<RobotConfig>> = Mutex::new(None);
 
-/// Command IDs for special operations
+//Command IDs for special operations
 pub const CMD_SAVE_CONFIG_TO_SD: u8 = 0xFF;
 
-/// Request saving config to SD card and wait for result
+//Request saving config to SD card and wait for result
 pub async fn request_save_config_to_sd() -> bool {
     // Get the current config
     let config = match get_robot_config() {
@@ -27,14 +27,14 @@ pub async fn request_save_config_to_sd() -> bool {
     SD_RESULT_CHANNEL.receive().await
 }
 
-/// Initialize the global robot config
+//Initialize the global robot config
 pub fn init_robot_config(config: RobotConfig) {
     if let Ok(mut guard) = ROBOT_CONFIG.try_lock() {
         *guard = Some(config);
     }
 }
 
-/// Get a copy of the current robot config
+//Get a copy of the current robot config
 pub fn get_robot_config() -> Option<RobotConfig> {
     if let Ok(guard) = ROBOT_CONFIG.try_lock() {
         *guard
@@ -43,7 +43,7 @@ pub fn get_robot_config() -> Option<RobotConfig> {
     }
 }
 
-/// Packet for sending a single parameter via UART
+//packet for sending a single parameter via UART
 pub struct ParameterPacket {
     pub length: u8,
     pub header: u8,
@@ -56,7 +56,7 @@ pub struct ParameterPacket {
 impl ParameterPacket {
     pub fn new(param_id: u8, value: f32) -> Self {
         let mut packet = Self {
-            length: 22,
+            length: 8, // header(1) + param_id(1) + value(4) + checksum(2) = 8
             header: 0x3C,
             param_id,
             value,
@@ -66,7 +66,7 @@ impl ParameterPacket {
         packet
     }
 
-    //crc implementation
+    //crc implementation, not used currently (dongle side)
     fn calculate_checksum(&self) -> u16 {
         let value_bytes = self.value.to_le_bytes();
         let sum = self.length as u16
@@ -103,13 +103,15 @@ pub async fn send_parameter(param_id: u8, value: f32) -> Result<(), ()> {
     let packet = ParameterPacket::new(param_id, value);
     let bytes = packet.to_bytes();
 
+    defmt::info!("TX param: id={}, value={}", param_id, value);
     let sender = UART_TX_CHANNEL.sender();
     sender.send(bytes).await;
     Ok(())
 }
 
-/// Send all robot parameters to the dongle (one-time function, no periodic updates)
+/// Send all config robot parameters to the dongle (one-time function, no periodic updates)
 pub async fn send_robot_parameters_to_dongle(config: &RobotConfig) -> Result<(), ()> {
+    defmt::info!("Starting parameter sync to dongle...");
     let parameters = [
         (0, config.robot_id as f32),
         (1, config.joystick_control_dt_ms as f32),
@@ -146,6 +148,11 @@ pub async fn send_robot_parameters_to_dongle(config: &RobotConfig) -> Result<(),
         embassy_time::Timer::after_millis(10).await;
     }
 
+    defmt::info!(
+        "Parameter sync complete: {}/{} sent",
+        success_count,
+        parameters.len()
+    );
     if success_count == parameters.len() {
         Ok(())
     } else {
@@ -153,23 +160,23 @@ pub async fn send_robot_parameters_to_dongle(config: &RobotConfig) -> Result<(),
     }
 }
 
-/// Parameter write request packet from dongle (CRTP-style)
-/// Format: [length, header, param_id, value (4 bytes f32), checksum (2 bytes)]
+//parameter write request packet from dongle (CRTP-style)
+//format: [length, header, param_id, value (4 bytes f32), checksum (2 bytes)]
 pub struct ParameterWriteRequest {
     pub param_id: u8,
     pub value: f32,
 }
 
 impl ParameterWriteRequest {
-    /// Parse a parameter write request from raw bytes
-    /// Expected format: [length, header(0x3C), param_id, value[4], checksum[2]]
+    //parse a parameter write request from raw bytes
+    //expected format: [length, header(0x3C), param_id, value[4], checksum[2]]
     pub fn from_bytes(data: &[u8]) -> Option<Self> {
         // Check minimum length: length(1) + header(1) + param_id(1) + value(4) + checksum(2) = 9
         if data.len() < 9 {
             return None;
         }
 
-        // Check header matches our parameter packet header
+        //Check header matches our parameter packet header
         if data[1] != 0x3C {
             return None;
         }
@@ -187,6 +194,7 @@ pub async fn handle_parameter_write(param_id: u8, value: f32) {
     if let Ok(mut guard) = ROBOT_CONFIG.try_lock() {
         if let Some(ref mut config) = *guard {
             update_config_parameter(config, param_id, value);
+            //TODO: send confirmation about parameter change back to the dongle upon write
         }
     }
 
@@ -218,8 +226,14 @@ fn update_config_parameter(config: &mut RobotConfig, param_id: u8, value: f32) {
         18 => config.max_speed = value,
         19 => config.max_omega = value,
         20 => config.wheel_max = value,
-        _ => {} // Unknown parameter, ignore
+        // Read-only status parameters (21, 22) - these are sent TO dongle, not written FROM dongle
+        21 => {} // mode - ignore writes from dongle
+        22 => {} // running - ignore writes from dongle
+        _ => {}  // Unknown parameter, ignore
     }
+
+    defmt::info!("Updated parameter id={} to value={}", param_id, value);
+    defmt::info!("config now: {:?}", config);
 }
 
 /// Command request packet from dongle
@@ -248,6 +262,7 @@ impl CommandRequest {
 }
 
 /// Send an acknowledgement packet for a command
+/// //not sued
 pub async fn send_command_ack(command_id: u8, success: bool) {
     let mut bytes: Vec<u8, 64> = Vec::new();
     bytes.push(3).ok(); // length
@@ -257,4 +272,33 @@ pub async fn send_command_ack(command_id: u8, success: bool) {
 
     let sender = UART_TX_CHANNEL.sender();
     sender.send(bytes).await;
+}
+
+// =============================================================================
+//                      STATUS PARAMETER IDs
+// =============================================================================
+
+/// Parameter ID for robot mode (Menu=0, TeleOp=1, TrajMocap=2, TrajDuty=3)
+pub const PARAM_MODE: u8 = 21;
+
+/// Parameter ID for running state (0=idle, 1=running)
+pub const PARAM_RUNNING: u8 = 22;
+
+// =============================================================================
+//                      STATUS PARAMETER UPLOAD
+// =============================================================================
+
+/// Send the current robot mode to the dongle
+/// Called by orchestrator when switching modes
+pub async fn send_mode(mode: u8) {
+    let _ = send_parameter(PARAM_MODE, mode as f32).await;
+    defmt::info!("Sent mode={} to dongle", mode);
+}
+
+/// Send the current running state to the dongle
+/// Called when trajectory starts/stops
+pub async fn send_running(running: bool) {
+    let value = if running { 1.0 } else { 0.0 };
+    let _ = send_parameter(PARAM_RUNNING, value).await;
+    defmt::info!("Sent running={} to dongle", running);
 }

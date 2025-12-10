@@ -21,6 +21,7 @@ use pololu3pi2040_rs::{
     encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     joystick_control::{teleop_motor_control_task, teleop_uart_task},
     led::LED_SHARED,
+    parameter_sync::send_mode,
     sdlog::SDLOGGER_SHARED,
     trajectory_control::{
         ControlMode, diffdrive_outer_loop_command_controlled_traj_following_from_sdcard,
@@ -280,6 +281,15 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                     }
                 }
                 mode = target;
+
+                // Send mode update to dongle
+                let mode_id = match mode {
+                    Mode::Menu => 0,
+                    Mode::TeleOp => 1,
+                    Mode::TrajMocap => 2,
+                    Mode::TrajDuty => 3,
+                };
+                send_mode(mode_id).await;
             }
         }
     }
