@@ -1,39 +1,39 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
-         <loc>https://github.com/IMRCLab/pololu3pi2040-rs/tree/gh-pages/</loc>
+         <loc>https://imrclab.github.io/pololu3pi2040-rs/</loc>
          <lastmod>2025-12-15</lastmod>
     </url>
     <url>
-         <loc>https://github.com/IMRCLab/pololu3pi2040-rs/tree/gh-pages/build/</loc>
+         <loc>https://imrclab.github.io/pololu3pi2040-rs/build/</loc>
          <lastmod>2025-12-15</lastmod>
     </url>
     <url>
-         <loc>https://github.com/IMRCLab/pololu3pi2040-rs/tree/gh-pages/debugging/</loc>
+         <loc>https://imrclab.github.io/pololu3pi2040-rs/debugging/</loc>
          <lastmod>2025-12-15</lastmod>
     </url>
     <url>
-         <loc>https://github.com/IMRCLab/pololu3pi2040-rs/tree/gh-pages/hardware/</loc>
+         <loc>https://imrclab.github.io/pololu3pi2040-rs/hardware/</loc>
          <lastmod>2025-12-15</lastmod>
     </url>
     <url>
-         <loc>https://github.com/IMRCLab/pololu3pi2040-rs/tree/gh-pages/quickstart/</loc>
+         <loc>https://imrclab.github.io/pololu3pi2040-rs/quickstart/</loc>
          <lastmod>2025-12-15</lastmod>
     </url>
     <url>
-         <loc>https://github.com/IMRCLab/pololu3pi2040-rs/tree/gh-pages/ros/</loc>
+         <loc>https://imrclab.github.io/pololu3pi2040-rs/ros/</loc>
          <lastmod>2025-12-15</lastmod>
     </url>
     <url>
-         <loc>https://github.com/IMRCLab/pololu3pi2040-rs/tree/gh-pages/software/</loc>
+         <loc>https://imrclab.github.io/pololu3pi2040-rs/software/</loc>
          <lastmod>2025-12-15</lastmod>
     </url>
     <url>
-         <loc>https://github.com/IMRCLab/pololu3pi2040-rs/tree/gh-pages/troubleshooting/</loc>
+         <loc>https://imrclab.github.io/pololu3pi2040-rs/troubleshooting/</loc>
          <lastmod>2025-12-15</lastmod>
     </url>
     <url>
-         <loc>https://github.com/IMRCLab/pololu3pi2040-rs/tree/gh-pages/usage/</loc>
+         <loc>https://imrclab.github.io/pololu3pi2040-rs/usage/</loc>
          <lastmod>2025-12-15</lastmod>
     </url>
 </urlset>
