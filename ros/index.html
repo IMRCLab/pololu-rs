@@ -44,6 +44,10 @@
                 </li>
               </ul>
               <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../quickstart/">Quickstart</a>
+                </li>
+              </ul>
+              <ul>
                 <li class="toctree-l1"><a class="reference internal" href="../hardware/">Hardware</a>
                 </li>
               </ul>
@@ -108,7 +112,10 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
             <div class="section" itemprop="articleBody">
               
-                <h1 id="ros-workspace-setup">ROS Workspace Setup</h1>
+                <!--
+
+Mention max four robots, -> troubleshooting more than 4 robs-->
+<h1 id="ros-workspace-setup">ROS Workspace Setup</h1>
 <p>This document explains how to build the ROS Workspace, the use cases for different nodes are described <a href="../usage/">here</a>.</p>
 <div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
 
@@ -125,7 +132,7 @@ cd &lt;target_directory&gt;
 <h2 id="how-to-build">How to Build</h2>
 <p>From the workspace root:</p>
 <pre><code class="language-bash">source /opt/ros/&lt;ros_distro&gt;/setup.bash
-colcon build --cmake-args -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+colcon build 
 </code></pre>
 <p>Source the environment before running any nodes:</p>
 <pre><code class="language-bash">source install/setup.bash

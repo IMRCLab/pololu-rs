@@ -44,6 +44,10 @@
                 </li>
               </ul>
               <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../quickstart/">Quickstart</a>
+                </li>
+              </ul>
+              <ul>
                 <li class="toctree-l1"><a class="reference internal" href="../hardware/">Hardware</a>
                 </li>
               </ul>
@@ -88,11 +92,19 @@
         <ul>
     <li class="toctree-l3"><a class="reference internal" href="#hardware-requirements">Hardware Requirements</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#setup-steps">Setup Steps:</a>
+    <li class="toctree-l3"><a class="reference internal" href="#setup-steps">Setup Steps</a>
     </li>
         </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#trajectory-following">Trajectory Following</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#trajectory-format">Trajectory Format</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#motion-capturing">Motion Capturing</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#execution">Execution</a>
+    </li>
+        </ul>
     </li>
     </ul>
                 </li>
@@ -125,49 +137,15 @@
             <div class="section" itemprop="articleBody">
               
                 <h1 id="usage">Usage</h1>
-<p>This page describes all available programms for the robots, including Universal Menu Interface, Teleoperation Control via Joystick and Trajectory Following with/without Mocap.</p>
+<!--As I moved part of this to the "Quickstart" page I am not 100% sure about the page in general-->
+<p>This page describes the available programs for the robots: The Universal Menu Interface, the Teleoperation Control via Joystick and the Trajectory Following with or without MoCap.</p>
 <div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
 
 <h2 id="menu">Menu</h2>
+<p>The menu functionality allows you to use different control modalities for the robots. You can navigate it using an Xbox controller and the command line output of your terminal.</p>
 <ul>
 <li>
-<p>Prepare the Robots:</p>
-<ul>
-<li>Prepare the nRF Dongle and write down the address for the robot(if multiple dongles are running together then each dongle should have different address)</li>
-<li>
-<p>Change the <code>robot_id</code> according to the Dongle address of the current robot in file <code>src/bin/programm_entrance.rs</code>, the <code>robot_id</code> can be found here:</p>
-<pre><code>spawner
-.spawn(orchestrator(spawner, devices, UartCfg { robot_id: 10 }))
-.unwrap();
-</code></pre>
-</li>
-<li>
-<p>Connect the Raspberry-Debug-Probe and a USB-C cable to the Pololu.</p>
-</li>
-<li>
-<p>Flash the firmware to the robot using the following command:</p>
-<pre><code>./run 3pi menu
-</code></pre>
-</li>
-<li>
-<p>Paste the tuned robot configuration file in folder <code>cfg</code> to a micro sd card. Please DO NOT CHANGE the name of the configuration file, the file system depends on the file name to distinguish configuration file from other files.</p>
-</li>
-<li>Paste the trajectory file to a micro sd card. Please DO NOT CHANGE the name of the trajectory file, the file system depends on the file name to distinguish configuration file from other files.</li>
-<li>Prepare the Trajectory Following ROS Node:</li>
-<li>Connect a Crazyradio PA or Crazyradio 2 and a joystick to your PC.</li>
-<li>Change the address for each robot in <code>workstation_ros/src/pololu_ros/config/controller_interface.yaml</code>.</li>
-<li>
-<p>Open workstation_ros folder and build the ros2 workspace using:</p>
-<pre><code>colcon build
-</code></pre>
-</li>
-<li>
-<p>Open a terminal and run:</p>
-<pre><code>source install/setup.bash
-ros2 run pololu_ros controller_interface
-</code></pre>
-</li>
-</ul>
+<p>Use the setup process described in <a href="../quickstart/">Quickstart</a>.</p>
 </li>
 <li>
 <p>Use the buttons on the joystick to select different functionalities.
@@ -209,27 +187,33 @@ ros2 run pololu_ros controller_interface
 <li><strong>Choose Program</strong>: Use D-Pad Up/Down to select the desired program</li>
 <li><strong>Send Program</strong>: Press X button to send the program to the robot</li>
 <li><strong>Start Execution</strong>: Press A button to start the program</li>
-<li><strong>Control/Monitor</strong>: </li>
+<li>
+<p><strong>Control/Monitor</strong>: </p>
+<ul>
 <li>For teleop: Use left stick to control the robot</li>
 <li>For trajectories: Robot executes automatically</li>
-<li><strong>Stop</strong>: Press B to stop individual robot or BACK for emergency stop</li>
+</ul>
+</li>
+<li>
+<p><strong>Stop</strong>: Press B to stop individual robot or BACK for emergency stop</p>
+</li>
 </ol>
 <div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
 
 <h2 id="tele-operation-for-multiple-robots">Tele-Operation for multiple robots</h2>
-<p>In addition to the controller interface node with the menu, there is another node that provides tele-operation functionality for multiple robots, who can simultaneously be controlled by with one controller for each robot respectively.</p>
+<p>In addition to the controller interface node with the menu, there is another node that provides tele-operation functionality for multiple robots, that can be controlled simultaneously with one controller for each robot respectively.</p>
 <h3 id="hardware-requirements">Hardware Requirements</h3>
 <ul>
 <li>Xbox controller (wired or wireless with USB adapter)</li>
 <li>Compatible joystick device recognized by <code>joy_linux</code></li>
 </ul>
-<h3 id="setup-steps">Setup Steps:</h3>
+<h3 id="setup-steps">Setup Steps</h3>
 <ul>
 <li>
 <p>Prepare the Robots</p>
 <ul>
-<li>Prepare the nRF Dongle and write down the address for the robot(if multiple dongles are running together then each dongle should have different address)</li>
-<li>Connect the Raspberry-Debug-Probe and a USB-C cable to the Pololu.</li>
+<li>Prepare the nRF Dongle and write down the address for the robot(if multiple dongles are running together then each dongle should have different address) <!-- Again I think this is dated, how should it be --></li>
+<li>Connect the Raspberry-Debug-Probe and a USB-C cable to the Pololu as described <a href="../debugging/">here</a>.</li>
 <li>Flash the firmware to the robot using the following command:<pre><code>./run 3pi teleop
 </code></pre>
 </li>
@@ -242,7 +226,7 @@ ros2 run pololu_ros controller_interface
 <li>Change the address for each robot in <code>workstation_ros/src/pololu_ros/config/teleop.yaml</code>.</li>
 <li>
 <p>Open workstation_ros folder and build the ros2 workspace using:</p>
-<pre><code>colcon build --cmake-args -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+<pre><code>colcon build 
 source install/setup.bash
 </code></pre>
 </li>
@@ -256,40 +240,84 @@ source install/setup.bash
 </ul>
 <div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
 
-<h2 id="trajectory-following">Trajectory Following</h2>
-<p>Also take Polulu 3Pi as an example, PLEASE FOLLOW THE STEPS:</p>
-<ul>
-<li>
-<p>Prepare the Robots:</p>
-<ul>
-<li>Prepare the nRF Dongle and write down the address for the robot(if multiple dongles are running together then each dongle should have different address)</li>
-<li>
-<p>Change the <code>robot_id</code> according to the Dongle address of the current robot in file <code>src/bin/trajectory_following.rs</code>, the <code>robot_id</code> can be found here:</p>
-<pre><code>spawner.spawn(uart_motioncap_receiving_task(
-        devices.uart,
-        UartCfg { robot_id: 10 },
-)).unwrap();
+<h2 id="trajectory-following">Trajectory Following <!-- Write something about MoCAP--></h2>
+<p>The trajectory following module allows the robot to follow a predefined trajectory in an closed-loop fashion using external motion tracking. The following docu is based on the Pololu 3pi:</p>
+<hr />
+<h3 id="trajectory-format">Trajectory Format</h3>
+<!--- Here I need info on the actual format and where the example file lies --->
+<p>For the robot being able to follow the predefined trajectory, the trajectory must follow the format layed out in:</p>
+<pre><code>
+TRAJS/TRJ0001.JSN
 </code></pre>
-</li>
+<p>The states have the following format:</p>
+<pre><code>{
+  &quot;result&quot;: [
+    {
+        &quot;time_stamp&quot;: 0.0,
+        &quot;cost&quot;: 120.0,
+        &quot;feasible&quot;: 0,
+        &quot;traj_feas&quot;: 0,
+        &quot;goal_feas&quot;: 0,
+        &quot;start_feas&quot;: 0,
+        &quot;col_feas&quot;: 0,
+        &quot;x_bounds_feas&quot;: 0,
+        &quot;u_bounds_feas&quot;: 0,
+        &quot;start&quot;: [],
+        &quot;goal&quot;: [],
+        &quot;max_jump&quot;: -1.0,
+        &quot;max_collision&quot;: -1,
+        &quot;goal_distance&quot;: -1.0,
+        &quot;start_distance&quot;: -1.0,
+        &quot;x_bound_distance&quot;: -1.0,
+        &quot;u_bound_distance&quot;: -1.0,
+        &quot;num_states&quot;: 121,
+        &quot;states&quot; : [                    # the number of states should be one more than the number of actions
+                [
+                        1.0,            # x position in meters
+                        -1.5,           # y position in meters
+                        1.57            # yaw in radians
+                ]
+        ],
+        &quot;actions&quot; : [
+                [
+                        1.0,            # velocity in m/s
+                        0.5             # angular velocity in rad/s
+                ]
+        ],
+        &quot;dt&quot;: 0.1                       # time step interval
+    }
+  ]
+}
+</code></pre>
+<hr />
+<h3 id="motion-capturing">Motion Capturing</h3>
+<p>The motion capturing is based on an external system, that uses a ROS topic to publish the captured robot state. In the pololu firmware the the <code>interface node</code> subscribes to this topic and interprets the published states.</p>
+<p>To use the motion capturing you need to implement this publisher ROS node. It should publish the robot states in the ROS</p>
+<pre><code>geometry_msgs/Poses
+</code></pre>
+<p>format defined in the <a href="https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/Pose.html">ROS Documentation</a>.</p>
+<hr />
+<h3 id="execution">Execution</h3>
+<ul>
 <li>
-<p>Connect the Raspberry-Debug-Probe and a USB-C cable to the Pololu.</p>
-</li>
+<p>Prepare the Robots according to the <a href="../quickstart/">Quickstart</a> manual.</p>
+<ul>
 <li>
 <p>Flash the firmware to the robot using the following command:</p>
 <pre><code>./run 3pi trajectory_following
 </code></pre>
 </li>
 <li>
-<p>Paste the tuned robot configuration file in folder <code>cfg</code> to a micro sd card. Please DO NOT CHANGE the name of the configuration file, the file system depends on the file name to distinguish configuration file from other files.</p>
+<p>Change the name of the corresponding robot configuration file in folder <code>cfg</code> to <code>ROBOTCFG.CFG</code> and paste the tuned robot configuration file into a micro sd card. Please <strong>DO NOT CHANGE</strong> the name of the configuration file, the file system depends on the file name to distinguish configuration file from other files.</p>
 </li>
-<li>Paste the trajectory file to a micro sd card. Please DO NOT CHANGE the name of the trajectory file, the file system depends on the file name to distinguish configuration file from other files.</li>
+<li>Change the trajectory file name to <code>TRJ0001.JSN</code> and paste it into a micro sd card. Please <strong>DO NOT CHANGE</strong> the name of the trajectory file, the file system depends on the file name to distinguish trajectory file from other files.</li>
 <li>Insert the sd card to the port on the robot.</li>
 <li>Prepare the Trajectory Following ROS Node:</li>
 <li>Connect a Crazyradio PA or Crazyradio 2.</li>
 <li>Change the address for each robot in <code>workstation_ros/src/pololu_ros/config/mocap_broadcast.yaml</code>.</li>
 <li>
 <p>Open <code>workstation_ros</code> folder and build the ros2 workspace using:</p>
-<pre><code>colcon build --cmake-args -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+<pre><code>colcon build
 </code></pre>
 </li>
 <li>
@@ -311,7 +339,7 @@ ros2 launch motion_capture_tracking launch.py
 <ul>
 <li>Put the robot on the correct starting position written in the trajectory file. </li>
 <li>Press <code>t</code> for starting the trajectory(for all robots); Press <code>s</code> for stop(for all robots).</li>
-<li>The actual trajectory would be saved in a csv file in the sd card, some plotting function is also provided in folder <code>datavis</code>. User could use the following command to plot the trajectories and part of the error w.r.t the given trajectory:<pre><code>python3 my_display.py path/to/your/csv
+<li>The actual trajectory would be saved in a csv file in the sd card, some plotting function is also provided in folder <code>datavis</code>. You can use the following command to plot the trajectories and part of the error w.r.t the given trajectory:<pre><code>python3 my_display.py path/to/your/csv
 </code></pre>
 </li>
 </ul>

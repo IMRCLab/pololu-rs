@@ -44,6 +44,10 @@
                 </li>
               </ul>
               <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../quickstart/">Quickstart</a>
+                </li>
+              </ul>
+              <ul>
                 <li class="toctree-l1"><a class="reference internal" href="../hardware/">Hardware</a>
                 </li>
               </ul>
@@ -54,13 +58,11 @@
               <ul class="current">
                 <li class="toctree-l1 current"><a class="reference internal current" href="#">Build & Flashing</a>
     <ul class="current">
-    <li class="toctree-l2"><a class="reference internal" href="#quick-start">Quick Start</a>
+    <li class="toctree-l2"><a class="reference internal" href="#setup">Setup</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#hardware-preperation">Hardware Preperation</a>
+    <li class="toctree-l3"><a class="reference internal" href="#hardware-preparation">Hardware Preparation</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#using-the-run-script-recommended">Using the ./run Script (Recommended)</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#using-cargo-directly">Using Cargo Directly</a>
+    <li class="toctree-l3"><a class="reference internal" href="#make-executable-runscript">Make Executable Runscript</a>
     </li>
         </ul>
     </li>
@@ -103,6 +105,8 @@
     <li class="toctree-l3"><a class="reference internal" href="#common-issues-solutions">Common Issues &amp; Solutions</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#verification-commands">Verification Commands</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#version-conflict">Version Conflict</a>
     </li>
         </ul>
     </li>
@@ -154,57 +158,28 @@
 <p>This document provides brief documentation for building and running the <a href="https://github.com/IMRCLab/pololu3pi2040-rs">Pololu 3Pi+ 2040 robot firmware</a> with multiple robot support and different firmware tasks. It covers the <code>./run</code> build script usage, feature flag system, and multi-robot configuration workflow.</p>
 <div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
 
-<h2 id="quick-start">Quick Start</h2>
+<h2 id="setup">Setup</h2>
 <hr />
-<h3 id="hardware-preperation">Hardware Preperation</h3>
+<h3 id="hardware-preparation">Hardware Preparation</h3>
 <ul>
-<li>You will need a Raspberry Pi Debug Probe(for debugging) and a USB-C Cabel(for flashing).</li>
-<li>
-<p>connect the probe properly to the Pololu. If the official probe is used, the connection should be:</p>
-<pre><code>Yellow(SWDIO) -&gt; SWDIO
-Green(SWCLK)  -&gt; SWCLK
-Black(GND)    -&gt; GND
-</code></pre>
-<p>Then connect the Pololu with the USB-C cabel to your PC, and the debug probe as well and uncomment in <code>config.toml</code></p>
-<pre><code>runner = "probe-rs run --chip RP2040 --protocol swd"
+<li>Connect the Pololu using a USB-C cable and the debug probe as described <a href="../debugging/">here</a>.</li>
+<li>Uncomment the following line in <code>config.toml</code><pre><code>runner = "probe-rs run --chip RP2040 --protocol swd"
 </code></pre>
 </li>
 </ul>
 <hr />
-<h3 id="using-the-run-script-recommended">Using the <code>./run</code> Script (Recommended)</h3>
-<p>The <code>./run</code> script provides a convenient way to build and flash different robot configurations.</p>
-<pre><code class="language-bash"># Make executable (first time only)
-chmod +x run
-
-# Examples:
-./run                             # Default config, main binary
-./run zumo                        # Zumo config, main binary
-./run zumo teleop                 # Zumo config, teleop_control binary
-./run 3pi menu                    # 3Pi config, menu binary
-./run 3pi trajectory_following    # 3Pi config, trajectory_following binary
-</code></pre>
-<hr />
-<h3 id="using-cargo-directly">Using Cargo Directly</h3>
-<pre><code class="language-bash"># Default configuration
-cargo run --release
-
-# Zumo robot
-cargo run --release --features zumo
-
-# 3Pi robot  
-cargo run --release --features 3pi
-
-# Specific binaries
-cargo run --release --bin programm_entrance --features 3pi
-cargo run --release --bin teleop_control --features zumo
-cargo run --release --bin trajectory_following --features 3pi
+<h3 id="make-executable-runscript">Make Executable Runscript</h3>
+<pre><code class="language-bash">#make executable (first time only)
+chmod +x run 
 </code></pre>
 <div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
 
 <h2 id="complete-run-script-reference">Complete <code>./run</code> Script Reference</h2>
+<p>It is recommended to use the <code>./run</code> script, but you can use the equivalent cargo commands if preferred</p>
 <hr />
 <h3 id="script-syntax">Script Syntax</h3>
-<pre><code class="language-bash">./run [robot_type] [target]
+<pre><code class="language-bash">
+./run [robot_type] [target]
 </code></pre>
 <p><strong>Parameters:</strong>
 - <code>robot_type</code> (optional): <code>zumo</code>, <code>3pi</code>, or empty for default
@@ -410,16 +385,20 @@ zumo = []       # Empty feature flag for Zumo
 <h3 id="adding-a-new-robot-configuration">Adding a New Robot Configuration</h3>
 <ol>
 <li>Create new joystick control module (e.g., <code>joystick_control_newrobot.rs</code>)</li>
-<li>Add feature flag in <code>Cargo.toml</code>:
-   <code>toml
-   [features]
-   newrobot = []</code></li>
-<li>Update <code>lib.rs</code>:
-   <code>rust
-   #[cfg(feature = "newrobot")]
-   pub mod joystick_control_newrobot;
-   #[cfg(feature = "newrobot")]
-   pub use joystick_control_newrobot as joystick_control;</code></li>
+<li>Add feature flag in <code>Cargo.toml</code>:</li>
+</ol>
+<pre><code class="language-toml">[features]
+newrobot = []
+</code></pre>
+<ol>
+<li>Update <code>lib.rs</code>:</li>
+</ol>
+<pre><code class="language-rust">#[cfg(feature = &quot;newrobot&quot;)]
+pub mod joystick_control_newrobot;
+#[cfg(feature = &quot;newrobot&quot;)]
+pub use joystick_control_newrobot as joystick_control;
+</code></pre>
+<ol>
 <li>Update <code>./run</code> script validation logic</li>
 </ol>
 <hr />
@@ -474,17 +453,9 @@ cargo build --release --features zumo
 cargo build --release --features 3pi
 cargo build --release    # Default config
 </code></pre>
-<div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
-
-<h2 id="notes">Notes</h2>
-<ul>
-<li><strong>Release Mode</strong>: The <code>./run</code> script always builds in <code>--release</code> mode for optimized embedded code</li>
-<li><strong>Backward Compatibility</strong>: Default configuration maintains compatibility with existing code</li>
-<li><strong>Module Interface</strong>: All robot configurations expose the same public interface for seamless switching</li>
-<li><strong>Testing</strong>: Use default configuration (<code>./run</code>) for rapid development and testing</li>
-<li><strong>Production</strong>: Use specific robot features (<code>./run zumo</code> or <code>./run 3pi</code>) for deployment</li>
-<li>
-<p><strong>Version Conflict</strong>: The newest version <code>1.89.0</code> of <code>rustc</code> is released on 4th Aug 2025. However, the flashing with <code>elf2uf2-rs -d</code> might suffers some temporary issues. For example, an error <code>unregonized ABI</code> occurs because of the generated elf header doesn't match the requirements of the elf2uf2 runner. (The generated 8th bit of the header is <code>03</code>, which indicates that the OS/ABI type is <code>UNIX - GNU</code>, but actually should be <code>00</code>, which indicates <code>UNIX - System V</code>). There are 2 ways to solve this issue:</p>
+<hr />
+<h3 id="version-conflict">Version Conflict</h3>
+<p>The newest version <code>1.89.0</code> of <code>rustc</code> is released on 4th Aug 2025. However, the flashing with <code>elf2uf2-rs -d</code> might suffer some temporary issues. For example, an error <code>unregonized ABI</code> occurs because of the generated elf header doesn't match the requirements of the elf2uf2 runner. (The generated 8th bit of the header is <code>03</code>, which indicates that the OS/ABI type is <code>UNIX - GNU</code>, but actually should be <code>00</code>, which indicates <code>UNIX - System V</code>). There are 2 ways to solve this issue:</p>
 <ul>
 <li>
 <p>If you really need the newest rustc, then each time after you build the project you should enter you target folder and do:</p>
@@ -501,7 +472,15 @@ rustup target add thumbv6m-none-eabi --toolchain 1.87.0
 </code></pre>
 </li>
 </ul>
-</li>
+<div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
+
+<h2 id="notes">Notes</h2>
+<ul>
+<li><strong>Release Mode</strong>: The <code>./run</code> script always builds in <code>--release</code> mode for optimized embedded code</li>
+<li><strong>Backward Compatibility</strong>: Default configuration maintains compatibility with existing code</li>
+<li><strong>Module Interface</strong>: All robot configurations expose the same public interface for seamless switching</li>
+<li><strong>Testing</strong>: Use default configuration (<code>./run</code>) for rapid development and testing</li>
+<li><strong>Production</strong>: Use specific robot features (<code>./run zumo</code> or <code>./run 3pi</code>) for deployment</li>
 </ul>
               
             </div>

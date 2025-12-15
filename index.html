@@ -48,6 +48,8 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#documentation">Documentation</a>
         <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#quick-start">Quick Start</a>
+    </li>
     <li class="toctree-l3"><a class="reference internal" href="#hardware">Hardware</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#software">Software</a>
@@ -66,7 +68,13 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#repository">Repository</a>
     </li>
+    <li class="toctree-l2"><a class="reference internal" href="#disclaimer">Disclaimer</a>
+    </li>
     </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="quickstart/">Quickstart</a>
                 </li>
               </ul>
               <ul>
@@ -121,8 +129,13 @@
             <div class="section" itemprop="articleBody">
               
                 <h1 id="pololu-3pi-2040-zumo-2040-rust-firmware">Pololu 3pi+ 2040 / Zumo 2040 — Rust Firmware</h1>
-<p>A high-performance async Rust firmware for <a href="https://www.pololu.com/category/300/3pi-plus-2040-robot">Pololu 3pi+ 2040 robot</a> and <a href="https://www.pololu.com/category/308/zumo-2040-robot">Pololu Zumo 2040 robot</a>,<br />
-featuring differential-drive control, teleoperation via joysticks, trajectory following, IMU fusion, SD logging, and ROS 2 support. <code>Pololu 3pi+</code> is a differential-drive robot that can move with up to 4m/s. <code>Pololu Zumo</code> is a track robot that can move on different terrians. These robots are suitable for developing motion planning algorithms and multi-agent algorithms.</p>
+<!-- In my opinion we are missing a "trajectory generation "-> into usage.md (example file, limits)  and a "motion tracking" ->  give info about quaternion etc format example, s
+
+
+section, maybe it can also be combined to "interfaces". I also would like to add a section "your code" or something like this, where we can explain how this platform is actually used as a basis to develop your own stuff-->
+
+<p>This library provides a high-performance async Rust firmware for <a href="https://www.pololu.com/category/300/3pi-plus-2040-robot">Pololu 3pi+ 2040 robot</a> and <a href="https://www.pololu.com/category/308/zumo-2040-robot">Pololu Zumo 2040 robot</a>,<br />
+featuring differential-drive control, tele-operation via joysticks, trajectory following, IMU fusion, SD logging, and ROS 2 support. <code>Pololu 3pi+</code> is a differential-drive robot that can move with up to 4m/s. <code>Pololu Zumo</code> is a tracked robot that can move on different terrains. These robots are suitable for developing motion planning algorithms and multi-agent algorithms.</p>
 <hr />
 <h2 id="robot-platforms">Robot Platforms</h2>
 <div style="display: flex; gap: 20px; justify-content: center;">
@@ -154,6 +167,8 @@ featuring differential-drive control, teleoperation via joysticks, trajectory fo
 </ul>
 <hr />
 <h2 id="documentation">Documentation</h2>
+<h3 id="quick-start">Quick Start</h3>
+<p>→ <a href="quickstart/">Quick Start Guide</a></p>
 <h3 id="hardware">Hardware</h3>
 <p>→ <a href="hardware/">Hardware Overview</a></p>
 <h3 id="software">Software</h3>
@@ -171,11 +186,13 @@ featuring differential-drive control, teleoperation via joysticks, trajectory fo
 <hr />
 <h2 id="repository">Repository</h2>
 <p>GitHub: <a href="https://github.com/IMRCLab/pololu3pi2040-rs">pololu</a></p>
+<h2 id="disclaimer">Disclaimer</h2>
+<p>This documentation is based on the firmware at 08.12.2025. It does not claim completeness in any way or form. If you'd like to, you're welcome to provide feedback and suggestions via GitHub.</p>
               
             </div>
           </div><footer>
     <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
-        <a href="hardware/" class="btn btn-neutral float-right" title="Hardware">Next <span class="icon icon-circle-arrow-right"></span></a>
+        <a href="quickstart/" class="btn btn-neutral float-right" title="Quickstart">Next <span class="icon icon-circle-arrow-right"></span></a>
     </div>
 
   <hr/>
@@ -199,7 +216,7 @@ featuring differential-drive control, teleoperation via joysticks, trajectory fo
     
     
     
-      <span><a href="hardware/" style="color: #fcfcfc">Next &raquo;</a></span>
+      <span><a href="quickstart/" style="color: #fcfcfc">Next &raquo;</a></span>
     
   </span>
 </div>
@@ -219,5 +236,5 @@ featuring differential-drive control, teleoperation via joysticks, trajectory fo
 
 <!--
 MkDocs version : 1.6.1
-Build Date UTC : 2025-11-25 13:47:52.559256+00:00
+Build Date UTC : 2025-12-15 14:23:57.443128+00:00
 -->

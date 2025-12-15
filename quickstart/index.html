@@ -5,15 +5,15 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       <link rel="shortcut icon" href="../img/favicon.ico" />
-    <title>Debugging - Pololu Docs</title>
+    <title>Quickstart - Pololu Docs</title>
     <link rel="stylesheet" href="../css/theme.css" />
     <link rel="stylesheet" href="../css/theme_extra.css" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
     
       <script>
         // Current page data
-        var mkdocs_page_name = "Debugging";
-        var mkdocs_page_input_path = "debugging.md";
+        var mkdocs_page_name = "Quickstart";
+        var mkdocs_page_input_path = "quickstart.md";
         var mkdocs_page_url = null;
       </script>
     
@@ -43,8 +43,10 @@
                 <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
                 </li>
               </ul>
-              <ul>
-                <li class="toctree-l1"><a class="reference internal" href="../quickstart/">Quickstart</a>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Quickstart</a>
+    <ul class="current">
+    </ul>
                 </li>
               </ul>
               <ul>
@@ -59,20 +61,8 @@
                 <li class="toctree-l1"><a class="reference internal" href="../build/">Build & Flashing</a>
                 </li>
               </ul>
-              <ul class="current">
-                <li class="toctree-l1 current"><a class="reference internal current" href="#">Debugging</a>
-    <ul class="current">
-    <li class="toctree-l2"><a class="reference internal" href="#debugging-with-raspberry-pi-debug-probe-recommended">Debugging with Raspberry Pi Debug Probe (Recommended)</a>
-        <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#debug-setup">Debug Setup</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#print-new-debug-information">Print New Debug Information</a>
-    </li>
-        </ul>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#debugging-with-usb">Debugging with USB</a>
-    </li>
-    </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../debugging/">Debugging</a>
                 </li>
               </ul>
               <ul>
@@ -101,7 +91,7 @@
         <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
   <ul class="wy-breadcrumbs">
     <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
-      <li class="breadcrumb-item active">Debugging</li>
+      <li class="breadcrumb-item active">Quickstart</li>
     <li class="wy-breadcrumbs-aside">
     </li>
   </ul>
@@ -110,72 +100,72 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
             <div class="section" itemprop="articleBody">
               
-                <h1 id="debugging">Debugging</h1>
-<p>This document provides the users with 2 different ways to debug the firmware.</p>
+                <h1 id="quickstart">Quickstart</h1>
+<p>This page guides you through a quick first set-up of the system. It aims to provide some hands on experience without the need of extensive prior knowledge.</p>
 <div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
 
-<h2 id="debugging-with-raspberry-pi-debug-probe-recommended">Debugging with Raspberry Pi Debug Probe (Recommended)</h2>
-<p>The logging is mainly based on <a href="https://probe.rs/docs/getting-started/installation/">probe-rs</a>, <a href="https://docs.rs/defmt/latest/defmt/">defmt</a> and <a href="https://docs.rs/defmt-rtt/latest/defmt_rtt/">defmt-rtt</a>.
-There is also a useful <a href="https://murraytodd.medium.com/our-first-rust-blinky-program-on-raspberry-pi-pico-w-376211f1074d">blog</a> to learn how to use them very quickly.</p>
 <ul>
-<li>Notice: The installation command on the home page of <a href="https://probe.rs/">probe-rs</a> doesn't work for me due to some package conflicts. If so you could try following the <a href="https://probe.rs/docs/getting-started/installation/">instructions</a> and install it from source.</li>
-</ul>
-<hr />
-<h3 id="debug-setup">Debug Setup</h3>
+<li>
+<p>Prepare the Robot:</p>
 <ul>
-<li>You will need a Raspberry Pi Debug Probe(for debugging) and a USB-C Cable(for flashing).</li>
-<li>connect the probe properly to the Pololu. If the official probe is used, the connection should be:<pre><code>Yellow(SWDIO) -&gt; SWDIO
-Orange(SWCLK)  -&gt; SWCLK
-Black(GND)    -&gt; GND
+<li>Flash the nrf-Dongle with the latest dongle firmware</li>
+<li>Connect the nrf-Dongle to the Pololu using the <a href="../hardware/">nrf-Breakout Board</a></li>
+<li>Connect the <a href="../debugging/">Raspberry-Debug-Probe</a> and a USB-C cable to the robot</li>
+<li>Flash the firmware using the following command (if you want to read on how the flashing works, read <a href="../build/">here</a>):<pre><code>./run 3pi menu
 </code></pre>
 </li>
 </ul>
-<p><img alt="Probe-Connections" src="../images/probe_connect.jpeg" /></p>
+</li>
+<li>
+<p>Prepare the Trajectory:</p>
+<ul>
+<li>Change the name of the corresponding robot configuration file in folder <code>cfg</code> to <code>ROBOTCFG.CFG</code> and paste the tuned robot configuration file into a micro sd card. Please <strong>DO NOT CHANGE</strong> the name of the configuration file, the file system depends on the file name to distinguish configuration file from other files.
+<!-- Where does the file come from, is it just in the workspace???--></li>
+<li>Change the trajectory file name to <code>TRJ0001.JSN</code> and paste it into a micro sd card. Your trajectory file should be in the same format as the <a href="https://github.com/IMRCLab/pololu3pi2040-rs/tree/main/TRAJs">provided ones</a>. Please <strong>DO NOT CHANGE</strong> the name of the trajectory file, the file system depends on the file name to distinguish trajectory file from other files. 
+&lt;!-- Same question here, we should also put in a file with "trajectory generation" </li>
+</ul>
+<p>Where are the files located -&gt; pointer --&gt;
+- Prepare the Trajectory Following ROS Node:
+- Set up <a href="../ros/">ROS</a>
+- Connect a Crazyradio PA or Crazyradio 2 
+- Change the address for each robot in <code>workstation_ros/src/pololu_ros/config/controller_interface.yaml</code>. <!-- To what? -->
+- Open the workstation_ros folder and build the ros2 workspace using:</p>
+<pre><code>    colcon build
+</code></pre>
+<ul>
+<li>Plug an Xbox controller (wired or wireless with USB adapter) to your PC</li>
+</ul>
+</li>
+<li>
+<p>Execute:</p>
 <ul>
 <li>
-<p>Then connect both the Pololu and the Debug Probe with the USB-C cable to your PC, and uncomment in <code>config.toml</code></p>
-<pre><code>runner = "probe-rs run --chip RP2040 --protocol swd"
+<p>Open a terminal and run:</p>
+<pre><code>source install/setup.bash
+ros2 run pololu_ros controller_interface
 </code></pre>
 </li>
 <li>
-<p>If you would like to directly observe the debug information in the terminal, run:</p>
-<pre><code>cargo run --release
-</code></pre>
+<p>Use the buttons on the joystick to select different functionalities.
+<img alt="joystick_menu" src="../images/joystick.png" /></p>
 </li>
 <li>
-<p>If you would like to save the logging information into a csv file, run:</p>
-<pre><code>cargo run --release &gt; file_name.csv
-</code></pre>
+<p>Select your robot and "trajectory following w/o MC"</p>
+</li>
+<li>Confirm with "X"</li>
+<li>Start the motion with "A"</li>
+<li>Stop your robot with "B"</li>
+</ul>
 </li>
 </ul>
-<p><strong>OR</strong> </p>
-<p>flash in bootloader mode and without debug information in the terminal by uncommenting </p>
-<pre><code>runner = "elf2uf2-rs -d"
-</code></pre>
-<p>in config.toml and then press "B" and "Reset" on the robot
-and flash with</p>
-<pre><code>cargo run --release
-</code></pre>
-<p>or use the recommended <code>build_system</code>.</p>
-<hr />
-<h3 id="print-new-debug-information">Print New Debug Information</h3>
-<p>The code only prints a test value(constant). When new debug information is needed, use:</p>
-<pre><code>info!(&quot;New Sensor Data: {}&quot;, value);
-</code></pre>
-<div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
-
-<h2 id="debugging-with-usb">Debugging with USB</h2>
-<pre><code class="language-bash">sudo apt install tio
-tio /dev/ttyACM0
-</code></pre>
-<p>(use ctrl+t q to exit)</p>
-<div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
+<p>Congrats! You successfully moved your robot!
+If you have any trouble try too look at the general <a href="../troubleshooting/">troubleshooting page</a> or the specific chapters for <a href="../ros/#troubleshooting">Ros</a> and <a href="../build/#troubleshooting">Build</a>.</p>
               
             </div>
           </div><footer>
     <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
-        <a href="../build/" class="btn btn-neutral float-left" title="Build & Flashing"><span class="icon icon-circle-arrow-left"></span> Previous</a>
-        <a href="../ros/" class="btn btn-neutral float-right" title="ROS Interface">Next <span class="icon icon-circle-arrow-right"></span></a>
+        <a href=".." class="btn btn-neutral float-left" title="Home"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../hardware/" class="btn btn-neutral float-right" title="Hardware">Next <span class="icon icon-circle-arrow-right"></span></a>
     </div>
 
   <hr/>
@@ -198,10 +188,10 @@ tio /dev/ttyACM0
   <span class="rst-current-version" data-toggle="rst-current-version">
     
     
-      <span><a href="../build/" style="color: #fcfcfc">&laquo; Previous</a></span>
+      <span><a href=".." style="color: #fcfcfc">&laquo; Previous</a></span>
     
     
-      <span><a href="../ros/" style="color: #fcfcfc">Next &raquo;</a></span>
+      <span><a href="../hardware/" style="color: #fcfcfc">Next &raquo;</a></span>
     
   </span>
 </div>

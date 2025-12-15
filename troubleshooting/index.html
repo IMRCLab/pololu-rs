@@ -44,6 +44,10 @@
                 </li>
               </ul>
               <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../quickstart/">Quickstart</a>
+                </li>
+              </ul>
+              <ul>
                 <li class="toctree-l1"><a class="reference internal" href="../hardware/">Hardware</a>
                 </li>
               </ul>
@@ -69,6 +73,20 @@
               </ul>
               <ul class="current">
                 <li class="toctree-l1 current"><a class="reference internal current" href="#">Troubleshooting</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#general-troubleshooting-tips">General Troubleshooting Tips</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#various-errors-we-encouterd">Various Errors we encouterd</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#probe-rs-being-unable-to-connect-to-the-probe">Probe Rs being unable to connect to the probe</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#computer-and-robot-state-getting-mismatched">Computer and robot state getting mismatched</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#motor-directional-inversion">Motor Directional Inversion</a>
+    </li>
+        </ul>
+    </li>
+    </ul>
                 </li>
               </ul>
       </div>
@@ -94,7 +112,35 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
             <div class="section" itemprop="articleBody">
               
-                
+                <h1 id="troubleshooting">Troubleshooting</h1>
+<!-- Add like the acutal debugging protocoll-->
+<p>A collection of errors we encountered and how we fixed them.</p>
+<div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
+
+<h2 id="general-troubleshooting-tips">General Troubleshooting Tips</h2>
+<div style="height:4px; background:#1e90ff; margin:32px 0;"></div>
+
+<h2 id="various-errors-we-encouterd">Various Errors we encouterd</h2>
+<h3 id="probe-rs-being-unable-to-connect-to-the-probe">Probe Rs being unable to connect to the probe</h3>
+<p>When trying to connect to the probe we received this error:</p>
+<pre><code>    Error: Failed to open probe: Failed to open the debug probe.
+
+    Caused by:
+        0: The debug probe could not be created.
+        1: An error specific with the selected probe occurred.
+        2: The firmware on the probe is outdated, and not supported by probe-rs. The minimum supported firmware version is 2.2.0.
+</code></pre>
+<p>This is caused by too old probe firmware, you can find the updated probe firmware <a href="https://github.com/raspberrypi/debugprobe/releases/tag/debugprobe-v2.2.3">here</a></p>
+<h3 id="computer-and-robot-state-getting-mismatched">Computer and robot state getting mismatched</h3>
+<p>As of now there is only a one way communication implemented. This can lead to a mismatch in the robot state and the state displayed on the computer (e.g., in the "Menu" functionality).</p>
+<p>To fix this you can restart the process.</p>
+<h3 id="motor-directional-inversion">Motor Directional Inversion</h3>
+<ul>
+<li>In case of self assembly motors might get mixed up</li>
+<li>Zumo motors may run in <strong>reversed direction</strong> (requires negated duty cycle)  </li>
+<li>3pi motors are <strong>normal direction</strong></li>
+<li>Needs to be checked before use.</li>
+</ul>
               
             </div>
           </div><footer>

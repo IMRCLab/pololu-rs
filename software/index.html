@@ -44,6 +44,10 @@
                 </li>
               </ul>
               <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../quickstart/">Quickstart</a>
+                </li>
+              </ul>
+              <ul>
                 <li class="toctree-l1"><a class="reference internal" href="../hardware/">Hardware</a>
                 </li>
               </ul>
@@ -197,6 +201,13 @@
             <div class="section" itemprop="articleBody">
               
                 <h1 id="software-overview">Software Overview</h1>
+<!-- Here I have to little knowledge to actually improve somtehing. Jiaming and I discussed the inclusion of a "information flow" - graphic, and a shift in each modules explanation towards a more contextualized structure (e.g., how uses the LED function for what, why would this be interesting to somebody usign the lib)
+
+Also: How are the module descriptions ordered? Is there any structure to this?
+
+Also: Is this up to date?, are all libs documented?
+ -->
+
 <p>This page describes the structure, modules, and control architecture of the Rust firmware for the<br />
 <strong>Pololu 3pi+ 2040</strong> and <strong>Pololu Zumo 2040</strong> robots.</p>
 <p>The firmware is fully async using the <a href="https://github.com/embassy-rs/embassy">Embassy</a> framework and modularized for extensibility: motor control, IMU filtering, encoder reading, UART packet decoding, SD logging, tele-operation via joystick and trajectory execution.</p>
@@ -205,7 +216,7 @@
 <h2 id="firmware-architecture">Firmware Architecture</h2>
 <p>The overall architecture consists of:</p>
 <pre><code>src/
-├── main.rs                     # Entry point of the firmware
+├── main.rs                     # Testing entry point of the firmware
 ├── init.rs                     # Initialization for all devices
 ├── lib.rs                      # Feature-based module selection
 ├── led.rs                      # LED driver
@@ -218,6 +229,8 @@
 ├── packet.rs                   # Crazyflie-compatible packet definitions
 ├── sdlog.rs                    # SD logging + parameter loading
 ├── orchestrator_signal.rs      # Signals and channels for async tasks
+├── read_robot_config_from_sd.rs   # Load robot parameters from SD config file
+├── robot_parameters_default.rs    # Default fallback robot parameters
 
 │
 ├── joystick_control.rs         # Default/testing teleop configuration
@@ -232,15 +245,13 @@
 │   ├── lsm6dso.rs              # Accel + Gyro driver
 │   ├── shared_i2c.rs           # Shared I2C bus with Mutex
 │   ├── complementary_filter.rs # Roll/Pitch/Yaw estimation (complementary filter)
-│   ├── madgwick.rs             # Madgwick AHRS filter
-│   ├── read_robot_config_from_sd.rs   # Load robot parameters from SD config file
-│   └── robot_parameters_default.rs    # Default fallback robot parameters
+│   └── madgwick.rs             # Madgwick AHRS filter
 
 │
 └── bin/                        # Application binaries
-    ├── programm_entrance.rs    # Unified program launcher
-    ├── teleop_control.rs       # Teleoperation mode
-    └── trajectory_following.rs # Cascade trajectory-following controller
+    ├── programm_entrance.rs    # Entry point of the built firmware
+    ├── teleop_control.rs       # Teleoperation only mode
+    └── trajectory_following.rs # Cascade trajectory-following only mode
 
 memory.x                        # RP2040 memory layout
 .cargo/

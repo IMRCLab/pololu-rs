@@ -43,6 +43,10 @@
                 <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
                 </li>
               </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../quickstart/">Quickstart</a>
+                </li>
+              </ul>
               <ul class="current">
                 <li class="toctree-l1 current"><a class="reference internal current" href="#">Hardware</a>
     <ul class="current">
@@ -58,6 +62,14 @@
     </li>
         </ul>
     </li>
+    <li class="toctree-l2"><a class="reference internal" href="#extensions-and-decks">Extensions and Decks</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#pololu-deck">Pololu Deck</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#zumo-deck">Zumo Deck</a>
+    </li>
+        </ul>
+    </li>
     <li class="toctree-l2"><a class="reference internal" href="#actuators">Actuators</a>
         <ul>
     <li class="toctree-l3"><a class="reference internal" href="#yellow-led">Yellow LED</a>
@@ -65,8 +77,6 @@
     <li class="toctree-l3"><a class="reference internal" href="#motors">Motors</a>
         <ul>
     <li class="toctree-l4"><a class="reference internal" href="#pins">Pins</a>
-    </li>
-    <li class="toctree-l4"><a class="reference internal" href="#notes">Notes</a>
     </li>
         </ul>
     </li>
@@ -104,7 +114,7 @@
         <ul>
     <li class="toctree-l4"><a class="reference internal" href="#pins_2">Pins</a>
     </li>
-    <li class="toctree-l4"><a class="reference internal" href="#notes_1">Notes</a>
+    <li class="toctree-l4"><a class="reference internal" href="#notes">Notes</a>
     </li>
         </ul>
     </li>
@@ -277,6 +287,15 @@ Both platforms share the same RP2040 control board and peripheral layout.</p>
 <p><img alt="Pololu Zumo Pin Assignment" src="../images/zumo_pin_ass1.jpg" />
 <img alt="Pololu Zumo Pin Assignment" src="../images/zumo_pin_ass2.jpg" /></p>
 <hr />
+<h2 id="extensions-and-decks">Extensions and Decks</h2>
+<p>Both robots has individual decks that can be stacked on top of the base board to provide additional functionality, mainly for the nRF52840 Dongle and the micro SD card. Since both boards share the same functionality, the BOM files for both decks are provided <a href="https://drive.google.com/file/d/1zDv0Pez-LbIcSznfjWsCFHHCus_rqHT5/view?usp=drive_link">here</a>.</p>
+<h3 id="pololu-deck">Pololu Deck</h3>
+<p>The Pololu Deck provides compatibility with the <strong>nRF52840 Dongle</strong> for wireless communication and a micro SD card slot for data logging. The deck connects to the base board via the headers on the main board. The manufacture file for the Pololu Deck can be found <a href="https://drive.google.com/file/d/1dhY1AWEnPq2iDd2syl0s_TQmvdr8CK_f/view?usp=drive_link">here</a>. </p>
+<p><img alt="Pololu Deck" src="../images/Pololu_Deck.jpg" /></p>
+<h3 id="zumo-deck">Zumo Deck</h3>
+<p>The Zumo Deck provides compatibility with the <strong>nRF52840 Dongle</strong> for wireless communication and a micro SD card slot for data logging. The deck connects to the base board via the headers on the main board. For the current Zumo Deck a <a href="https://www.bitcraze.io/products/micro-sd-card-deck/">crazyflie micro sd card deck</a> would be needed, but later it would be replaced by a single micro sd card port. The manufacture file for the Zumo Deck can be found <a href="https://drive.google.com/file/d/1__rsjS6CmzKnZizucRMT-pdMyGOyx9Be/view?usp=drive_link">here</a>.</p>
+<p><img alt="Zumo Deck" src="../images/Zumo_Deck.jpg" /></p>
+<hr />
 <h2 id="actuators">Actuators</h2>
 <hr />
 <h3 id="yellow-led">Yellow LED</h3>
@@ -295,12 +314,6 @@ Both platforms share the same RP2040 control board and peripheral layout.</p>
 <li><strong>PWM:</strong>  </li>
 <li>GP14 → Right motor speed (PWM7A)  </li>
 <li>GP15 → Left motor speed (PWM7B)</li>
-</ul>
-<h4 id="notes">Notes</h4>
-<ul>
-<li>Zumo motors run in <strong>reversed direction</strong> (requires negated duty cycle)  </li>
-<li>3pi motors are <strong>normal direction</strong></li>
-<li>Needs to be checked before use.</li>
 </ul>
 <hr />
 <h3 id="quadrature-encoders">Quadrature Encoders</h3>
@@ -380,7 +393,7 @@ Both platforms share the same RP2040 control board and peripheral layout.</p>
 <li>DN4 → GP19  </li>
 <li>DN5 → GP18  </li>
 </ul>
-<h4 id="notes_1">Notes</h4>
+<h4 id="notes">Notes</h4>
 <p><strong>These pins conflict with SD card deck SPI pins. SD logging requires disabling line sensors.</strong></p>
 <hr />
 <h3 id="bump-sensors-2">Bump Sensors (2×)</h3>
@@ -448,7 +461,7 @@ Both platforms share the same RP2040 control board and peripheral layout.</p>
             </div>
           </div><footer>
     <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
-        <a href=".." class="btn btn-neutral float-left" title="Home"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../quickstart/" class="btn btn-neutral float-left" title="Quickstart"><span class="icon icon-circle-arrow-left"></span> Previous</a>
         <a href="../software/" class="btn btn-neutral float-right" title="Software">Next <span class="icon icon-circle-arrow-right"></span></a>
     </div>
 
@@ -472,7 +485,7 @@ Both platforms share the same RP2040 control board and peripheral layout.</p>
   <span class="rst-current-version" data-toggle="rst-current-version">
     
     
-      <span><a href=".." style="color: #fcfcfc">&laquo; Previous</a></span>
+      <span><a href="../quickstart/" style="color: #fcfcfc">&laquo; Previous</a></span>
     
     
       <span><a href="../software/" style="color: #fcfcfc">Next &raquo;</a></span>
