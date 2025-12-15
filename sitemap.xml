@@ -1,39 +1,39 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
-         <loc>https://imrclab.github.io/pololu3pi2040-rs/</loc>
+         <loc>https://github.com/IMRCLab/pololu3pi2040-rs/tree/gh-pages/</loc>
          <lastmod>2025-12-15</lastmod>
     </url>
     <url>
-         <loc>https://imrclab.github.io/pololu3pi2040-rs/build/</loc>
+         <loc>https://github.com/IMRCLab/pololu3pi2040-rs/tree/gh-pages/build/</loc>
          <lastmod>2025-12-15</lastmod>
     </url>
     <url>
-         <loc>https://imrclab.github.io/pololu3pi2040-rs/debugging/</loc>
+         <loc>https://github.com/IMRCLab/pololu3pi2040-rs/tree/gh-pages/debugging/</loc>
          <lastmod>2025-12-15</lastmod>
     </url>
     <url>
-         <loc>https://imrclab.github.io/pololu3pi2040-rs/hardware/</loc>
+         <loc>https://github.com/IMRCLab/pololu3pi2040-rs/tree/gh-pages/hardware/</loc>
          <lastmod>2025-12-15</lastmod>
     </url>
     <url>
-         <loc>https://imrclab.github.io/pololu3pi2040-rs/quickstart/</loc>
+         <loc>https://github.com/IMRCLab/pololu3pi2040-rs/tree/gh-pages/quickstart/</loc>
          <lastmod>2025-12-15</lastmod>
     </url>
     <url>
-         <loc>https://imrclab.github.io/pololu3pi2040-rs/ros/</loc>
+         <loc>https://github.com/IMRCLab/pololu3pi2040-rs/tree/gh-pages/ros/</loc>
          <lastmod>2025-12-15</lastmod>
     </url>
     <url>
-         <loc>https://imrclab.github.io/pololu3pi2040-rs/software/</loc>
+         <loc>https://github.com/IMRCLab/pololu3pi2040-rs/tree/gh-pages/software/</loc>
          <lastmod>2025-12-15</lastmod>
     </url>
     <url>
-         <loc>https://imrclab.github.io/pololu3pi2040-rs/troubleshooting/</loc>
+         <loc>https://github.com/IMRCLab/pololu3pi2040-rs/tree/gh-pages/troubleshooting/</loc>
          <lastmod>2025-12-15</lastmod>
     </url>
     <url>
-         <loc>https://imrclab.github.io/pololu3pi2040-rs/usage/</loc>
+         <loc>https://github.com/IMRCLab/pololu3pi2040-rs/tree/gh-pages/usage/</loc>
          <lastmod>2025-12-15</lastmod>
     </url>
 </urlset>
