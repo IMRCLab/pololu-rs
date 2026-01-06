@@ -1,6 +1,6 @@
 use defmt::*;
 use embassy_futures::select::{Either3, select3};
-use embassy_time::{Duration, Timer};
+use embassy_time::{Duration, Timer, Instant};
 use heapless::Vec as HVec;
 
 use crate::math::{quat_decompress, rpy_from_quaternion};

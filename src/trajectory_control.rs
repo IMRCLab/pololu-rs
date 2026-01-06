@@ -1061,7 +1061,7 @@ pub async fn diffdrive_outer_loop(
             // initialise first pose from mocap:
             first_pose = {
                 let s = LAST_STATE.lock().await;
-                *s
+                s.pose
             };
         }
         ControlMode::DirectDuty => {
@@ -1125,9 +1125,9 @@ pub async fn diffdrive_outer_loop(
         // );
         /* ===================================================== */
 
-        robot.s.x = pose.x;
-        robot.s.y = pose.y;
-        robot.s.theta = SO2::new(pose.yaw + 0.5 * PI); // mocap yaw is 90deg off
+        robot.s.x = pose.pose.x;
+        robot.s.y = pose.pose.y;
+        robot.s.theta = SO2::new(pose.pose.yaw + 0.5 * PI); // mocap yaw is 90deg off
 
         let mut ul = 0.0;
         let mut ur = 0.0;
@@ -1221,9 +1221,9 @@ pub async fn diffdrive_outer_loop(
         defmt::info!(
             "t={}s, pos=({},{},{}), posd=({},{},{}), v={}, w={}rad/s ({}deg/s), u=({},{}), (xerr,yerr,theterr)=({},{},{})",
             t_sec,
-            pose.x,
-            pose.y,
-            pose.yaw,
+            pose.pose.x,
+            pose.pose.y,
+            pose.pose.yaw,
             setpoint.des.x,
             setpoint.des.y,
             setpoint.des.theta.rad(),
@@ -1333,7 +1333,7 @@ pub async fn diffdrive_outer_loop_read_traj_from_json(
             // initialise first pose from mocap:
             first_pose = {
                 let s = LAST_STATE.lock().await;
-                *s
+                s.pose
             };
         }
         ControlMode::DirectDuty => {
@@ -1393,9 +1393,9 @@ pub async fn diffdrive_outer_loop_read_traj_from_json(
         };
         /* ============================================================================= */
 
-        robot.s.x = pose.x;
-        robot.s.y = pose.y;
-        robot.s.theta = SO2::new(pose.yaw);
+        robot.s.x = pose.pose.x;
+        robot.s.y = pose.pose.y;
+        robot.s.theta = SO2::new(pose.pose.yaw);
 
         let mut ul = 0.0;
         let mut ur = 0.0;
@@ -1489,9 +1489,9 @@ pub async fn diffdrive_outer_loop_read_traj_from_json(
         defmt::info!(
             "t={}s, pos=({},{},{}), posd=({},{},{}), v={}, w={}rad/s ({}deg/s), u=({},{}), (xerr,yerr,theterr)=({},{},{})",
             t_sec,
-            pose.x,
-            pose.y,
-            pose.yaw,
+            pose.pose.x,
+            pose.pose.y,
+            pose.pose.yaw,
             setpoint.des.x,
             setpoint.des.y,
             setpoint.des.theta.rad(),
@@ -1630,7 +1630,7 @@ async fn execute_trajectory_loop_with_control(
             // Initialize first pose from mocap
             first_pose = {
                 let s = LAST_STATE.lock().await;
-                *s
+                s.pose
             };
         }
         ControlMode::DirectDuty => {
@@ -1718,9 +1718,9 @@ async fn execute_trajectory_loop_with_control(
             first_pose.yaw,
         );
 
-        robot.s.x = pose.x;
-        robot.s.y = pose.y;
-        robot.s.theta = SO2::new(pose.yaw + 0.5 * PI); // mocap yaw is 90deg off
+        robot.s.x = pose.pose.x;
+        robot.s.y = pose.pose.y;
+        robot.s.theta = SO2::new(pose.pose.yaw + 0.5 * PI); // mocap yaw is 90deg off
 
         let (ul, ur, x_error, y_error, theta_error);
 
@@ -1802,9 +1802,9 @@ async fn execute_trajectory_loop_with_control(
         defmt::info!(
             "t={}s, pos=({},{},{}), posd=({},{},{}), v={}, w={}rad/s ({}deg/s), u=({},{}), (xerr,yerr,theterr)=({},{},{})",
             t_sec,
-            pose.x,
-            pose.y,
-            pose.yaw,
+            pose.pose.x,
+            pose.pose.y,
+            pose.pose.yaw,
             setpoint.des.x,
             setpoint.des.y,
             setpoint.des.theta.rad(),
@@ -1982,7 +1982,7 @@ async fn execute_trajectory_loop_with_control_for_tuning(
             // Initialize first pose from mocap
             first_pose = {
                 let s = LAST_STATE.lock().await;
-                *s
+                s.pose
             };
         }
         ControlMode::DirectDuty => {
@@ -2083,9 +2083,9 @@ async fn execute_trajectory_loop_with_control_for_tuning(
             setpoint.wdes
         );
 
-        robot.s.x = pose.x;
-        robot.s.y = pose.y;
-        robot.s.theta = SO2::new(pose.yaw); // mocap yaw is 90deg off
+        robot.s.x = pose.pose.x;
+        robot.s.y = pose.pose.y;
+        robot.s.theta = SO2::new(pose.pose.yaw); // mocap yaw is 90deg off
 
         let (ul, ur, x_error, y_error, theta_error);
 
@@ -2168,9 +2168,9 @@ async fn execute_trajectory_loop_with_control_for_tuning(
         defmt::info!(
             "t={}s, pos=({},{},{}), posd=({},{},{}), v={}, w={}rad/s ({}deg/s), u=({},{}), (xerr,yerr,theterr)=({},{},{})",
             t_sec,
-            pose.x,
-            pose.y,
-            pose.yaw,
+            pose.pose.x,
+            pose.pose.y,
+            pose.pose.yaw,
             setpoint.des.x,
             setpoint.des.y,
             setpoint.des.theta.rad(),

@@ -324,10 +324,10 @@ pub async fn diffdrive_control_task(
     let mut pose: PoseAbs = {
         let s = LAST_STATE.lock().await;
         //set mocap to true, if a pose is available here:
-        if s.x != 0.0 || s.y != 0.0 || s.yaw != 0.0 {
+        if s.pose.x != 0.0 || s.pose.y != 0.0 || s.pose.yaw != 0.0 {
             mocap = true;
         };
-        *s
+        s.pose
     };
 
     // initialise robot state from mocap if available. if not it is (0,0,0)
@@ -620,7 +620,7 @@ pub async fn diffdrive_control_task_new(
 
     let mut pose: PoseAbs = {
         let s = LAST_STATE.lock().await;
-        *s
+        s.pose
     };
     let mut mocap = !(pose.x == 0.0 && pose.y == 0.0 && pose.yaw == 0.0);
 
@@ -679,7 +679,7 @@ pub async fn diffdrive_control_task_new(
 
         pose = {
             let s = LAST_STATE.lock().await;
-            *s
+            s.pose
         };
         mocap = !(pose.x == 0.0 && pose.y == 0.0 && pose.yaw == 0.0);
 
