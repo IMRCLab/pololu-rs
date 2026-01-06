@@ -33,7 +33,8 @@ pub struct ImuPack<'a, T: AsyncI2c> {
 
 impl<'a, T: AsyncI2c + 'a> ImuPack<'a, T> {
     pub fn new(i2c: &'a Mutex<ThreadModeRawMutex, T>) -> Self {
-        let complementary = COMPLEMENTARY_CELL.init(Mutex::new(ComplementaryFilter::new(0.9)));
+        //changed the magnetometer confindence from 10 to 1 percent -> indoors magnets are worthless
+        let complementary = COMPLEMENTARY_CELL.init(Mutex::new(ComplementaryFilter::new(0.999)));
         // let madgwick = MADGWICK_CELL.init(Mutex::new(Madgwick::new(0.1)));
         Self {
             i2c,
