@@ -126,7 +126,10 @@ pub async fn uart_motioncap_receiving_task(cfg: UartCfg) {
             if let Some(pose) = decode_abs_pose(&frame, cfg.robot_id) {
                 {
                     let mut s = LAST_STATE.lock().await;
-                    *s = pose;
+                    *s = crate::trajectory_signal::PoseAbsStamped {
+                        pose,
+                        timestamp: Instant::now(),
+                    };
                 }
                 STATE_SIG.signal(pose);
 

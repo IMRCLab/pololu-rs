@@ -643,7 +643,7 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
         /* ========================= Get robot pose ================================ */
         let pose = {
             let s = LAST_STATE.lock().await;
-            *s
+            s.pose
         };
         /* ========================================================================= */
 
@@ -974,7 +974,10 @@ pub async fn mocap_update_task() {
         match select(STATE_SIG.wait(), STOP_MOCAP_UPDATE_SIG.wait()).await {
             Either::First(new_pose) => {
                 let mut s = LAST_STATE.lock().await;
-                *s = new_pose;
+                *s = crate::trajectory_signal::PoseAbsStamped {
+                    pose: new_pose,
+                    timestamp: Instant::now(),
+                };
             }
 
             Either::Second(_) => {

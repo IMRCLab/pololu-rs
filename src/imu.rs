@@ -21,6 +21,8 @@ pub mod shared_i2c;
 // static MADGWICK_CELL: StaticCell<Mutex<NoopRawMutex, Madgwick>> = StaticCell::new();
 static COMPLEMENTARY_CELL: StaticCell<Mutex<NoopRawMutex, ComplementaryFilter>> = StaticCell::new();
 
+pub static IMU_ANGLES_SHARED: Mutex<ThreadModeRawMutex, (f32, f32, f32)> = Mutex::new((0.0, 0.0, 0.0));
+
 pub struct ImuPack<'a, T: AsyncI2c> {
     pub i2c: &'a Mutex<ThreadModeRawMutex, T>,
     pub lsm6dso: Lsm6dso<'a, T>,
@@ -75,6 +77,13 @@ pub async fn read_imu_task(mut imu: ImuPack<'static, I2c<'static, I2C0, Async>>)
                 */
                 let mut lock = imu.complementary.lock().await;
                 lock.update(gyro, accel, mag, 0.01);
+                let (pitch, roll, yaw) = lock.get_angles_deg();
+
+                {
+                    let mut g = IMU_ANGLES_SHARED.lock().await;
+                    *g = (pitch, roll, yaw);
+                }
+
                 let (_pitch, _roll, _yaw) = lock.get_angles_deg();
                 /*
                 defmt::info!(

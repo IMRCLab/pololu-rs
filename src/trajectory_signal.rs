@@ -21,13 +21,23 @@ pub static TRAJECTORY_CONTROL_EVENT: Signal<Raw, bool> = Signal::new(); // true 
 pub static STATE_SIG: Signal<Raw, PoseAbs> = Signal::new();
 
 // ====== LAST STATE =======
-pub static LAST_STATE: Mutex<Raw, PoseAbs> = Mutex::new(PoseAbs {
-    x: 0.0,
-    y: 0.0,
-    z: 0.0,
-    roll: 0.0,
-    pitch: 0.0,
-    yaw: 0.0,
+// ====== LAST STATE =======
+#[derive(Clone, Copy, Debug)]
+pub struct PoseAbsStamped {
+    pub pose: PoseAbs,
+    pub timestamp: Instant,
+}
+
+pub static LAST_STATE: Mutex<Raw, PoseAbsStamped> = Mutex::new(PoseAbsStamped {
+    pose: PoseAbs {
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+        roll: 0.0,
+        pitch: 0.0,
+        yaw: 0.0,
+    },
+    timestamp: Instant::from_ticks(0), // Initialize with 0
 });
 
 // ====== WHEEL COMMAND =======
