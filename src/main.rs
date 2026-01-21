@@ -5,8 +5,6 @@ use {defmt_rtt as _, panic_probe as _};
 
 use embassy_executor::Spawner;
 use embassy_rp::init;
-
-use embassy_executor::task;
 use embassy_time::Timer;
 
 use pololu3pi2040_rs::{
@@ -14,10 +12,10 @@ use pololu3pi2040_rs::{
     encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     imu::read_imu_task,
     init::init_all,
-    joystick_control::{CONTROL_CMD_UNICYCLE, ControlCommandUnicycle, teleop_motor_control_task},
+    joystick_control::teleop_motor_control_task,
     packet::StateLoopBackPacketF32,
     parameter_sync::{init_robot_config, send_robot_parameters_to_dongle},
-    robotstate::{LogSnapshot, uart_log_sending_task},
+    robotstate::LogSnapshot,
     sdlog::*,
     uart::{UART_TX_CHANNEL, uart_hw_task, uart_receive_task},
 };
@@ -30,12 +28,6 @@ async fn main(spawner: Spawner) {
 
     // === LED Initialization ===
     let mut led = devices.led.unwrap();
-
-    // === Buzzer Initialization ===
-    let buzzer = devices.buzzer;
-    // play_twinkle(&buzzer).await;
-    // play_jingle_bells(&buzzer).await;
-    //play_startup_sound(&buzzer).await;
 
     // === Buttons Task ===
     let buttons = devices.buttons;
@@ -77,11 +69,6 @@ async fn main(spawner: Spawner) {
     spawner.spawn(uart_hw_task(uart_rec)).unwrap();
     spawner.spawn(uart_receive_task()).unwrap();
 
-    // === UART Log Sending Task ===
-    // Periodically sends robot state via UART (100ms = 10Hz)
-    let robot_id = devices.config.as_ref().map(|c| c.robot_id).unwrap_or(0);
-    spawner.spawn(uart_log_sending_task(robot_id, 100)).unwrap();
-
     // === UART Parameter Sync Task ===
     // Send robot parameters via UART upon startup
     // In main.rs - ohne separaten Task
@@ -100,32 +87,7 @@ async fn main(spawner: Spawner) {
     // === Control Logic - Step Function Tests ===
     defmt::info!("Starting step function tests for wheel speed control");
 
-    // Helper function to set wheel speed commands
-    let set_wheel_speed = |v: f32, omega: f32| async move {
-        let mut lock = CONTROL_CMD_UNICYCLE.lock().await;
-        *lock = ControlCommandUnicycle { v, omega };
-        defmt::info!("Set command: v={} m/s, omega={} rad/s", v, omega);
-    };
-
-    //TODO: orchestrator menue state send back ... what part, how should the command be designed?
-    //by request or cont update?
-    //TODO: clean up structures which are not in use/ or only needed for debugging
-    //
-    //call in the mainloop (frequency?)
-    //add full log table 2 channels: reading and writing
-    //get adtastructure for storing the full robot state, that is shared accross relevant tasks
-    //errors, pose data, motor commands ...
-
-    //TODO: split full log table into suitable payloads on the dongle side for sending them out to the crazyradio
-
-    // Add one param for log sending frequency for matching with stream request from crazyradio (match crtp protocol)
-    //add channel for sensor data like encoder readings, imu, battery voltage, etc. (ring buffers) decimating & fir filtering ...
-
-    //send some dummy values for testing in the log snapshot packet
-
-    //TODO: some general hints how to test modules in the main function
-    //MOCAP: file format for trajectory following and pose data format
-
+    // Send dummy log snapshot packet for testing
     let log_snapshot = LogSnapshot {
         t_ms: 0,
         x: 1.2,
@@ -158,6 +120,13 @@ async fn main(spawner: Spawner) {
         let _ = UART_TX_CHANNEL.try_send(data);
 
         defmt::info!("Sent test packet, {} bytes", len);
+        //print the log snapshot here for verification
+        let data = sendback.log_snapshot.to_bytes_compact();
+        defmt::info!(
+            "LogSnapshot: {:?}",
+            defmt::Debug2Format(&sendback.log_snapshot)
+        );
+        defmt::info!("LogSnapshot (compact): {:?}", defmt::Debug2Format(&data));
         Timer::after_millis(4000).await;
     }
 }

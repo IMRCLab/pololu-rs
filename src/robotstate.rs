@@ -356,7 +356,7 @@ impl LogSnapshot {
 
         v.extend_from_slice(&self.t_ms.to_le_bytes()).ok();
 
-        // Position: mm precision
+        //position: mm precision
         v.extend_from_slice(&to_i16_mm(self.x).to_le_bytes()).ok();
         v.extend_from_slice(&to_i16_mm(self.y).to_le_bytes()).ok();
         v.extend_from_slice(&to_i16_mm(self.x_des).to_le_bytes())
@@ -368,7 +368,7 @@ impl LogSnapshot {
         v.extend_from_slice(&to_i16_mm(self.y_err).to_le_bytes())
             .ok();
 
-        // Angles: centirad precision
+        //angles: re1/100 rad precision
         v.extend_from_slice(&to_i16_centirad(self.yaw).to_le_bytes())
             .ok();
         v.extend_from_slice(&to_i16_centirad(self.yaw_des).to_le_bytes())
@@ -376,13 +376,13 @@ impl LogSnapshot {
         v.extend_from_slice(&to_i16_centirad(self.yaw_err).to_le_bytes())
             .ok();
 
-        // Velocities
+        //velocities
         v.extend_from_slice(&to_i16_mm(self.v_ff).to_le_bytes())
             .ok();
         v.extend_from_slice(&to_i16_centirad(self.w_ff).to_le_bytes())
             .ok();
 
-        // Wheel speeds
+        //wheel speeds
         v.extend_from_slice(&to_i16_centirad(self.omega_l_cmd).to_le_bytes())
             .ok();
         v.extend_from_slice(&to_i16_centirad(self.omega_r_cmd).to_le_bytes())
@@ -392,7 +392,7 @@ impl LogSnapshot {
         v.extend_from_slice(&to_i16_centirad(self.omega_r_meas).to_le_bytes())
             .ok();
 
-        // Duty cycles
+        //duty cycles
         v.extend_from_slice(&to_i16_duty(self.duty_l).to_le_bytes())
             .ok();
         v.extend_from_slice(&to_i16_duty(self.duty_r).to_le_bytes())
@@ -659,12 +659,14 @@ pub async fn build_log_snapshot_from_state() -> LogSnapshot {
 //     let _ = LOG_CH.try_send(snapshot);
 // }
 
+use crate::orchestrator_signal::STOP_LOG_SENDING_SIG;
 use crate::packet::StateLoopBackPacketF32;
 use crate::uart::UART_TX_CHANNEL;
+use embassy_futures::select::{Either, select};
 use embassy_time::{Duration, Ticker};
 
 /// Periodically builds LogSnapshot from current state and sends via UART
-/// This task runs forever, sending state updates at a fixed rate
+/// This task respects the STOP_LOG_SENDING_SIG signal
 #[embassy_executor::task]
 pub async fn uart_log_sending_task(robot_id: u8, period_ms: u64) {
     defmt::info!("uart_log_sending_task started (period={}ms)", period_ms);
@@ -674,14 +676,23 @@ pub async fn uart_log_sending_task(robot_id: u8, period_ms: u64) {
     let mut ticker = Ticker::every(Duration::from_millis(period_ms));
 
     loop {
-        ticker.next().await;
+        let tick_fut = ticker.next();
+        let stop_fut = STOP_LOG_SENDING_SIG.wait();
 
-        // Build snapshot from current mutex state (includes tracking errors)
-        let snapshot = build_log_snapshot_from_state().await;
+        match select(tick_fut, stop_fut).await {
+            Either::First(_) => {
+                // Build snapshot from current mutex state (includes tracking errors)
+                let snapshot = build_log_snapshot_from_state().await;
 
-        // Pack and send via UART
-        let pkt = StateLoopBackPacketF32::new(robot_id, snapshot);
-        let data = pkt.to_bytes_compact();
-        let _ = UART_TX_CHANNEL.try_send(data);
+                // Pack and send via UART
+                let pkt = StateLoopBackPacketF32::new(robot_id, snapshot);
+                let data = pkt.to_bytes_compact();
+                let _ = UART_TX_CHANNEL.try_send(data);
+            }
+            Either::Second(_) => {
+                defmt::info!("uart_log_sending_task stopped.");
+                break;
+            }
+        }
     }
 }

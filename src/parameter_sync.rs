@@ -105,14 +105,18 @@ pub async fn send_parameter(param_id: u8, value: f32) -> Result<(), ()> {
 
     defmt::info!("TX param: id={}, value={}", param_id, value);
     let sender = UART_TX_CHANNEL.sender();
-    sender.send(bytes).await;
+    defmt::info!("Sending parameter packet via UART...");
+    sender.send(bytes).await; //crashing here when uart worker is flooded with mass rx stuff
+    defmt::info!("Parameter packet sent.");
     Ok(())
 }
 
-/// Send all config robot parameters to the dongle (one-time function, no periodic updates)
+/// Send all robot parameters to the dongle (one-time function at startup)
+/// Includes config params (0-20) and status params (21-22)
 pub async fn send_robot_parameters_to_dongle(config: &RobotConfig) -> Result<(), ()> {
     defmt::info!("Starting parameter sync to dongle...");
     let parameters = [
+        // Config parameters (0-20)
         (0, config.robot_id as f32),
         (1, config.joystick_control_dt_ms as f32),
         (2, config.traj_following_dt_s),
@@ -134,6 +138,9 @@ pub async fn send_robot_parameters_to_dongle(config: &RobotConfig) -> Result<(),
         (18, config.max_speed),
         (19, config.max_omega),
         (20, config.wheel_max),
+        // Status parameters (21-22) - initial values at startup
+        (PARAM_MODE, 0.0),    // 21: mode = 0 (Menu) at startup
+        (PARAM_RUNNING, 0.0), // 22: running = 0 (idle) at startup
     ];
 
     let mut success_count = 0;
@@ -141,7 +148,9 @@ pub async fn send_robot_parameters_to_dongle(config: &RobotConfig) -> Result<(),
     for (param_id, value) in parameters {
         match send_parameter(param_id, value).await {
             Ok(()) => success_count += 1,
-            Err(()) => {}
+            Err(()) => {
+                defmt::warn!("Failed to send parameter id={}", param_id);
+            }
         }
 
         // Small delay between parameter sends to avoid overwhelming the channel

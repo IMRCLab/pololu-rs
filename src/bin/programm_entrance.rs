@@ -13,15 +13,17 @@ use heapless::Vec as HVec;
 
 use pololu3pi2040_rs::init::{self, init_all};
 use pololu3pi2040_rs::orchestrator_signal::{
-    FRAME_MAX, LEN_FUNC_SELECT_CMD, Mode, ORCH_CH, OrchestratorMsg, STOP_MENU_UART_SIG,
-    STOP_MOCAP_UART_SIG, STOP_MOCAP_UPDATE_SIG, STOP_MOTOR_CTRL_SIG, STOP_TELEOP_UART_SIG,
-    STOP_TRAJ_OUTER_SIG, STOP_WHEEL_INNER_SIG, decode_functionality_select_command,
+    FRAME_MAX, LEN_FUNC_SELECT_CMD, Mode, ORCH_CH, OrchestratorMsg, STOP_LOG_SENDING_SIG,
+    STOP_MENU_UART_SIG, STOP_MOCAP_UART_SIG, STOP_MOCAP_UPDATE_SIG, STOP_MOTOR_CTRL_SIG,
+    STOP_TELEOP_UART_SIG, STOP_TRAJ_OUTER_SIG, STOP_WHEEL_INNER_SIG,
+    decode_functionality_select_command,
 };
 use pololu3pi2040_rs::{
     encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     joystick_control::{teleop_motor_control_task, teleop_uart_task},
     led::LED_SHARED,
-    parameter_sync::send_mode,
+    parameter_sync::{init_robot_config, send_mode, send_robot_parameters_to_dongle},
+    robotstate::uart_log_sending_task,
     sdlog::SDLOGGER_SHARED,
     trajectory_control::{
         ControlMode, diffdrive_outer_loop_command_controlled_traj_following_from_sdcard,
@@ -52,8 +54,21 @@ async fn main(spawner: Spawner) {
         defmt::warn!("No SD card / SdLogger disabled, skip logging");
     }
 
+    // Spawn UART hardware task BEFORE sending parameters
+    spawner.spawn(uart_hw_task(devices.uart)).unwrap();
+
+    // Small delay to ensure UART is ready
+    embassy_time::Timer::after_millis(100).await;
+
+    //upload params to the dongle
+    if let Some(config) = devices.config.clone() {
+        init_robot_config(config);
+        embassy_time::Timer::after_millis(500).await;
+        let _ = send_robot_parameters_to_dongle(&config).await;
+    }
+
     spawner
-        .spawn(orchestrator(spawner, devices, UartCfg { robot_id: 10 }))
+        .spawn(orchestrator(spawner, devices, UartCfg { robot_id: 8 }))
         .unwrap();
 }
 
@@ -158,8 +173,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
         .spawn(encoder_right_task(encoder_right, encoder_count_right))
         .unwrap();
 
-    // ============= spawn low level uart task ======================
-    spawner.spawn(uart_hw_task(devices.uart)).unwrap();
+    // Note: UART task is already spawned in main() before parameter sync
 
     // ============== spawn func select task ========================
     spawner
@@ -169,6 +183,8 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
 
     defmt::info!("Orchestrator Task Launched! Initial Mode = Menu");
 
+    //upload param table to the dongle
+    /* */
     loop {
         // Wait for switching command sent by any task
         let msg = ORCH_CH.receive().await;
@@ -186,7 +202,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         STOP_MENU_UART_SIG.signal(());
                         // TASK_SELECT_UART_STOP_SIG.signal(());
 
-                        Timer::after(Duration::from_millis(2)).await;
+                        Timer::after(Duration::from_millis(20)).await;
 
                         drain_signal(&STOP_MENU_UART_SIG, 2).await;
                     }
@@ -194,7 +210,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         STOP_TELEOP_UART_SIG.signal(());
                         STOP_MOTOR_CTRL_SIG.signal(());
 
-                        Timer::after(Duration::from_millis(2)).await;
+                        Timer::after(Duration::from_millis(20)).await;
 
                         drain_signal(&STOP_TELEOP_UART_SIG, 2).await;
                         drain_signal(&STOP_MOTOR_CTRL_SIG, 2).await;
@@ -204,13 +220,15 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         STOP_MOCAP_UPDATE_SIG.signal(());
                         STOP_WHEEL_INNER_SIG.signal(());
                         STOP_TRAJ_OUTER_SIG.signal(());
+                        STOP_LOG_SENDING_SIG.signal(());
 
-                        Timer::after(Duration::from_millis(2)).await;
+                        Timer::after(Duration::from_millis(20)).await;
 
                         drain_signal(&STOP_MOCAP_UART_SIG, 2).await;
                         drain_signal(&STOP_MOCAP_UPDATE_SIG, 2).await;
                         drain_signal(&STOP_WHEEL_INNER_SIG, 2).await;
                         drain_signal(&STOP_TRAJ_OUTER_SIG, 2).await;
+                        drain_signal(&STOP_LOG_SENDING_SIG, 2).await;
                     }
                 }
 
@@ -256,6 +274,9 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                                 ),
                             )
                             .unwrap();
+                        spawner
+                            .spawn(uart_log_sending_task(cfg.robot_id, 50))
+                            .unwrap();
                     }
                     Mode::TrajDuty => {
                         defmt::info!("TRAJ-FOLLOWING Mode (Directduty) is selected!!!!!");
@@ -278,6 +299,9 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                                 ),
                             )
                             .unwrap();
+                        spawner
+                            .spawn(uart_log_sending_task(cfg.robot_id, 50))
+                            .unwrap();
                     }
                 }
                 mode = target;
@@ -294,6 +318,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
         }
     }
 }
+
 /* ================================================================================== */
 
 pub async fn drain_signal_once(sig: &Signal<Raw, ()>) {
