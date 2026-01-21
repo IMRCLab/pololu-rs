@@ -6,6 +6,7 @@ use {defmt_rtt as _, panic_probe as _};
 use defmt::info;
 use embassy_executor::Spawner;
 use embassy_futures::select::{Either, Either3, select, select3};
+use embassy_rp::adc::Config;
 use embassy_rp::init;
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex as Raw, signal::Signal};
 use embassy_time::{Duration, Timer};
@@ -60,13 +61,22 @@ async fn main(spawner: Spawner) {
     // Small delay to ensure UART is ready
     embassy_time::Timer::after_millis(100).await;
 
-    //upload params to the dongle
+    let mut robot_id = 8;
+    //initialise the variable only if deviced.config was loaded
     if let Some(config) = devices.config.clone() {
         init_robot_config(config);
         embassy_time::Timer::after_millis(500).await;
         let _ = send_robot_parameters_to_dongle(&config).await;
+        robot_id = config.robot_id;
+    } else {
+        defmt::warn!("No Config found. Robot ID is hardcoded, and no parameters uploaded.");
     }
 
+    spawner
+        .spawn(uart_log_sending_task(robot_id, 100 as u64))
+        .unwrap();
+
+    // ==== Start Orchestrator Task  ====
     spawner
         .spawn(orchestrator(spawner, devices, UartCfg { robot_id: 8 }))
         .unwrap();
