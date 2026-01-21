@@ -1,9 +1,10 @@
 use embassy_time::{Duration, Instant, Timer};
-use crate::trajectory_signal::{LAST_STATE, PoseAbsStamped};
+use crate::trajectory_signal::LAST_STATE;
 use crate::imu::IMU_ANGLES_SHARED;
 use crate::encoder::EncoderCounters;
 use defmt::info;
-use libm::{cosf, sinf, PI};
+use libm::{cosf, sinf};
+use core::f32::consts::PI;
 
 use crate::encoder::wheel_speed_from_counts_now;
 use crate::robot_parameters_default::robot_constants::{ENCODER_CPR, WHEEL_RADIUS};
@@ -14,8 +15,11 @@ pub async fn imu_estimator_task(
 ) {
     info!("IMU Estimator Task Started");
 
-    let mut prev_left = 0;
-    let mut prev_right = 0;
+    let mut prev_left = *counters.left.lock().await;
+    let mut prev_right = *counters.right.lock().await;
+    
+    // Debug: Check initial values
+    info!("IMU Est: Init left={}, right={}", prev_left, prev_right);
 
     loop {
         // 1. Get current state (Mocap might have updated this)
@@ -27,10 +31,10 @@ pub async fn imu_estimator_task(
         let now = Instant::now();
         // Calculate dt from the last valid state time
         // This handles cases where Mocap injects a new state asynchronously.
-        let dt = now.duration_since(slammed_state.timestamp).as_secs_f32();
+        let dt = now.duration_since(slammed_state.timestamp).as_micros() as f32 / 1_000_000.0;
 
         // 2. Get Yaw from IMU
-        let (pitch, roll, yaw_deg) = {
+        let (_pitch, _roll, yaw_deg) = {
             let g = IMU_ANGLES_SHARED.lock().await;
             *g
         };
@@ -44,7 +48,7 @@ pub async fn imu_estimator_task(
             prev_left,
             prev_right,
             dt
-        );
+        ).await;
         prev_left = left_now;
         prev_right = right_now;
 
@@ -67,6 +71,14 @@ pub async fn imu_estimator_task(
         {
             let mut g = LAST_STATE.lock().await;
             *g = slammed_state;
+        }
+
+        // Debug every ~1s (10ms * 100)
+        // Static counter workaround? No, just use random or time.
+        // Or just print every time for now to debug QUICKLY.
+        // For now, let's print if velocity is non-zero
+        if v_linear.abs() > 0.001 {
+             info!("Est: dt={}, v={}, x={}, y={}, yaw={}", dt, v_linear, slammed_state.pose.x, slammed_state.pose.y, yaw_deg);
         }
 
         Timer::after(Duration::from_millis(10)).await;

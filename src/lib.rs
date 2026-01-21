@@ -61,3 +61,4 @@ pub mod trajectory_reading;
 pub mod trajectory_signal;
 pub mod trajectory_uart;
 pub mod uart;
+pub mod imu_state;

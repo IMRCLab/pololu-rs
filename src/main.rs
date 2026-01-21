@@ -18,7 +18,10 @@ use pololu3pi2040_rs::{
     packet::StateLoopBackPacketF32,
     sdlog::*,
     uart::{uart_hw_task, uart_receive_task, uart_send_state_loopback},
+    imu_state::imu_estimator_task,
+    trajectory_signal::LAST_STATE,
 };
+use libm::{cosf, sinf};
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
@@ -40,19 +43,7 @@ async fn main(spawner: Spawner) {
     spawner.spawn(button_task_b(buttons.btn_b)).unwrap();
     spawner.spawn(button_task_c(buttons.btn_c)).unwrap();
 
-    // === Encoder Task ===
-    let EncoderPair {
-        encoder_left,
-        encoder_right,
-    } = devices.encoders;
-    let encoder_count_left = devices.encoder_counts.left;
-    let encoder_count_right = devices.encoder_counts.right;
-    spawner
-        .spawn(encoder_left_task(encoder_left, encoder_count_left))
-        .unwrap();
-    spawner
-        .spawn(encoder_right_task(encoder_right, encoder_count_right))
-        .unwrap();
+
 
     // === Motor Control Task ===
     // Start the PI controller task instead of direct motor control
@@ -60,8 +51,8 @@ async fn main(spawner: Spawner) {
     spawner
         .spawn(teleop_motor_control_task(
             motors,
-            encoder_count_left,
-            encoder_count_right,
+            devices.encoder_counts.left,
+            devices.encoder_counts.right,
             devices.config,
         ))
         .unwrap();
@@ -69,6 +60,14 @@ async fn main(spawner: Spawner) {
     // === IMU Task ===
     let imu = devices.imu;
     spawner.spawn(read_imu_task(imu)).unwrap();
+
+    // Reconstruct EncoderCounters for the estimator task to avoid moving the original struct
+    // The fields are &'static Mutex, so they are cheap to copy.
+    let estimator_counters = pololu3pi2040_rs::encoder::EncoderCounters {
+        left: devices.encoder_counts.left,
+        right: devices.encoder_counts.right,
+    };
+    spawner.spawn(imu_estimator_task(estimator_counters)).unwrap();
 
     // === UART Task ===
     let uart_rec = devices.uart;
@@ -119,7 +118,7 @@ async fn main(spawner: Spawner) {
         defmt::info!("Set command: v={} m/s, omega={} rad/s", v, omega);
     };
 
-    let sendback = StateLoopBackPacketF32 {
+    let mut sendback = StateLoopBackPacketF32 {
         header: 0xA1,
         robot_id: 10,
         pos_x: 1.2,
@@ -134,29 +133,64 @@ async fn main(spawner: Spawner) {
         qz: 0.0,
     };
 
+
+     // ================ Spawn Encoder Task ==========================
+    let EncoderPair {
+        encoder_left,
+        encoder_right,
+    } = devices.encoders;
+    let encoder_count_left = devices.encoder_counts.left;
+    let encoder_count_right = devices.encoder_counts.right;
+    spawner
+        .spawn(encoder_left_task(encoder_left, encoder_count_left))
+        .unwrap();
+    spawner
+        .spawn(encoder_right_task(encoder_right, encoder_count_right))
+        .unwrap();
+
     loop {
         led.blink(100, 1).await;
 
         // Step 1: Keep speed at zero for 2 seconds
-        defmt::info!("=== Step 1: Zero speed for 2 seconds ===");
+        // defmt::info!("=== Step 1: Zero speed for 2 seconds ===");
         set_wheel_speed(0.0, 0.0).await;
         Timer::after_millis(1000).await;
 
         // Step 2: Step up to 0.4 m/s for 4 seconds
-        defmt::info!("=== Step 2: Step up to 0.4 m/s for 4 seconds ===");
-        set_wheel_speed(0.0, 0.0).await;
+        // defmt::info!("=== Step 2: Step up to 0.4 m/s for 4 seconds ===");
+        set_wheel_speed(0.4, 0.4).await;
         Timer::after_millis(1000).await;
 
-        set_wheel_speed(-0.0, 0.0).await;
+        set_wheel_speed(-0.4, -0.4).await;
         Timer::after_millis(1000).await;
 
-        uart_send_state_loopback(&sendback);
+        
 
         // Step 3: Set back to zero for 4 seconds
-        defmt::info!("=== Step 3: Back to zero for 4 seconds ===");
+        // defmt::info!("=== Step 3: Back to zero for 4 seconds ===");
         set_wheel_speed(0.0, 0.0).await;
+        
+        {
+            let left_count = *encoder_count_left.lock().await;
+            let right_count = *encoder_count_right.lock().await;
+            defmt::info!("Encoder Count Left: {}", left_count);
+            defmt::info!("Encoder Count Right: {}", right_count);
+        }
+
+      
+        let state = LAST_STATE.lock().await;
+        defmt::info!("State x: {}", state.pose.x);
+        defmt::info!("State y: {}", state.pose.y);
+        defmt::info!("State yaw: {}", state.pose.yaw);      
+
+
         Timer::after_millis(1000).await;
 
         defmt::info!("=== Test cycle complete, restarting... ===");
+
+
+
+
+
     }
 }

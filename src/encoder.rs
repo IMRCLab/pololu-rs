@@ -194,7 +194,7 @@ pub async fn get_wheel_speed_in_rad(
     (omega_l_raw, omega_r_raw)
 }
 
-pub fn wheel_speed_from_counts_now(
+pub async fn wheel_speed_from_counts_now(
     left_counter: &Mutex<NoopRawMutex, i32>,
     right_counter: &Mutex<NoopRawMutex, i32>,
     cpr_wheel: f32,
@@ -204,8 +204,8 @@ pub fn wheel_speed_from_counts_now(
 ) -> ((f32, f32), (i32, i32)) {
     // lock as short as possible
     let (left_now, right_now) = {
-        let l = *left_counter.try_lock().as_deref().unwrap_or(&0);
-        let r = *right_counter.try_lock().as_deref().unwrap_or(&0);
+        let l = *left_counter.lock().await;
+        let r = *right_counter.lock().await;
         (l, r)
     };
 

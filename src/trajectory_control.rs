@@ -180,6 +180,7 @@ impl DiffdriveControllerCascade {
         robot: &DiffdriveCascade,
         setpoint: DiffdriveSetpointCascade,
     ) -> (DiffdriveActionCascade, f32, f32, f32) {
+        
         // Compute the error of the states in body frame
         let xerror: f32 = robot.s.theta.cos() * (setpoint.des.x - robot.s.x)
             + robot.s.theta.sin() * (setpoint.des.y - robot.s.y);
@@ -190,7 +191,7 @@ impl DiffdriveControllerCascade {
         // Compute the control inputs using feedback linearization
         let v: f32 = setpoint.vdes * cosf(therror) + self.kx * xerror;
         let w: f32 = setpoint.wdes + setpoint.vdes * (self.ky * yerror + sinf(therror) * self.kth);
-
+        u
         // Convert to wheel speeds
         let ur = (2.0 * v + 1.0 * robot.l * w) / (2.0 * robot.r);
         let ul = (2.0 * v - 1.0 * robot.l * w) / (2.0 * robot.r);
@@ -505,7 +506,7 @@ pub async fn wheel_speed_inner_loop(
             prev_l,
             prev_r,
             dt,
-        );
+        ).await;
         prev_l = ln;
         prev_r = rn;
 
@@ -777,6 +778,7 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
             ur: ur,
             dutyl: 0.0,
             dutyr: 0.0,
+            
         };
 
         let _ = with_sdlogger(|logger| {
@@ -996,8 +998,8 @@ pub async fn mocap_update_task() {
 #[embassy_executor::task]
 pub async fn diffdrive_outer_loop(
     mode: ControlMode,
-    mut sdlogger: Option<SdLogger>,
-    mut led: led::Led,
+    //mut sdlogger: Option<SdLogger>,
+    //mut led: led::Led,
     cfg: Option<RobotConfig>,
 ) {
     STOP_ALL.store(false, Ordering::Relaxed);
@@ -1040,10 +1042,7 @@ pub async fn diffdrive_outer_loop(
     );
 
     // Initialize logger
-    if let Some(ref mut logger) = sdlogger {
-        logger.write_traj_control_header();
-    }
-    defmt::info!("csv header written");
+    let _ = with_sdlogger(|logger| logger.write_traj_control_header()).await;
 
     /* ================ Record First Pose w.r.t the selected mode ================== */
     let mut first_pose: PoseAbs = PoseAbs {
@@ -1105,30 +1104,33 @@ pub async fn diffdrive_outer_loop(
             p3y: (1.0),
             x_ref: (first_pose.x),
             y_ref: (first_pose.y),
-            theta_ref: (first_pose.yaw + 0.5 * PI),
+            //theta_ref: (first_pose.yaw + 0.5 * PI),
+            theta_ref: (first_pose.yaw),
         };
 
-        let setpoint = robot.beziercurve(bezier_point, t_sec, bezier_duration);
+        //let setpoint = robot.beziercurve(bezier_point, t_sec, bezier_duration);
 
-        /* ===================================================== */
+    /* ===================================================== */
 
-        // let circle_duration: f32 = 10.0;
+        let circle_duration: f32 = 10.0;
 
-        // let phi0 = SO2::new(first_pose.yaw + 0.5 * PI);
-        // let setpoint = robot.circle_reference_t(
-        //     0.5,
-        //     circle_duration,
-        //     t_sec,
-        //     first_pose.x,
-        //     first_pose.y,
-        //     phi0,
-        // );
-        /* ===================================================== */
+        //let phi0 = SO2::new(first_pose.yaw + 0.5 * PI);
+        let phi0 = SO2::new(first_pose.yaw);
+        let setpoint = robot.circle_reference_t(
+            0.0,
+            circle_duration,
+            t_sec,
+            first_pose.x,
+            first_pose.y,
+            phi0,
+        );
+        /* ===================================================== */ 
 
         robot.s.x = pose.pose.x;
         robot.s.y = pose.pose.y;
-        robot.s.theta = SO2::new(pose.pose.yaw + 0.5 * PI); // mocap yaw is 90deg off
-
+        // robot.s.theta = SO2::new(pose.pose.yaw + 0.5 * PI); // mocap yaw is 90deg off
+        robot.s.theta = SO2::new(pose.pose.yaw);
+        
         let mut ul = 0.0;
         let mut ur = 0.0;
         let (x_error, y_error, theta_error);
@@ -1142,14 +1144,14 @@ pub async fn diffdrive_outer_loop(
                 x_error = x_e;
                 y_error = y_e;
                 theta_error = yaw_e;
-
+                //defmt::info!("{}{}",ul,ur);
                 while WHEEL_CMD_CH.try_receive().is_ok() {} // drain the old commands
                 let _ = WHEEL_CMD_CH.try_send(WheelCmd {
                     omega_l: ul,
                     omega_r: ur,
                     stamp: Instant::now(),
                 });
-                led.on();
+                //led.on();
             }
             ControlMode::DirectDuty => {
                 info!("no mocap");
@@ -1176,7 +1178,7 @@ pub async fn diffdrive_outer_loop(
                     omega_r: ur,
                     stamp: Instant::now(),
                 });
-                led.off();
+                //led.off();
             }
         }
 
@@ -1210,12 +1212,13 @@ pub async fn diffdrive_outer_loop(
             ur: ur,
             dutyl: 0.0,
             dutyr: 0.0,
+            
         };
 
-        if let Some(ref mut logger) = sdlogger {
+        let _ = with_sdlogger(|logger| {
             logger.log_traj_control_as_csv(&log);
             logger.flush();
-        }
+        }).await;
 
         let w_deg = setpoint.wdes * 180.0 / PI;
         defmt::info!(
@@ -1237,7 +1240,7 @@ pub async fn diffdrive_outer_loop(
             theta_error
         );
 
-        if t_sec >= bezier_duration {
+        if t_sec >= circle_duration {
             let _ = WHEEL_CMD_CH.try_send(WheelCmd {
                 omega_l: 0.0,
                 omega_r: 0.0,
