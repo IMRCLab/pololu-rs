@@ -116,6 +116,7 @@ private:
 
     bool teleop_activated[4] = {false, false, false, false}; //teleop active for robot
     bool robot_running[4] = {false, false, false, false}; 
+    bool control_action_active[4] = {false, false, false, false}; //control action active for robot
 
     //define available programs
     struct Program {
@@ -127,7 +128,8 @@ private:
     std::vector<Program> available_programs_ = {
         {"teleop", 0, "Manual TELEOPeration mode"},
         {"trajectory following w/ direct duty", 1, "TRAJ FOLLOWING with DIRECT DUTY"},
-        {"traj following w/ mocap", 2, "TRAJ FOLLOWING with MOCAP"}
+        {"traj following w/ mocap", 2, "TRAJ FOLLOWING with MOCAP"},
+        {"control action execution", 3, "CONTROL ACTION EXECUTION mode"}
         //add missing functionality here later
     };
 
@@ -189,6 +191,14 @@ private:
         if (teleop_activated[selected_robot_] == 1) {
             teleopCommand(selected_robot_);
         }   
+        //broadcast a control action to all robots who have that program running
+        for (int i = 0; i<4; i++) {
+            if (control_action_active[i]) {
+                //placeholder... 
+                //TODO: implement control action broadcasting + way to obtain it from the simulation.
+                ;;
+            }
+        }
         broadcastPosition();
 
     }
@@ -592,9 +602,10 @@ private:
                 sendIndividualCommand(robot_id, 77); //go into traj following mode selection on the robot "M" = ASCII 77
                 //waiting for start command now
                 break;
-            case 3: //Traj Following from demo trajectory
+            case 3: //Control Action execution mode (for Omar's NPC control demo)
                 // add here to expand functionality
-                RCLCPP_INFO(logger_, "not implemented!");
+                RCLCPP_INFO(logger_, "Letting robot  %d go into CONTROL ACTION EXECUTION mode", robot_id + 1);
+                sendIndividualCommand(robot_id, 65); //go into control action execution mode on the robot "A" = ASCII 65
                 break;
             case 4: //gain tuning mode on demo trajectory
                 // add here to expand functionality
