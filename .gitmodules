@@ -1,10 +1,10 @@
-[submodule "ground_robots_ros"]
-	path = ground_robots_ros
-	url = git@github.com:IMRCLab/pololu3pi2040-rs.git
-	branch = workstation_ros
 [submodule "libs/micro_qp"]
 	path = libs/micro_qp
 	url = git@github.com:Vincentive1232/micro_qp.git
 [submodule "nRF52840_Pololu"]
 	path = nRF52840_Pololu
 	url = git@github.com:Olumat/pololu-nRF52840-dongle-firmware.git
+[submodule "ground_robots_ros"]
+	path = ground_robots_ros
+	url = git@github.com:IMRCLab/pololu3pi2040-rs.git
+	branch = workstation_ros
