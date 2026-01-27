@@ -1,4 +1,6 @@
 //! PIO backed quadrature encoder
+//! The code is "copied" from embassy-rp pio library, while the pio_asm! marco is
+//! redefined to match our use case
 
 use embassy_rp::Peri;
 use embassy_rp::gpio::Pull;

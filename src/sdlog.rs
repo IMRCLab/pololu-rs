@@ -30,6 +30,7 @@ const MAX_DIRS: usize = 4;
 const MAX_FILES: usize = 4;
 const MAX_VOLUMES: usize = 1;
 
+/// Shared SD Logger Mutex instance
 pub static SDLOGGER_SHARED: Mutex<Raw, Option<SdLogger>> = Mutex::new(None);
 
 // ===================== SD Command System =====================
@@ -70,7 +71,7 @@ impl TimeSource for DummyClock {
     }
 }
 
-// === Static Resources ===
+// === Static Resources (for initialization only) ===
 static VOLUME_MGR: StaticCell<
     VolumeManager<Sd<'static>, DummyClock, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
 > = StaticCell::new();
@@ -79,11 +80,6 @@ static VOLUME: StaticCell<Volume<'static, Sd<'static>, Clock, MAX_DIRS, MAX_FILE
 static DIR: StaticCell<Directory<'static, Sd<'static>, Clock, MAX_DIRS, MAX_FILES, MAX_VOLUMES>> =
     StaticCell::new();
 static SCRATCH_JSON: StaticCell<[u8; 48 * 1024]> = StaticCell::new();
-
-// pub struct SdLogger<'a> {
-//     // volume_mgr: &'a mut VolumeManager<Sd<'static>, DummyClock, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
-//     file: File<'static, Sd<'static>, DummyClock, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
-// }
 
 pub struct SdLogger {
     file: File<'static, Sd<'static>, DummyClock, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
@@ -105,7 +101,7 @@ impl SdLogger {
         }
     }
 
-    /// print everything in the file(log.txt)
+    /// print everything in the file(log.txt) to the terminal
     pub fn read_all(&mut self) {
         if let Err(e) = self.file.seek_from_start(0) {
             defmt::error!("Seek failed: {:?}", defmt::Debug2Format(&e));
@@ -129,14 +125,15 @@ impl SdLogger {
     }
 }
 
+// SD Card related errors
 #[derive(Debug, defmt::Format)]
 pub enum SdError {
-    NoCardOrInitFail,
-    OpenVolume,
-    OpenRoot,
-    FileCreate,
-    NoFreeSlot,
-    BadShortName,
+    NoCardOrInitFail, // No SD card or initialization failed
+    OpenVolume,       // Open volume failed
+    OpenRoot,         // Open root directory failed
+    FileCreate,       // Create file failed
+    NoFreeSlot, // user can at most log 10000 files: TR0000 ~ TR9999, more than that would raise this
+    BadShortName, // file name is not compatible with 8.3 format. (8 characters for name and 3 characters for suffix)
 }
 
 /// Initialize SD card, Loading File system, open/create log.txt
@@ -244,14 +241,18 @@ pub fn init_sd_logger(
 
     // ============================= Prepare logging file for trajectory =============================
     let mut file = None;
-    for i in 0..100 {
+    for i in 0..10000 {
         // File name will be TR00....TR99, binary file
+        let mils = b'0' + (i / 1000) as u8;
+        let huns = b'0' + (i / 100) as u8;
         let tens = b'0' + (i / 10) as u8;
         let ones = b'0' + (i % 10) as u8;
 
         let mut name = String::<8>::new();
         name.push('T').ok();
         name.push('R').ok();
+        name.push(char::from(mils)).ok();
+        name.push(char::from(huns)).ok();
         name.push(char::from(tens)).ok();
         name.push(char::from(ones)).ok();
 
@@ -276,6 +277,7 @@ pub fn init_sd_logger(
     Ok((SdLogger { file }, cfg))
 }
 
+// Define the data scope for trajectory following logging
 #[repr(C)]
 pub struct TrajControlLog {
     pub timestamp_ms: u32,
@@ -309,49 +311,14 @@ pub struct TrajControlLog {
     pub dutyr: f32,
 }
 
-#[repr(C)]
-pub struct MotionLog {
-    pub timestamp_ms: u32,
-    pub target_vx: f32,
-    pub target_vy: f32,
-    pub target_vz: f32,
-    pub target_qw: f32,
-    pub target_qx: f32,
-    pub target_qy: f32,
-    pub target_qz: f32,
-    pub actual_vx: f32,
-    pub actual_vy: f32,
-    pub actual_vz: f32,
-    pub actual_qw: f32,
-    pub actual_qx: f32,
-    pub actual_qy: f32,
-    pub actual_qz: f32,
-    pub roll: f32,
-    pub pitch: f32,
-    pub yaw: f32,
-    pub motor_left: i16,
-    pub motor_right: i16,
-}
-
 impl SdLogger {
-    pub fn write_csv_header(&mut self) {
-        let header = b"ts,target_vx,target_vy,target_vz,target_qw,target_qx,target_qy,target_qz,actual_vx,actual_vy,actual_vz,actual_qw,actual_qx,actual_qy,actual_qz,roll,pitch,yaw,motor_l,motor_r\n";
-        let _ = self.file.write(header);
-    }
-
+    /// Write CSV header for trajectory control logging
     pub fn write_traj_control_header(&mut self) {
         let header = b"ts,target_x,target_y,target_theta,actual_x,actual_y,actual_theta,target_vx,target_vy,target_vz,actual_vx,actual_vy,actual_vz,target_qw,target_qx,target_qy,target_qz,actual_qw,actual_qx,actual_qy,actual_qz,xerror,yerror,thetaerror,ul,ur,dutyl,dutyr\n";
         let _ = self.file.write(header);
     }
 
-    pub fn log_motion(&mut self, data: &MotionLog) {
-        let raw: &[u8; core::mem::size_of::<MotionLog>()] = unsafe { core::mem::transmute(data) };
-
-        if let Err(e) = self.file.write(raw) {
-            defmt::error!("Write log failed: {:?}", defmt::Debug2Format(&e));
-        }
-    }
-
+    /// Write trajectory control data as CSV line according to the defined format "TrajControlLog"
     pub fn log_traj_control_as_csv(&mut self, data: &TrajControlLog) {
         let mut line: String<512> = String::new();
 
@@ -391,41 +358,11 @@ impl SdLogger {
         let _ = self.file.write(line.as_bytes());
     }
 
-    pub fn log_motion_as_csv(&mut self, log: &MotionLog) {
-        let mut line: String<512> = String::new();
+    /// Write trajectory control data as binary line according to the defined format "TrajControlLog"
+    pub fn log_traj_control_as_bin(&mut self, log: &TrajControlLog) {
+        let size = mem::size_of::<TrajControlLog>();
 
-        let _ = core::write!(
-            &mut line,
-            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
-            log.timestamp_ms,
-            log.target_vx,
-            log.target_vy,
-            log.target_vz,
-            log.target_qw,
-            log.target_qx,
-            log.target_qy,
-            log.target_qz,
-            log.actual_vx,
-            log.actual_vy,
-            log.actual_vz,
-            log.actual_qw,
-            log.actual_qx,
-            log.actual_qy,
-            log.actual_qz,
-            log.roll,
-            log.pitch,
-            log.yaw,
-            log.motor_left,
-            log.motor_right,
-        );
-
-        let _ = self.file.write(line.as_bytes());
-    }
-
-    pub fn log_motion_as_bin(&mut self, log: &MotionLog) {
-        let size = mem::size_of::<MotionLog>();
-
-        let ptr = log as *const MotionLog as *const u8;
+        let ptr = log as *const TrajControlLog as *const u8;
         let bytes: &[u8] = unsafe { slice::from_raw_parts(ptr, size) };
 
         let _ = self.file.write(bytes);

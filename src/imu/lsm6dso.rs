@@ -1,6 +1,7 @@
 use crate::imu::shared_i2c::SharedI2c;
 use embedded_hal_async::i2c::I2c;
 
+// LSM6DSO IMU driver
 pub struct Lsm6dso<'a, T: I2c> {
     pub i2c: SharedI2c<'a, T>,
     pub address: u8,
@@ -14,10 +15,11 @@ impl<'a, T: I2c> Lsm6dso<'a, T> {
             i2c,
             address: 0x6B,
             accel_sensitivity: 0.061,
-            gyro_sensitivity: 70.0,
+            gyro_sensitivity: 70.0, // can be looked up in the datasheet
         }
     }
 
+    /// Initialize the LSM6DSO sensor, set up basic configuration
     pub async fn init(&mut self) -> Result<(), T::Error> {
         let mut i2c = self.i2c.lock().await;
 
@@ -29,6 +31,7 @@ impl<'a, T: I2c> Lsm6dso<'a, T> {
         Ok(())
     }
 
+    /// Read accelerometer data in g
     pub async fn read_accel(&mut self) -> Result<[f32; 3], T::Error> {
         let mut i2c = self.i2c.lock().await;
 
@@ -50,6 +53,7 @@ impl<'a, T: I2c> Lsm6dso<'a, T> {
         ])
     }
 
+    /// Read gyroscope data in deg/s
     pub async fn read_gyro(&mut self) -> Result<[f32; 3], T::Error> {
         let mut i2c = self.i2c.lock().await;
 

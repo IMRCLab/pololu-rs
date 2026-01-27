@@ -21,10 +21,12 @@ pub mod shared_i2c;
 // static MADGWICK_CELL: StaticCell<Mutex<NoopRawMutex, Madgwick>> = StaticCell::new();
 static COMPLEMENTARY_CELL: StaticCell<Mutex<NoopRawMutex, ComplementaryFilter>> = StaticCell::new();
 
+/// Pack ACCEL/GYRO + MAG sensors along with filters for convenience
 pub struct ImuPack<'a, T: AsyncI2c> {
     pub i2c: &'a Mutex<ThreadModeRawMutex, T>,
     pub lsm6dso: Lsm6dso<'a, T>,
     pub lis3mdl: Lis3mdl<'a, T>,
+    // choose filter by commenting/uncommenting
     pub complementary: &'static Mutex<NoopRawMutex, ComplementaryFilter>,
     // pub madgwick: &'static Mutex<NoopRawMutex, Madgwick>,
 }
@@ -58,6 +60,8 @@ impl<'a, T: AsyncI2c + 'a> ImuPack<'a, T> {
     }
 }
 
+/// Spawn this task to continuously read IMU data and update filter
+/// So you can directly get the orientation
 #[embassy_executor::task]
 pub async fn read_imu_task(mut imu: ImuPack<'static, I2c<'static, I2C0, Async>>) {
     if let Err(_e) = imu.init().await {

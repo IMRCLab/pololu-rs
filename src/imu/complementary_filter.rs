@@ -19,6 +19,7 @@ impl ComplementaryFilter {
         }
     }
 
+    /// Update the complementary filter with new sensor data
     pub fn update(&mut self, gyro: [f32; 3], accel: [f32; 3], mag: [f32; 3], dt: f32) {
         let (gx, gy, gz) = (
             gyro[0] * PI / 180.0,
@@ -60,6 +61,7 @@ impl ComplementaryFilter {
         self.yaw = self.alpha * self.yaw + (1.0 - self.alpha) * mag_yaw;
     }
 
+    /// Get the current angles in body frame in degrees (pitch, roll, yaw)
     pub fn get_angles_deg(&self) -> (f32, f32, f32) {
         let deg = 180.0 / PI;
         (self.pitch * deg, self.roll * deg, self.yaw * deg)

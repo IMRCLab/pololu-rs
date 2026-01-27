@@ -21,7 +21,7 @@ pub struct EncoderCounters {
     pub right: &'static Mutex<NoopRawMutex, i32>,
 }
 
-// Global static cells
+// Global static cells for pulse counters
 static LEFT_COUNT: StaticCell<Mutex<NoopRawMutex, i32>> = StaticCell::new();
 static RIGHT_COUNT: StaticCell<Mutex<NoopRawMutex, i32>> = StaticCell::new();
 
@@ -32,6 +32,7 @@ pub fn init_encoder_counts() -> EncoderCounters {
     EncoderCounters { left, right }
 }
 
+// Wrap both encoders in one struct for convenience
 impl<'a> EncoderPair<'a> {
     pub fn new(
         common: &mut Common<'a, PIO0>,
@@ -52,6 +53,7 @@ impl<'a> EncoderPair<'a> {
     }
 }
 
+// Lookup table for quadrature decoding
 const LUT: [[i8; 4]; 4] = [
     /*prev\curr: 00, 01, 10, 11 */
     [0, 1, -1, 0], // 00 ->
@@ -88,7 +90,7 @@ pub async fn encoder_left_task(
     }
 }
 
-// Left encoder task (read AB and drain the FIFO)
+// Right encoder task (read AB and drain the FIFO)
 #[embassy_executor::task]
 pub async fn encoder_right_task(
     mut encoder: PioEncoder<'static, PIO0, 1>,
@@ -115,7 +117,7 @@ pub async fn encoder_right_task(
     }
 }
 
-// Asychronously acquiring left RPM
+/// Asychronously acquiring left RPM
 pub async fn get_left_rpm(
     counter: &'static Mutex<NoopRawMutex, i32>,
     cpr_wheel: f32,
@@ -130,7 +132,7 @@ pub async fn get_left_rpm(
     rps * 60.0
 }
 
-// Asychronously acquiring right RPM
+/// Asychronously acquiring right RPM
 pub async fn get_right_rpm(
     counter: &'static Mutex<NoopRawMutex, i32>,
     cpr_wheel: f32,
@@ -145,6 +147,7 @@ pub async fn get_right_rpm(
     rps * 60.0
 }
 
+/// Asychronously acquiring both RPMs
 pub async fn get_rpms(
     left_counter: &'static Mutex<NoopRawMutex, i32>,
     right_counter: &'static Mutex<NoopRawMutex, i32>,
@@ -169,6 +172,9 @@ pub async fn get_rpms(
     (rps_l * 60.0, rps_r * 60.0)
 }
 
+/// Asychronously acquiring both wheel angular speeds in rad/s
+/// The velocity in this func is acquired by waiting for interval_ms duration and
+/// calculating the difference in counts (The counter is locked during that time)
 pub async fn get_wheel_speed_in_rad(
     left_counter: &'static Mutex<NoopRawMutex, i32>,
     right_counter: &'static Mutex<NoopRawMutex, i32>,
@@ -194,6 +200,9 @@ pub async fn get_wheel_speed_in_rad(
     (omega_l_raw, omega_r_raw)
 }
 
+/// Synchronous function to get wheel speeds from previous counts
+/// The function needs the previous counts and dt to calculate the wheel speed in rad/s
+/// (The coounter will be locked only briefly to read the current counts)
 pub fn wheel_speed_from_counts_now(
     left_counter: &Mutex<NoopRawMutex, i32>,
     right_counter: &Mutex<NoopRawMutex, i32>,
@@ -218,13 +227,3 @@ pub fn wheel_speed_from_counts_now(
 
     ((omega_l, omega_r), (left_now, right_now))
 }
-
-// // fast left position reading
-// pub fn read_left_count(counter: &'static Mutex<NoopRawMutex, i32>) -> i32 {
-//     counter.try_lock().map(|g| *g).unwrap_or(0)
-// }
-
-// // fast right position reading
-// pub fn read_right_count(counter: &'static Mutex<NoopRawMutex, i32>) -> i32 {
-//     counter.try_lock().map(|g| *g).unwrap_or(0)
-// }

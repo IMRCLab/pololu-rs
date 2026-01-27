@@ -1,6 +1,7 @@
 use crate::imu::shared_i2c::SharedI2c;
 use embedded_hal_async::i2c::I2c;
 
+// LIS3MDL Magnetometer driver
 pub struct Lis3mdl<'a, T: I2c> {
     pub i2c: SharedI2c<'a, T>,
     pub address: u8,
@@ -22,6 +23,8 @@ impl<'a, T: I2c + 'a> Lis3mdl<'a, T> {
         Ok(())
     }
 
+    /// Read magnetometer data in radians
+    /// It is not adviced to use magnetometer indoors.
     pub async fn read_mag(&mut self) -> Result<[f32; 3], T::Error> {
         let mut data = [0u8; 6];
         let mut i2c = self.i2c.lock().await;

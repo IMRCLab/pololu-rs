@@ -6,7 +6,6 @@ use {defmt_rtt as _, panic_probe as _};
 use defmt::info;
 use embassy_executor::Spawner;
 use embassy_futures::select::{Either, Either3, select, select3};
-use embassy_rp::adc::Config;
 use embassy_rp::init;
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex as Raw, signal::Signal};
 use embassy_time::{Duration, Timer};
