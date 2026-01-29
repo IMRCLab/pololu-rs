@@ -1,3 +1,4 @@
+/// Different packet structures for robot communication depends on the package length
 use crate::robotstate::LogSnapshot;
 use defmt::{info, warn};
 use heapless::Vec;

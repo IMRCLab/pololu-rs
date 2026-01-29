@@ -24,21 +24,7 @@ impl Quaternion {
     }
 }
 
-pub fn decode_quat_i8x4(p: u32) -> Quaternion {
-    let w = ((p >> 24) & 0xFF) as u8 as i8;
-    let x = ((p >> 16) & 0xFF) as u8 as i8;
-    let y = ((p >> 8) & 0xFF) as u8 as i8;
-    let z = ((p >> 0) & 0xFF) as u8 as i8;
-    let f = |v: i8| -> f32 { (v as f32) / 127.0 };
-
-    Quaternion {
-        w: f(w),
-        x: f(x),
-        y: f(y),
-        z: f(z),
-    }
-}
-
+/// Decompression the quaternion sent via radio
 pub fn quat_decompress(comp: u32) -> Quaternion {
     let mut comp = comp;
     let mask: u32 = (1 << 9) - 1; // 9-bit magnitude -> 0..511
@@ -73,6 +59,7 @@ pub fn quat_decompress(comp: u32) -> Quaternion {
     }
 }
 
+/// Convert quaternion to roll, pitch, yaw (in radians)
 pub fn rpy_from_quaternion(q: &Quaternion) -> (f32, f32, f32) {
     let sinr_cosp = 2.0 * (q.w * q.x + q.y * q.z);
     let cosr_cosp = 1.0 - 2.0 * (q.x * q.x + q.y * q.y);
@@ -92,6 +79,7 @@ pub fn rpy_from_quaternion(q: &Quaternion) -> (f32, f32, f32) {
     (roll, pitch, yaw)
 }
 
+/// SO2 reqresentation of yaw angle in radians
 #[derive(Debug, Copy, Clone)]
 pub struct SO2 {
     value: f32, // rad, [-pi, pi]

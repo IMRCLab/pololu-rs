@@ -31,3 +31,16 @@ impl Led {
         }
     }
 }
+
+pub async fn led_set(on: bool) {
+    let mut g = LED_SHARED.lock().await;
+    if let Some(led) = g.as_mut() {
+        if on {
+            led.on();
+        } else {
+            led.off();
+        }
+    } else {
+        defmt::warn!("LED not available; skip.");
+    }
+}

@@ -13,7 +13,7 @@ use defmt::info;
 use embassy_futures::select::{Either, Either3, select, select3};
 use embassy_sync::blocking_mutex::raw::{NoopRawMutex, ThreadModeRawMutex};
 use embassy_sync::mutex::Mutex;
-use embassy_time::{Duration, Instant, Ticker, Timer};
+use embassy_time::{Duration, Ticker, Timer};
 use heapless::Vec as HVec;
 // Import the global verbosity macros
 use crate::debug_warn;

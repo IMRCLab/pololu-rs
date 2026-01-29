@@ -19,12 +19,14 @@ pub struct Action {
     pub omega: f32,
 }
 
+/// Struct to store a series of pose and action pairs in RAM
 #[derive(Clone, Debug, Default)]
 pub struct Trajectory {
     pub states: Vec<Pose, MAX_POINTS>,
     pub actions: Vec<Action, MAX_POINTS>,
 }
 
+/// JSON deserialization structs according to serde_json_core
 #[derive(Deserialize)]
 struct Root {
     #[serde(default)]
@@ -89,6 +91,7 @@ impl Trajectory {
 }
 
 /* ============= read trajectory file during the intialization ============== */
+/// Load the trajectory from the json file and return the num of lines in the json trajectory file.
 pub fn sd_read_file_into_8_3_with_dir<
     'a,
     SD,
@@ -127,6 +130,7 @@ pub fn sd_read_file_into_8_3_with_dir<
     Ok(total)
 }
 
+/// Load trajectory from json file. The "scratch" value stores the number of lines in the json.
 pub fn load_trajectory_with_dir<
     'a,
     SD,
@@ -176,6 +180,7 @@ pub fn file_len_with_dir<
     Ok(len)
 }
 
+/// Call this function to load trajectory and get number of states and actions
 /* After reading and parsing, return (Trajectory, number of states, number of actions) to make logging easier.” */
 pub fn load_trajectory_with_dir_count<
     'a,

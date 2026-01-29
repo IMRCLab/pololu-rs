@@ -20,7 +20,9 @@ use heapless::String;
 use static_cell::StaticCell;
 
 use crate::read_robot_config_from_sd::{RobotConfig, load_robot_config_with_dir};
-use crate::trajectory_control::{register_trajectory, store_trajectory};
+use crate::trajectory_control::{
+    DiffdriveCascade, DiffdriveSetpointCascade, register_trajectory, store_trajectory,
+};
 
 pub type SpiDev<'a> = ExclusiveDevice<Spi<'a, SPI0, spi::Blocking>, Output<'a>, NoDelay>;
 pub type Sd<'a> = SdCard<SpiDev<'a>, Delay>;
@@ -436,4 +438,67 @@ pub async fn sd_logger_task(mut sdlogger: Option<SdLogger>) {
         // Send result back
         let _ = SD_RESULT_CHANNEL.try_send(success);
     }
+}
+
+/// Check whether the sd card is in the port
+pub async fn with_sdlogger<F, R>(f: F) -> Option<R>
+where
+    F: FnOnce(&mut SdLogger) -> R,
+{
+    let mut g = SDLOGGER_SHARED.lock().await;
+    if let Some(l) = g.as_mut() {
+        Some(f(l))
+    } else {
+        defmt::warn!("SdLogger not available; skip.");
+        None
+    }
+}
+
+/// Log trajectory control data to SD card
+pub async fn log_traj_control(
+    t_ms: u32,
+    setpoint: &DiffdriveSetpointCascade,
+    robot: &DiffdriveCascade,
+    x_error: f32,
+    y_error: f32,
+    theta_error: f32,
+    ul: f32,
+    ur: f32,
+) {
+    let log = TrajControlLog {
+        timestamp_ms: t_ms,
+        target_x: setpoint.des.x,
+        target_y: setpoint.des.y,
+        target_theta: setpoint.des.theta.rad(),
+        actual_x: robot.s.x,
+        actual_y: robot.s.y,
+        actual_theta: robot.s.theta.rad(),
+        target_vx: setpoint.vdes,
+        target_vy: 0.0,
+        target_vz: 0.0,
+        actual_vx: 0.0,
+        actual_vy: 0.0,
+        actual_vz: 0.0,
+        target_qw: setpoint.des.theta.cos(),
+        target_qx: 0.0,
+        target_qy: 0.0,
+        target_qz: setpoint.des.theta.sin(),
+        actual_qw: robot.s.theta.cos(),
+        actual_qx: 0.0,
+        actual_qy: 0.0,
+        actual_qz: robot.s.theta.sin(),
+        xerror: x_error,
+        yerror: y_error,
+        thetaerror: theta_error,
+        ul,
+        ur,
+        dutyl: 0.0,
+        dutyr: 0.0,
+    };
+
+    let _ = with_sdlogger(|logger| {
+        logger.log_traj_control_as_csv(&log);
+        logger.flush();
+    })
+    .await;
 }

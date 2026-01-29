@@ -111,7 +111,7 @@ pub async fn send_parameter(param_id: u8, value: f32) -> Result<(), ()> {
     Ok(())
 }
 
-/// Send all robot parameters to the dongle (one-time function at startup)
+/// Send all robot parameters to the dongle (one-time function at startup) to be ready to be passed to the ros node
 /// Includes config params (0-20) and status params (21-22)
 pub async fn send_robot_parameters_to_dongle(config: &RobotConfig) -> Result<(), ()> {
     defmt::info!("Starting parameter sync to dongle...");

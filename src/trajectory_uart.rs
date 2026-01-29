@@ -21,6 +21,7 @@ const FRAME_MAX: usize = 54;
 const LEN_POSE: u8 = 18;
 const LEN_START: u8 = 10;
 
+/// Receive motion capture data(position and orientation) from UART and update STATE_SIG and LAST_STATE
 #[embassy_executor::task]
 pub async fn uart_motioncap_receiving_task(cfg: UartCfg) {
     let mut seen_first = false;
@@ -182,19 +183,6 @@ fn decode_abs_pose(payload: &[u8], robot_id: u8) -> Option<Pose> {
     if s1.len() < 11 {
         return None;
     }
-
-    // if let Some(pkt) = MocapPosesPacketF32Test::from_bytes(&buffer) {
-    //                     defmt::info!(
-    //                         "Pose Packet: robot_id={}, PosX={} PosY={} Pos_Z={} Quat={}",
-    //                         pkt.robot_id,
-    //                         pkt.pos_x,
-    //                         pkt.pos_y,
-    //                         pkt.pos_z,
-    //                         pkt.quat
-    //                     );
-    //                 } else {
-    //                     defmt::warn!("Invalid Pose packet");
-    //                 }
 
     let x = f32::from_le_bytes([s1[0], s1[1], s1[2], s1[3]]);
     let y = f32::from_le_bytes([s1[4], s1[5], s1[6], s1[7]]);
