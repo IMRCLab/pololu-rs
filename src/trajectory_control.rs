@@ -902,5 +902,146 @@ pub async fn mocap_update_task() {
         }
     }
 }
+/* =========================TODO / COMMMENTS==========================================
+    returntype??
+
+    where do we get new poses -> mocap -> but is it actually read anywhere?
+
+    do we need to run the controller in its own little loop -> I think yes otherwise it will not correct /CONTROLL
+
+ ===================================================================================== 
+
+*/
+
+/// utility that receives one setpoint at a time, drives there, and waits for new setpoint
+pub async fn execute_tracjectory_loop_single_setpoint(
+    mode: ControlMode,
+    robot: &mut DiffdriveCascade,
+    controller: &mut DiffdriveControllerCascade,
+    robot_cfg: &RobotConfig,
+)->TrajectoryResult{
+    //set up consts
+    let goal_dist = 0.05; // 5cm 
+
+    /* ============================== Setup Ticker ================================= */
+    let mut ticker = Ticker::every(Duration::from_millis(
+        (robot_cfg.traj_following_dt_s * 1000.0) as u64,
+    ));
+    /* ============================================================================= */
+    
+    //outer loop -> looking for new setpoints
+    loop{
+        /* ======== wait for either the timer tick or a trajectory command ========= */
+        let either_result =
+            embassy_futures::select::select(ticker.next(), TRAJECTORY_CONTROL_EVENT.wait()).await;
+
+        match either_result {
+            embassy_futures::select::Either::First(_) => {
+                // timer tick: normal loop execution
+            }
+            embassy_futures::select::Either::Second(command) => {
+                // command received during trajectory execution
+                if !command {
+                    // Stop command - immediately stop motors
+                    stop_motors();
+                    defmt::info!("Stopping trajectory by command");
+                    return TrajectoryResult::Stopped;
+                }
+            }
+        }
+
+        // in case a stop was requested
+        if STOP_ALL.load(Ordering::Relaxed) {
+            stop_motors();
+            defmt::info!("Trajectory stopped via STOP_ALL");
+            break;
+        }
+        /* ========================================================================= */
+        //some logic to fetch new setpoints
+        //some logic to compare new setpoints vs current state
+        //if new setpoint != current state -> start driving
+        (x_d,y_d,theta_d,vd,wd) = ;//charlottes func;
+        //from christoph
+        let setpoint = DiffdriveSetpointCascade{
+            des: DiffdriveStateCascade{
+                x: x_d,
+                y: y_d,
+                theta: SO2::new(theta_d),
+            },
+            vdes: vd,
+            wdes:wd,
+        }
+        // i think we should call the controller in a loop, so it actually controlls something
+        //===========================actural controll loop================================
+        loop{
+            /* ======== we wait again ========= */
+            let either_result =
+                embassy_futures::select::select(ticker.next(), TRAJECTORY_CONTROL_EVENT.wait()).await;
+
+            match either_result {
+                embassy_futures::select::Either::First(_) => {
+                    // timer tick: normal loop execution
+                }
+                embassy_futures::select::Either::Second(command) => {
+                    // command received during trajectory execution
+                    if !command {
+                        // Stop command - immediately stop motors
+                        stop_motors();
+                        defmt::info!("Stopping trajectory by command");
+                        return TrajectoryResult::Stopped;
+                    }
+                }
+            }
+            // in case a stop was requested
+            if STOP_ALL.load(Ordering::Relaxed) {
+                stop_motors();
+                defmt::info!("Trajectory stopped via STOP_ALL");
+                break;
+            
+            }
+            /* ========================================================================= */
+            // who updates the pose -> mocap? where is it done
+            let pose = read_pose().await;
+
+            robot.s.x = pose.x;
+            robot.s.y = pose.y;
+            robot.s.theta = SO2::new(pose.yaw);
+
+            
+            // check if pose is reached +- small difference x,y, z, theta
+            let dx = robot.s.x - setpoint.des.x;
+            let dy = robot.s.y - setpoint.des.y;
+            let dist = sqrtf(dy * dy + dx * dx);
+            if dist < goal_dist {
+                defmt::info!("Desired point reached, stopped");
+                stop_motors();
+                break;
+            }
+
+            let (ul, ur, x_error, y_error, theta_error);
+
+            //control Mode matching skipped, should only work in MOCAP
+            let (action, x_e, y_e, yaw_e) = controller.control(&robot, setpoint);
+            ul = action.ul;
+            ur = action.ur;
+            x_error = x_e;
+            y_error = y_e;
+            theta_error = yaw_e;
+
+            // Write tracking errors to mutex for logging
+            write_tracking_error(TrackingError {
+                x_err: x_error,
+                y_err: y_error,
+                yaw_err: theta_error,
+            }).await;
+
+            write_wheel_cmd(WheelCmd::new(ul, ur)).await;
+        }
+        
+    }
+        
+        
+}
+
 
 /* ===================================================================================== */
