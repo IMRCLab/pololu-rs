@@ -7,7 +7,7 @@ use {defmt_rtt as _, panic_probe as _};
 use embassy_executor::Spawner;
 use embassy_rp::init;
 
-use pololu3pi2040_rs::encoder::{EncoderPair, encoder_left_task, encoder_right_task};
+use pololu3pi2040_rs::{encoder::{EncoderPair, encoder_left_task, encoder_right_task}, trajectory_control::execute_tracjectory_loop_single_waypoint};
 use pololu3pi2040_rs::init::init_all;
 use pololu3pi2040_rs::trajectory_control::{
     ControlMode, diffdrive_outer_loop_command_controlled_traj_following_from_sdcard,
@@ -90,15 +90,19 @@ async fn main(spawner: Spawner) {
     //     ))
     //     .unwrap();
 
+    // spawner
+    //     .spawn(
+    //         diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
+    //             // ControlMode::DirectDuty,
+    //             ControlMode::WithMocapController,
+    //             devices.config,
+    //         ),
+    //     )
+    //     .unwrap();
     spawner
         .spawn(
-            diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
-                // ControlMode::DirectDuty,
-                ControlMode::WithMocapController,
-                devices.config,
-            ),
-        )
-        .unwrap();
+            execute_tracjectory_loop_single_waypoint(devices.config),
+        ).unwrap();
 
     // ==================================== End of gain tuning outer loop ============================================
 }
