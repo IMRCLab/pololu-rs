@@ -32,7 +32,7 @@ use crate::trajectory_signal::{
 use crate::robotstate::{
     WheelCmd, WHEEL_CMD_CH, write_wheel_cmd, stop_motors,
     write_pose, read_pose,
-    write_tracking_error, TrackingError,
+    write_tracking_error, TrackingError, read_setpoint,read_waypoint
 };
 use crate::parameter_sync::send_running;
 
@@ -657,7 +657,10 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
         if i >= len {
             i = len - 1;
         }
-
+        
+        
+        
+    
         let TrajPose {
             x: x_d,
             y: y_d,
@@ -914,7 +917,7 @@ pub async fn mocap_update_task() {
 */
 
 /// utility that receives one setpoint at a time, drives there, and waits for new setpoint
-pub async fn execute_tracjectory_loop_single_setpoint(
+pub async fn execute_tracjectory_loop_single_waypoint(
     mode: ControlMode,
     robot: &mut DiffdriveCascade,
     controller: &mut DiffdriveControllerCascade,
@@ -938,6 +941,8 @@ pub async fn execute_tracjectory_loop_single_setpoint(
         match either_result {
             embassy_futures::select::Either::First(_) => {
                 // timer tick: normal loop execution
+
+                //evtl hier die neue pose abfangen
             }
             embassy_futures::select::Either::Second(command) => {
                 // command received during trajectory execution
@@ -945,7 +950,7 @@ pub async fn execute_tracjectory_loop_single_setpoint(
                     // Stop command - immediately stop motors
                     stop_motors();
                     defmt::info!("Stopping trajectory by command");
-                    return TrajectoryResult::Stopped;
+                    break;
                 }
             }
         }
@@ -960,87 +965,53 @@ pub async fn execute_tracjectory_loop_single_setpoint(
         //some logic to fetch new setpoints
         //some logic to compare new setpoints vs current state
         //if new setpoint != current state -> start driving
-        (x_d,y_d,theta_d,vd,wd) = ;//charlottes func;
-        //from christoph
-        let setpoint = DiffdriveSetpointCascade{
-            des: DiffdriveStateCascade{
-                x: x_d,
-                y: y_d,
-                theta: SO2::new(theta_d),
-            },
-            vdes: vd,
-            wdes:wd,
-        }
-        // i think we should call the controller in a loop, so it actually controlls something
-        //===========================actural controll loop================================
-        loop{
-            /* ======== we wait again ========= */
-            let either_result =
-                embassy_futures::select::select(ticker.next(), TRAJECTORY_CONTROL_EVENT.wait()).await;
-
-            match either_result {
-                embassy_futures::select::Either::First(_) => {
-                    // timer tick: normal loop execution
-                }
-                embassy_futures::select::Either::Second(command) => {
-                    // command received during trajectory execution
-                    if !command {
-                        // Stop command - immediately stop motors
-                        stop_motors();
-                        defmt::info!("Stopping trajectory by command");
-                        return TrajectoryResult::Stopped;
-                    }
-                }
-            }
-            // in case a stop was requested
-            if STOP_ALL.load(Ordering::Relaxed) {
-                stop_motors();
-                defmt::info!("Trajectory stopped via STOP_ALL");
-                break;
-            
-            }
-            /* ========================================================================= */
-            // who updates the pose -> mocap? where is it done
-            let pose = read_pose().await;
-
-            robot.s.x = pose.x;
-            robot.s.y = pose.y;
-            robot.s.theta = SO2::new(pose.yaw);
-
-            
-            // check if pose is reached +- small difference x,y, z, theta
-            let dx = robot.s.x - setpoint.des.x;
-            let dy = robot.s.y - setpoint.des.y;
-            let dist = sqrtf(dy * dy + dx * dx);
-            if dist < goal_dist {
-                defmt::info!("Desired point reached, stopped");
-                stop_motors();
-                break;
-            }
-
-            let (ul, ur, x_error, y_error, theta_error);
-
-            //control Mode matching skipped, should only work in MOCAP
-            let (action, x_e, y_e, yaw_e) = controller.control(&robot, setpoint);
-            ul = action.ul;
-            ur = action.ur;
-            x_error = x_e;
-            y_error = y_e;
-            theta_error = yaw_e;
-
-            // Write tracking errors to mutex for logging
-            write_tracking_error(TrackingError {
-                x_err: x_error,
-                y_err: y_error,
-                yaw_err: theta_error,
-            }).await;
-
-            write_wheel_cmd(WheelCmd::new(ul, ur)).await;
-        }
         
+        //-> wait for new pose channel 
+        //so wie beim timer -> in den timer step
+        //compare logic
+
+
+        //from christoph
+        let waypoint = read_waypoint().await; //if new setpoint, update here, else it stays the same 
+        //===========================actural controll loop================================
+        // update 
+        let pose = read_pose().await;
+        let setpoint: //write setpoint from waypoint, add default v
+        robot.s.x = pose.x;
+        robot.s.y = pose.y;
+        robot.s.theta = SO2::new(pose.yaw);
+
+        // check if pose is reached +- small difference x,y, z, theta
+        // let dx = robot.s.x - setpoint.des.x;
+        // let dy = robot.s.y - setpoint.des.y;
+        // let dist = sqrtf(dy * dy + dx * dx);
+        // if dist < goal_dist {
+        //     defmt::info!("Desired point reached, stopped");
+        //     stop_motors();
+        //     break;
+        // }
+
+        let (ul, ur, x_error, y_error, theta_error);
+
+        //control Mode matching skipped, should only work in MOCAP
+        let (action, x_e, y_e, yaw_e) = controller.control(&robot, setpoint);
+        ul = action.ul;
+        ur = action.ur;
+        x_error = x_e;
+        y_error = y_e;
+        theta_error = yaw_e;
+
+        // Write tracking errors to mutex for logging
+        write_tracking_error(TrackingError {
+            x_err: x_error,
+            y_err: y_error,
+            yaw_err: theta_error,
+        }).await;
+
+        write_wheel_cmd(WheelCmd::new(ul, ur)).await;
     }
         
-        
+     return TrajectoryResult::Stopped;
 }
 
 

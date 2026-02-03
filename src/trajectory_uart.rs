@@ -1,4 +1,4 @@
-use crate::robotstate::Pose;
+use crate::robotstate::{Pose, Waypoint};
 use defmt::*;
 use embassy_futures::select::{Either3, select3};
 use embassy_time::{Duration, Instant, Timer};
@@ -9,7 +9,7 @@ use crate::orchestrator_signal::{
     LEN_FUNC_SELECT_CMD, LEN_STOP_RESUME_CMD, Mode, ORCH_CH, OrchestratorMsg, STOP_MOCAP_UART_SIG,
     TRAJ_PAUSE_SIG, TRAJ_RESUME_SIG, decode_functionality_select_command,
 };
-use crate::trajectory_signal::{FIRST_MESSAGE, LAST_STATE, STATE_SIG};
+use crate::trajectory_signal::{FIRST_MESSAGE, LAST_STATE, LAST_WAYPOINT, STATE_SIG,WAYPOINT_SIG};
 use crate::uart::UART_RX_CHANNEL;
 
 #[derive(Clone, Copy)]
@@ -20,6 +20,7 @@ pub struct UartCfg {
 const FRAME_MAX: usize = 54;
 const LEN_POSE: u8 = 18;
 const LEN_START: u8 = 10;
+const LEN_WAYPOINT: u8 = 13;
 
 /// Receive motion capture data(position and orientation) from UART and update STATE_SIG and LAST_STATE
 #[embassy_executor::task]
@@ -139,6 +140,24 @@ pub async fn uart_motioncap_receiving_task(cfg: UartCfg) {
                 }
             }
             continue;
+            
+        }
+        //TODO: mutex erstellen fuer traj setpoint
+            //setpoint in trajectory control wie pose updaten und die last state von sd card rasuwerfen
+        // hier kopieren, if len == setpoint
+        // so wie oben ...
+        if len == LEN_WAYPOINT{
+            if let Some (waypoint) = decode_waypoint(&frame, cfg.robot_id){
+                let mut way = LAST_WAYPOINT.lock().await;
+                *way = waypoint;
+            
+                WAYPOINT_SIG.signal(waypoint); //was passiert hier???
+            // if !seen_first {
+            //     FIRST_MESSAGE.signal(val:());
+            //     seen_first = true;
+            //     info!("first setpoint arrived ")
+            // }
+            }
         }
     }
 }
@@ -207,5 +226,34 @@ fn decode_abs_pose(payload: &[u8], robot_id: u8) -> Option<Pose> {
         pitch,
         yaw,
         stamp,
+    })
+}
+fn decode_waypoint(payload: &[u8], robot_id: u8)-> Option<Waypoint>{
+    // frame header check
+    // info!("here3 {}", payload);
+
+    if !(payload.len() == 13 && (payload[0] == 0x3C)) {
+        //0x3C is related to channel and port number
+        return None;
+    }
+
+    let s1 = &payload[1..12];
+    
+
+    let x = f32::from_le_bytes([s1[0], s1[1], s1[2], s1[3]]);
+    let y = f32::from_le_bytes([s1[4], s1[5], s1[6], s1[7]]);
+
+    let yaw = f32::from_le_bytes([s1[8], s1[9], s1[10], s1[11]]);
+    
+
+    // info!(
+    //     "robot Id: {}, x:{}, y:{}, z:{}, roll:{}, pitch:{}, yaw:{}",
+    //     payload[1], x, y, z, roll, pitch, yaw,
+    // );
+
+   Some( Waypoint {
+        x_des:x,
+        y_des:y,
+        yaw_des:yaw,
     })
 }

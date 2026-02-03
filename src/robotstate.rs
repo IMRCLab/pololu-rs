@@ -36,6 +36,13 @@ pub static POSE: Mutex<ThreadModeRawMutex, Pose> = Mutex::new(Pose::DEFAULT);
 /// Readers: Position Controller, Logger
 pub static SETPOINT: Mutex<ThreadModeRawMutex, Setpoint> = Mutex::new(Setpoint::DEFAULT);
 
+
+///Current traj waypoint (setpoint minus vel)
+/// Writer: UART
+/// Reader: Traj controller single waypoint
+pub static WAYPOINT: Mutex<ThreadModeRawMutex, Waypoint> = Mutex::new(Waypoint::DEFAULT);
+
+
 /// Current encoder readings (measured wheel speeds)
 /// Writer: Inner Loop (after low-pass filtering)
 /// Readers: Inner Loop (PI controller), Logger
@@ -122,6 +129,7 @@ pub struct Setpoint {
     pub w_ff: f32,    // feedforward angular velocity [rad/s]
 }
 
+
 impl Setpoint {
     pub const DEFAULT: Self = Self {
         x_des: 0.0,
@@ -133,6 +141,29 @@ impl Setpoint {
 }
 
 impl Default for Setpoint {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+///Trajectroy waypoint, is a setpoint minus the veloceties
+#[derive(Debug, Clone, Copy)]
+pub struct Waypoint {
+    pub x_des: f32,   // meters
+    pub y_des: f32,   // meters
+    pub yaw_des: f32, // rad
+}
+
+
+impl Waypoint {
+    pub const DEFAULT: Self = Self {
+        x_des: 0.0,
+        y_des: 0.0,
+        yaw_des: 0.0,
+    };
+}
+
+impl Default for Waypoint {
     fn default() -> Self {
         Self::DEFAULT
     }
@@ -459,6 +490,22 @@ pub async fn write_setpoint(setpoint: Setpoint) {
 pub async fn read_setpoint() -> Setpoint {
     *SETPOINT.lock().await
 }
+// =============================================================================
+//                        Waypoint READ/WRITE
+// =============================================================================
+
+//called in: trajectory reader (from SD card)
+pub async fn write_waypoint(waypoint: Waypoint) {
+    let mut guard = WAYPOINT.lock().await;
+    *guard = waypoint;
+}
+
+//called in: position controller, logger
+pub async fn read_waypoint() -> Waypoint {
+    *WAYPOINT.lock().await
+}
+
+
 
 // =============================================================================
 //                        ENCODER READ/WRITE

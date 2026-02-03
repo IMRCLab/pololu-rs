@@ -6,6 +6,7 @@
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex as Raw;
 use embassy_sync::signal::Signal;
 
+use crate::robotstate::Waypoint;
 // Re-export from robotstate for backwards compatibility
 pub use crate::robotstate::{Pose, WHEEL_CMD_CH, WheelCmd, send_wheel_cmd, try_recv_wheel_cmd};
 
@@ -17,6 +18,13 @@ pub static TRAJECTORY_CONTROL_EVENT: Signal<Raw, bool> = Signal::new(); // true 
 // ====== STATE SIGNAL (PUSHED EACH TIME A NEW FRAME COMES IN) ======
 pub static STATE_SIG: Signal<Raw, Pose> = Signal::new();
 
+
+// ======== WAYPOINT SIG ================= // do I need this
+pub static WAYPOINT_SIG:  Signal<Raw, Waypoint> = Signal::new();
+
 // ====== LAST STATE ======
 use embassy_sync::mutex::Mutex;
 pub static LAST_STATE: Mutex<Raw, Pose> = Mutex::new(Pose::DEFAULT);
+
+// === LAST WAYOINT =======
+pub static LAST_WAYPOINT: Mutex<Raw, Waypoint> = Mutex::new(Waypoint::DEFAULT);
