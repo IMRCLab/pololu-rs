@@ -30,9 +30,7 @@ use crate::trajectory_signal::{
     STATE_SIG, TRAJECTORY_CONTROL_EVENT,
 };
 use crate::robotstate::{
-    WheelCmd, WHEEL_CMD_CH, write_wheel_cmd, stop_motors,
-    write_pose, read_pose,
-    write_tracking_error, TrackingError, read_setpoint,read_waypoint
+    Setpoint, TrackingError, WHEEL_CMD_CH, WheelCmd, read_pose, read_setpoint, read_waypoint, stop_motors, write_pose, write_tracking_error, write_wheel_cmd
 };
 use crate::parameter_sync::send_running;
 
@@ -918,13 +916,19 @@ pub async fn mocap_update_task() {
 
 /// utility that receives one setpoint at a time, drives there, and waits for new setpoint
 pub async fn execute_tracjectory_loop_single_waypoint(
-    mode: ControlMode,
-    robot: &mut DiffdriveCascade,
-    controller: &mut DiffdriveControllerCascade,
-    robot_cfg: &RobotConfig,
+    cfg: Option<RobotConfig>,
 )->TrajectoryResult{
     //set up consts
-    let goal_dist = 0.05; // 5cm 
+    let v_set:f32 = 0.01;
+    let w_set:f32 = 0.001;
+
+    // ============ Robot Configuration ==========
+    let robot_cfg = cfg.unwrap_or_default();
+    defmt::info!("Robot config loaded (from SD card if available)");
+
+    // ============ Initialize robot model =========
+    log_robot_init(&robot_cfg);
+    let (mut robot, mut controller) = create_robot_and_controller(&robot_cfg);
 
     /* ============================== Setup Ticker ================================= */
     let mut ticker = Ticker::every(Duration::from_millis(
@@ -976,7 +980,10 @@ pub async fn execute_tracjectory_loop_single_waypoint(
         //===========================actural controll loop================================
         // update 
         let pose = read_pose().await;
-        let setpoint: //write setpoint from waypoint, add default v
+        let setpoint:Setpoint = Setpoint {
+             x_des: (waypoint.x_des), y_des: (waypoint.y_des), yaw_des: (waypoint.yaw_des), v_ff: (v_set), w_ff: (w_set) 
+            };
+            //write setpoint from waypoint, add default v
         robot.s.x = pose.x;
         robot.s.y = pose.y;
         robot.s.theta = SO2::new(pose.yaw);
