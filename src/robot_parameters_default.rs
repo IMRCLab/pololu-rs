@@ -15,7 +15,7 @@ pub mod robot_constants {
     pub const KY_TRAJ: f32 = 0.8;
     pub const KTHETA_TRAJ: f32 = 0.1;
     pub const GEAR_RATIO: f32 = 100.31;
-    pub const ENCODER_CPR: f32 = -GEAR_RATIO * 12.0;
+    pub const ENCODER_CPR: f32 = GEAR_RATIO * 12.0; // Made positive - motor direction handles sign
     pub const MAX_SPEED: f32 = 0.65; // 65 cm/s, according to datasheet 75:1 Gear Ratio
     pub const MAX_OMEGA: f32 = 1.0;
     //find out the actual maximum speed of Zumo
@@ -38,7 +38,7 @@ pub mod robot_constants {
     pub const KY_TRAJ: f32 = 1.0;
     pub const KTHETA_TRAJ: f32 = 2.0;
     pub const GEAR_RATIO: f32 = 15.25;
-    pub const ENCODER_CPR: f32 = -GEAR_RATIO * 12.0;
+    pub const ENCODER_CPR: f32 = GEAR_RATIO * 12.0; // Made positive - motor direction handles sign
     pub const MAX_SPEED: f32 = 4.0; // 4.0 m/s, according to datasheet  Gear Ratio
     pub const MAX_OMEGA: f32 = 1.0;
     //find out the actual maximum speed of Zumo
@@ -62,7 +62,7 @@ pub mod robot_constants {
     pub const KY_TRAJ: f32 = 10.0;
     pub const KTHETA_TRAJ: f32 = 5.0;
     pub const GEAR_RATIO: f32 = 100.31;
-    pub const ENCODER_CPR: f32 = -GEAR_RATIO * 12.0;
+    pub const ENCODER_CPR: f32 = GEAR_RATIO * 12.0; // Made positive - motor direction handles sign
     pub const MAX_SPEED: f32 = 0.85; // 65 cm/s, according to datasheet 75:1 Gear Ratio
     pub const MAX_OMEGA: f32 = 1.0;
     //find out the actual maximum speed of Zumo

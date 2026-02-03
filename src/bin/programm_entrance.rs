@@ -19,7 +19,7 @@ use pololu3pi2040_rs::orchestrator_signal::{
 };
 use pololu3pi2040_rs::{
     encoder::{EncoderPair, encoder_left_task, encoder_right_task},
-    joystick_control::{teleop_motor_control_task, teleop_uart_task},
+    joystick_control::{control_action_uart_task, teleop_motor_control_task, teleop_uart_task},
     led::LED_SHARED,
     sdlog::SDLOGGER_SHARED,
     trajectory_control::{
@@ -122,6 +122,7 @@ pub async fn functionality_mode_selection_uart_task(cfg: UartCfg) {
                     1 => Mode::TeleOp,
                     2 => Mode::TrajMocap,
                     3 => Mode::TrajDuty,
+                    4 => Mode::CtrlAction,
                     _ => continue,
                 };
                 let _ = ORCH_CH.try_send(OrchestratorMsg::SwitchTo(target));
@@ -174,8 +175,9 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
 
         match msg {
             OrchestratorMsg::SwitchTo(target) => {
+                defmt::info!("Orchestrator received mode switch request");
                 if target == mode {
-                    info!("here1");
+                    info!("Already in target mode, ignoring");
                     continue;
                 }
 
@@ -189,14 +191,16 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
 
                         drain_signal(&STOP_MENU_UART_SIG, 2).await;
                     }
-                    Mode::TeleOp => {
+                    Mode::TeleOp | Mode::CtrlAction => {
+                        defmt::info!("Stopping TeleOp/CtrlAction tasks...");
                         STOP_TELEOP_UART_SIG.signal(());
                         STOP_MOTOR_CTRL_SIG.signal(());
 
-                        Timer::after(Duration::from_millis(2)).await;
+                        Timer::after(Duration::from_millis(50)).await; // Wait longer for tasks to exit
 
                         drain_signal(&STOP_TELEOP_UART_SIG, 2).await;
                         drain_signal(&STOP_MOTOR_CTRL_SIG, 2).await;
+                        defmt::info!("TeleOp/CtrlAction tasks stopped");
                     }
                     Mode::TrajMocap | Mode::TrajDuty => {
                         STOP_MOCAP_UART_SIG.signal(());
@@ -216,23 +220,25 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                 match target {
                     Mode::Menu => {
                         defmt::info!("Menu");
-                        spawner
-                            .spawn(functionality_mode_selection_uart_task(cfg))
-                            .unwrap();
+                        if let Err(_) = spawner.spawn(functionality_mode_selection_uart_task(cfg)) {
+                            defmt::warn!("Menu task already running or failed to spawn");
+                        }
                     }
                     Mode::TeleOp => {
                         defmt::info!("TELE-OPERATION Mode is selected!!!!!");
 
-                        spawner.spawn(teleop_uart_task(cfg)).unwrap();
+                        if let Err(_) = spawner.spawn(teleop_uart_task(cfg)) {
+                            defmt::warn!("Teleop UART task already running or failed to spawn");
+                        }
 
-                        spawner
-                            .spawn(teleop_motor_control_task(
-                                devices.motor,
-                                encoder_count_left,
-                                encoder_count_right,
-                                devices.config,
-                            ))
-                            .unwrap();
+                        if let Err(_) = spawner.spawn(teleop_motor_control_task(
+                            devices.motor,
+                            encoder_count_left,
+                            encoder_count_right,
+                            devices.config,
+                        )) {
+                            defmt::warn!("Teleop motor control task already running or failed to spawn");
+                        }
                     }
                     Mode::TrajMocap => {
                         defmt::info!("TRAJ-FOLLOWING Mode (With Mocap) is selected!!!!!");
@@ -277,6 +283,22 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                                 ),
                             )
                             .unwrap();
+                    }
+                    Mode::CtrlAction => {
+                        defmt::info!("CONTROL-ACTION Mode is selected!!!!!");
+
+                        if let Err(_) = spawner.spawn(control_action_uart_task(cfg)) {
+                            defmt::warn!("Control action UART task already running or failed to spawn");
+                        }
+
+                        if let Err(_) = spawner.spawn(teleop_motor_control_task(
+                            devices.motor,
+                            encoder_count_left,
+                            encoder_count_right,
+                            devices.config,
+                        )) {
+                            defmt::warn!("Teleop motor control task already running or failed to spawn");
+                        }
                     }
                 }
                 mode = target;

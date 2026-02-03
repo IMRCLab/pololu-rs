@@ -14,6 +14,7 @@ use embassy_futures::select::{Either, Either3, select, select3};
 use embassy_sync::blocking_mutex::raw::{NoopRawMutex, ThreadModeRawMutex};
 use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Ticker, Timer};
+use embassy_usb::msos::DescriptorSetInformation;
 use heapless::Vec as HVec;
 // Import the global verbosity macros
 use crate::debug_warn;
@@ -150,6 +151,7 @@ pub async fn robot_command_task(uart: SharedUart<'static>) {
 /* ========================== Joy Stick Speed Control Task =============================== */
 #[embassy_executor::task]
 pub async fn teleop_motor_control_task(
+    //adapted from inner loop
     motor: MotorController,
     left_counter: &'static Mutex<NoopRawMutex, i32>,
     right_counter: &'static Mutex<NoopRawMutex, i32>,
@@ -164,20 +166,24 @@ pub async fn teleop_motor_control_task(
         robot_cfg = RobotConfig::default();
     }
 
-    // initial filter coefficient 0.0
-    let mut filtered_rpm_left = 0.0;
-    let mut filtered_rpm_right = 0.0;
-
-    // Filterr coefficient alpha ∈ (0,1), smaller value means smoother/better
-    let alpha = 0.1;
-
-    let mut error_sum_left = 0.0;
-    let mut error_sum_right = 0.0;
-
-    let kp = 25.0;
-    let ki = 1.0;
-
     let mut ticker = Ticker::every(Duration::from_millis(robot_cfg.joystick_control_dt_ms));
+    
+    // PID state variables
+    let (mut il, mut ir) = (0.0f32, 0.0f32);
+    let (mut prev_el, mut prev_er) = (0.0f32, 0.0f32);
+    let (kp, ki, kd) = (robot_cfg.kp_inner, robot_cfg.ki_inner, robot_cfg.kd_inner);
+
+    // =========== Filter Parameters ==============
+    let dt: f32 = robot_cfg.joystick_control_dt_ms as f32 / 1000.0;
+    let fc_hz: f32 = 3.0; // Match trajectory control - integral term helps smooth quantization noise
+    let tau: f32 = 1.0 / (2.0 * PI * fc_hz);
+    let alpha: f32 = dt / (tau + dt);
+
+    let mut prev_l = 0i32;
+    let mut prev_r = 0i32;
+
+    let mut omega_l_lp: f32 = 0.0;
+    let mut omega_r_lp: f32 = 0.0;
 
     loop {
         match select(ticker.next(), STOP_MOTOR_CTRL_SIG.wait()).await {
@@ -193,62 +199,78 @@ pub async fn teleop_motor_control_task(
         }
 
         let cmd = CONTROL_CMD_UNICYCLE.lock().await.clone();
+        // defmt::info!("unicyclecmds: ({},{})", cmd.v, cmd.omega);
         let v = cmd.v; // m/s
         let omega = cmd.omega; //rad/s
 
+        // Convert unicycle commands to differential drive wheel velocities
         let v_left = v - omega * robot_cfg.wheel_base / 2.0;
         let v_right = v + omega * robot_cfg.wheel_base / 2.0;
 
-        let rpm_left_target = v_left / (2.0 * PI * robot_cfg.wheel_radius) * 60.0;
-        let rpm_right_target = v_right / (2.0 * PI * robot_cfg.wheel_radius) * 60.0;
+        defmt::info!("wheel speeds in meter/s: ({},{})", v_left, v_right);
 
-        let (rpm_left_now, rpm_right_now) = get_rpms(
+        // Convert linear wheel velocity to angular velocity (rad/s)
+        let omega_l_target = v_left / robot_cfg.wheel_radius;
+        let omega_r_target = v_right / robot_cfg.wheel_radius;
+
+        defmt::info!("wheel angular velocities (rad/s): target L: {}, R: {}", omega_l_target, omega_r_target);
+
+        // Get raw angular velocity of the wheels using encoder counts
+        use crate::encoder::wheel_speed_from_counts_now;
+        let ((omega_l_raw, omega_r_raw), (ln, rn)) = wheel_speed_from_counts_now(
             left_counter,
             right_counter,
             robot_cfg.encoder_cpr,
-            robot_cfg.joystick_control_dt_ms,
-        )
-        .await;
-        filtered_rpm_left = alpha * rpm_left_now + (1.0 - alpha) * filtered_rpm_left;
-        filtered_rpm_right = alpha * rpm_right_now + (1.0 - alpha) * filtered_rpm_right;
+            prev_l,
+            prev_r,
+            dt,
+        );
+        prev_l = ln;
+        prev_r = rn;
 
-        let error_left = rpm_left_target - filtered_rpm_left;
-        let error_right = rpm_right_target - filtered_rpm_right;
+        defmt::info!("wheel speed counts: target: ({},{}), reading raw: ({},{}), lp: ({},{})", omega_l_target, omega_r_target, omega_l_raw, omega_r_raw, omega_l_lp, omega_r_lp );
 
-        error_sum_left += error_left;
-        error_sum_right += error_right;
+        // =========== Low Pass Filter ==============
+        omega_l_lp = omega_l_lp + alpha * (omega_l_raw - omega_l_lp);
+        omega_r_lp = omega_r_lp + alpha * (omega_r_raw - omega_r_lp);
 
-        let mut duty_left = ((kp * error_left + ki * error_sum_left) / 10000.0).clamp(-1.0, 1.0);
-        let mut duty_right = ((kp * error_right + ki * error_sum_right) / 10000.0).clamp(-1.0, 1.0);
+        // Error calculation
+        let el = omega_l_target - omega_l_lp;
+        let er = omega_r_target - omega_r_lp;
 
-        // info!("Set Speed: {}, {}", duty_left, duty_right);
-        // info!(
-        //     "rpm_left_target: {}, rpm_left_now: {}",
-        //     rpm_left_target, rpm_left_now
-        // );
-        // info!(
-        //     "rpm_right_target: {}, rpm_right_now: {}",
-        //     rpm_right_target, rpm_right_now
-        // );
+        // Error integration with anti-windup (helps smooth encoder quantization)
+        il = (il + ki * dt * el).clamp(-2.0, 2.0);
+        ir = (ir + ki * dt * er).clamp(-2.0, 2.0);
 
-        if v_left.abs() < 0.1 {
-            //slack for zero speed recognition
-            duty_left = 0.0;
-            error_sum_left = 0.0; // Reset error when speed is close to zero
-        }
-        if v_right.abs() < 0.1 {
-            //slack for zero speed recognition
-            duty_right = 0.0;
-            error_sum_right = 0.0; // Reset error when speed is close to zero
-        }
+        // Error differentiation
+        let dl = (el - prev_el) / dt;
+        let dr = (er - prev_er) / dt;
+
+        prev_el = el;
+        prev_er = er;
+
+        // PID control (normally the D term is disabled, kd = 0.0)
+        let u_l = (kp * el + il + kd * dl).clamp(-1.0, 1.0);
+        let u_r = (kp * er + ir + kd * dr).clamp(-1.0, 1.0);
 
         // Apply robot-specific motor direction corrections
-        motor
-            .set_speed(
-                duty_left * robot_cfg.motor_direction_left,
-                duty_right * robot_cfg.motor_direction_right,
-            )
-            .await;
+        let duty_l = -u_l * robot_cfg.motor_direction_left;
+        let duty_r = -u_r * robot_cfg.motor_direction_right;
+
+        // defmt::info!("duty: ({},{})", duty_l, duty_r);
+        defmt::info!(
+            "target ω L: {}, R: {}, meas ω L: {}, R: {}, error L: {}, R: {}, duty L: {}, duty R: {}",
+            omega_l_target,
+            omega_r_target,
+            omega_l_lp,
+            omega_r_lp,
+            el,
+            er,
+            duty_l,
+            duty_r
+        );
+
+        motor.set_speed(duty_l, duty_r).await;
 
         update_robot_state(StateLoopBackPacketF32 {
             header: 0xA1,
@@ -379,6 +401,7 @@ pub async fn teleop_uart_task(cfg: UartCfg) {
                     1 => Mode::TeleOp,
                     2 => Mode::TrajMocap,
                     3 => Mode::TrajDuty,
+                    4 => Mode::CtrlAction,
                     _ => Mode::Menu,
                 };
                 let _ = ORCH_CH.try_send(OrchestratorMsg::SwitchTo(target));
@@ -389,6 +412,103 @@ pub async fn teleop_uart_task(cfg: UartCfg) {
     }
 }
 /* ============== uart teleop command receiving task with nonlinear mapping ============== */
+
+/* ============== Control Action UART task - direct (v, omega) from ROS ================= */
+/// Control Action UART task - direct (v, omega) from ROS without joystick mapping
+#[embassy_executor::task]
+pub async fn control_action_uart_task(cfg: UartCfg) {
+    let mut frame: HVec<u8, 32> = HVec::new();
+
+    loop {
+        let read_len_fut = UART_RX_CHANNEL.receive();
+        let timeout_len_fut = Timer::after(Duration::from_millis(1));
+        let stop_fut = STOP_TELEOP_UART_SIG.wait(); // reuse existing signal
+
+        let len: Option<u8> = match select3(read_len_fut, timeout_len_fut, stop_fut).await {
+            Either3::First(v) => Some(v),
+            Either3::Second(_) => None,
+            Either3::Third(_) => {
+                info!("control_action uart: stop signal -> exit");
+                return;
+            }
+        };
+
+        let Some(len) = len else {
+            Timer::after(Duration::from_micros(400)).await;
+            continue;
+        };
+
+        if !(len == TELEOP_PACK_LEN || len == LEN_FUNC_SELECT_CMD) {
+            continue;
+        }
+
+        // Read payload (same as teleop_uart_task)
+        frame.clear();
+        let need = len as usize;
+        let mut got = 0usize;
+
+        while got < need {
+            let read_byte_fut = UART_RX_CHANNEL.receive();
+            let timeout_fut = Timer::after(Duration::from_millis(2));
+            let stop_fut = STOP_TELEOP_UART_SIG.wait();
+
+            let b_opt: Option<u8> = match select3(read_byte_fut, timeout_fut, stop_fut).await {
+                Either3::First(b) => Some(b),
+                Either3::Second(_) => None,
+                Either3::Third(_) => {
+                    info!("control_action uart: stop signal on payload -> exit");
+                    return;
+                }
+            };
+
+            let Some(b) = b_opt else {
+                frame.clear();
+                got = 0;
+                break;
+            };
+
+            frame.push(b).ok();
+            got += 1;
+        }
+
+        if got != need {
+            continue;
+        }
+
+        if len == TELEOP_PACK_LEN {
+            //Receive Unicycle Commands here directly
+            if let Some(pkt) = CmdTeleopPacketMix::from_bytes(&frame) {
+                let cmd = ControlCommandUnicycle {
+                    v: pkt.linear_velocity,    // m/s
+                    omega: pkt.steering_angle, // rad/s
+                };
+
+                {
+                    let mut lock = CONTROL_CMD_UNICYCLE.lock().await;
+                    *lock = cmd;
+                }
+
+                debug_warn!("CtrlAction: v={}, omega={}", cmd.v, cmd.omega);
+            }
+        }
+
+        if len == LEN_FUNC_SELECT_CMD {
+            if let Some(sel) = decode_functionality_select_command(&frame, cfg.robot_id) {
+                let target = match sel {
+                    0 => Mode::Menu,
+                    1 => Mode::TeleOp,
+                    2 => Mode::TrajMocap,
+                    3 => Mode::TrajDuty,
+                    4 => Mode::CtrlAction,
+                    _ => Mode::Menu,
+                };
+                let _ = ORCH_CH.try_send(OrchestratorMsg::SwitchTo(target));
+                return;
+            }
+        }
+    }
+}
+/* ============== Control Action UART task - direct (v, omega) from ROS ================= */
 
 /* ===================================== Unused ========================================== */
 /* ================ Joy Stick Speed Control Task (without pd controller) ================= */
