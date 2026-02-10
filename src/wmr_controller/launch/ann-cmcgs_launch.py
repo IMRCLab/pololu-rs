@@ -32,8 +32,8 @@ def generate_launch_description():
         
         Node(
             package='wmr_controller',
-            executable='wmr_controller_node',
-            name='wmr_controller',
+            executable='ann_cmcgs_node',
+            name='ann_cmcgs_node',
             output='screen',
             parameters=[{
                 'robot_name': LaunchConfiguration('robot_name'),

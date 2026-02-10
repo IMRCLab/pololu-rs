@@ -5,6 +5,9 @@
   <version>0.0.1</version>
   <description>MPC controller for wheeled mobile robots with mocap feedback</description>
 
+  <maintainer email="user@todo.todo">user</maintainer>
+  <license>TODO: License declaration</license>
+
   <depend>rclpy</depend>
   <depend>geometry_msgs</depend>
   <depend>motion_capture_tracking_interfaces</depend>

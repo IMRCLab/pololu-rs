@@ -26,16 +26,15 @@ if not wmr_sim_path or not os.path.exists(wmr_sim_path):
 if os.path.exists(wmr_sim_path):
     sys.path.insert(0, wmr_sim_path)
     from controller import Controller
-    from estimator import DiffDriveEstimator
 else:
     print(f"Error: Could not find wmr-simulator scripts at {wmr_sim_path}")
 
 
 
 
-class WMRControllerNode(Node):
+class ANNCMCGSNode(Node):
     def __init__(self):
-        super().__init__('wmr_controller_node')
+        super().__init__('ann_cmcgs_node')
         
         # Parameters
         self.declare_parameter('robot_name', 'cf10')
@@ -56,20 +55,6 @@ class WMRControllerNode(Node):
         cmd_limits = (-10.0, 10.0)  # Wheel speed limits (rad/s) for pololu robots (seems to be lower than actual wheelspeed limits)
         self.controller = Controller(self.robot_param, gains=controller_gains, 
                                     cmd_limits=cmd_limits, dt=self.dt)
-        
-        #init estimator from wmr-simulator
-        estimator_cfg = {
-            "type": "dr",  # Dead reckoning for now (or "kf" for Kalman filter)
-            "wheel_radius": self.robot_param['wheel_radius'],
-            "base_diameter": self.robot_param['base_diameter'],
-            "start": [0.0, 0.0, 0.0],  # Will be updated from first mocap pose
-            "noise_pos": 0.001,
-            "noise_angle": 0.01,
-            "enc_angle_noise": 0.0,
-            "proc_pos_std": 0.01,
-            "proc_theta_std": 0.01
-        }
-        #self.estimator = DiffDriveEstimator(estimator_cfg, self.dt)
         
         # QoS for mocap (BEST_EFFORT like controller_interface)
         mocap_qos = QoSProfile(
@@ -104,7 +89,7 @@ class WMRControllerNode(Node):
         self.initialized = False
         self.wheel_speeds = (0.0, 0.0)  # Estimated wheel speeds (ur, ul)
         
-        self.get_logger().info(f'WMR Controller started for robot: {self.robot_name} @ {frequency} Hz')
+        self.get_logger().info(f'ANN-CMCGS Node started for robot: {self.robot_name} @ {frequency} Hz')
     
     
     def poses_callback(self, msg: NamedPoseArray):
@@ -122,7 +107,6 @@ class WMRControllerNode(Node):
                     # extract yaw from quaternion
                     q = pose.pose.orientation
                     th0 = np.arctan2(2*(q.w*q.z + q.x*q.y), 1 - 2*(q.y**2 + q.z**2))
-                    self.estimator._init_state(x0, y0, th0)
                     self.initialized = True
                     self.get_logger().info(f'Initialized at x={x0:.3f}, y={y0:.3f}, theta={th0:.3f}')
                 break
@@ -145,12 +129,6 @@ class WMRControllerNode(Node):
         #for now: wheel speed command is assumed to be true
         ur_true, ul_true = self.wheel_speeds
         
-        #self.estimator.update(ur_true, ul_true, pose_true)
-        
-        #pose_est = self.estimator.get_est_pose()  # (x_hat, y_hat, theta_hat)
-        ur_hat, ul_hat = self.estimator.get_est_wheel_speeds()
-        wheel_est = (ur_hat, ul_hat)
-        
         t = self.get_clock().now().nanoseconds / 1e9
 
         #get a dummy reference trajectory calculation here
@@ -169,7 +147,9 @@ class WMRControllerNode(Node):
         ref_state = [px_d, py_d, th_d, vx_d, vy_d, w_d, ax_d, ay_d]
         
         #compute control commands using estimated states, use mocap pose as "true" pose instead of estimating it
-        ur_cmd, ul_cmd = self.controller.compute(ref_state, pose_true, wheel_est)
+        # We skip the internal wheel speed PID of the Controller class because our robot has onboard low-level control.
+        # We only use the pose control part to get desired wheel speeds.
+        ur_cmd, ul_cmd = self.controller._pose_control(ref_state, pose_true)
         
         #convert wheel speeds to (v, w) for publishing
         #TODO: is it maybe better to publish r & l for pololu?
@@ -189,77 +169,9 @@ class WMRControllerNode(Node):
         # (in simulator, robot.step() updates these, i simply use commanded values here)
         self.wheel_speeds = (ur_cmd, ul_cmd)
 
-        
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument("--problem", type=str, default="problems/empty.yaml", help="path to problem and robot description yaml file")
-    # parser.add_argument("--output", type=str, default="simulation_visualization", help="path to output visualization pdf and html file")
-    # args = parser.parse_args()
-
-    # # Initialize robot model
-    # problem_path = args.problem
-    # with open(problem_path, 'r') as file:
-    #     problem = yaml.safe_load(file)
-
-    # # Simulation parameters
-    # sim_time = problem["sim_time"]  # simulation duration (s)
-    # dt = float(problem["time_step"])
-    # sim_N = int(sim_time / dt)
-    # sim_time_grid = np.linspace(0, sim_N * dt, sim_N + 1)
-    # start = problem["start"]
-    # goal = problem["goal"]
-
-    # # Initialize robot and estimator
-    # robot_cfg = problem["robot"]
-    # robot = DiffDrive(robot_cfg=robot_cfg, init_state=start, dt=dt)
-    # # Planning time horizon
-    # planner_cfg = problem["planner"]
-    # planner_time = planner_cfg["time"]  # total time for reference trajectory (s)
-    # planner_N = int(planner_time / dt)
-    # planner_time_grid = np.linspace(0, planner_N * dt, planner_N + 1)
-    
-    # # Generate reference trajectory over full planner horizon
-    # waypoints = planner_cfg["waypoints"]
-    # reference_states, polynomial_traj = compute_reference_trajectory(start, goal, waypoints, planner_time_grid)
-
-    # # Initialize estimator
-    # est_cfg = problem["estimator"]  # may be empty
-    # # Estimator uses robot+estimator params
-    # estimator = DiffDriveEstimator(estimator_cfg=est_cfg,
-    #                             dt=dt)    # simulation time horizon
-    
-    # # Initialize controller
-    # ctrl_cfg = problem["controller"]
-    # ctrl = Controller(robot_param=est_cfg,
-    #                   gains=ctrl_cfg["gains"],
-    #                   cmd_limits=[-robot_cfg["max_wheel_speed"], robot_cfg["max_wheel_speed"]],
-    #                   dt=dt)    
-    
-    # # Simulate only for the simulation time horizon
-    # for k in range(len(sim_time_grid)):
-    #     # Update estimator with true wheel speeds
-    #     ur_true, ul_true = robot.get_wheel_speeds()
-    #     pose_true = robot.get_pose()
-    #     estimator.update(ur_true, ul_true, pose_true)
-    #     pose_est = estimator.get_est_pose()
-    #     ur_hat, ul_hat = estimator.get_est_wheel_speeds()
-    #     wheel_est = (ur_hat, ul_hat)
-    #     # Determine which reference state to use
-    #     if k < len(reference_states):
-    #         # Use current reference state if available
-    #         ref_state = reference_states[k]
-    #     else:
-    #         # Use last available reference state if simulation continues beyond planner time
-    #         ref_state = reference_states[-1]
-
-    #     # Compute control commands [ur_cmd, ul_cmd] using reference at current time step
-    #     u = ctrl.compute(ref_state, pose_est, wheel_est)
-
-    #     # Step the robot simulation
-    #     robot.step(u)
-
 def main(args=None):
     rclpy.init(args=args)
-    node = WMRControllerNode()
+    node = ANNCMCGSNode()
     
     try:
         rclpy.spin(node)

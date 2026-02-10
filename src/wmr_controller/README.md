@@ -131,3 +131,7 @@ point to robot firmware with support for control action execution
 
 ## ROS 2 to Robot Architecture
 TODO
+
+
+## Debugging
+- make sure the robotname in wmr_controller_launch.py matches exactly that in the broadcasted mocap pose!!
