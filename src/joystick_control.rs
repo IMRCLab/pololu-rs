@@ -167,7 +167,7 @@ pub async fn teleop_motor_control_task(
     }
 
     let mut ticker = Ticker::every(Duration::from_millis(robot_cfg.joystick_control_dt_ms));
-    
+
     // PID state variables
     let (mut il, mut ir) = (0.0f32, 0.0f32);
     let (mut prev_el, mut prev_er) = (0.0f32, 0.0f32);
@@ -213,7 +213,11 @@ pub async fn teleop_motor_control_task(
         let omega_l_target = v_left / robot_cfg.wheel_radius;
         let omega_r_target = v_right / robot_cfg.wheel_radius;
 
-        defmt::info!("wheel angular velocities (rad/s): target L: {}, R: {}", omega_l_target, omega_r_target);
+        defmt::info!(
+            "wheel angular velocities (rad/s): target L: {}, R: {}",
+            omega_l_target,
+            omega_r_target
+        );
 
         // Get raw angular velocity of the wheels using encoder counts
         use crate::encoder::wheel_speed_from_counts_now;
@@ -228,7 +232,15 @@ pub async fn teleop_motor_control_task(
         prev_l = ln;
         prev_r = rn;
 
-        defmt::info!("wheel speed counts: target: ({},{}), reading raw: ({},{}), lp: ({},{})", omega_l_target, omega_r_target, omega_l_raw, omega_r_raw, omega_l_lp, omega_r_lp );
+        defmt::info!(
+            "wheel speed counts: target: ({},{}), reading raw: ({},{}), lp: ({},{})",
+            omega_l_target,
+            omega_r_target,
+            omega_l_raw,
+            omega_r_raw,
+            omega_l_lp,
+            omega_r_lp
+        );
 
         // =========== Low Pass Filter ==============
         omega_l_lp = omega_l_lp + alpha * (omega_l_raw - omega_l_lp);
@@ -271,21 +283,6 @@ pub async fn teleop_motor_control_task(
         );
 
         motor.set_speed(duty_l, duty_r).await;
-
-        update_robot_state(StateLoopBackPacketF32 {
-            header: 0xA1,
-            robot_id: 1,
-            pos_x: 1.0,
-            pos_y: 2.0,
-            pos_z: 3.0,
-            vel_x: 4.0,
-            vel_y: 5.0,
-            vel_z: 6.0,
-            qw: 1.0,
-            qx: 0.0,
-            qy: 0.0,
-            qz: 0.0,
-        });
 
         Timer::after(Duration::from_millis(robot_cfg.joystick_control_dt_ms)).await;
     }
