@@ -2,7 +2,7 @@
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
-from geometry_msgs.msg import Twist, Vector3
+from geometry_msgs.msg import Twist, Vector3, Pose2D
 from motion_capture_tracking_interfaces.msg import NamedPoseArray
 import numpy as np
 import sys
@@ -32,9 +32,9 @@ else:
 
 
 
-class ANNCMCGSNode(Node):
+class CMCGSCtrlNode(Node):
     def __init__(self):
-        super().__init__('ann_cmcgs_node')
+        super().__init__('cmcgs_ctrl')
         
         # Parameters
         self.declare_parameter('robot_name', 'cf10')
@@ -77,6 +77,15 @@ class ANNCMCGSNode(Node):
             self.poses_callback,
             mocap_qos
         )
+
+        # Plan subscription - keep only the latest plan (size 1)
+        self.latest_plan = None
+        self.plan_sub = self.create_subscription(
+            Pose2D,
+            'plan',
+            self.plan_callback,
+            1
+        )
         
         #publish velocity commands (v, w) on /cmd_unicycle topic 
         self.cmd_pub = self.create_publisher(Vector3, '/cmd_unicycle', cmd_qos)
@@ -111,11 +120,16 @@ class ANNCMCGSNode(Node):
                     self.get_logger().info(f'Initialized at x={x0:.3f}, y={y0:.3f}, theta={th0:.3f}')
                 break
     
+    def plan_callback(self, msg: Pose2D):
+        self.latest_plan = msg
+
     def control_loop(self):
         """copied from simulator.py and adapted to run inside a ros2 node """
         if not self.initialized or self.latest_pose is None:
             self.get_logger().warn('Waiting for first mocap pose...', throttle_duration_sec=2.0)
             return
+
+        # Use latest plan if available, otherwise stand still
         
         #get true pose from mocap (replaces robot.get_pose() in simulator)
         x_true = self.latest_pose.position.x
@@ -131,18 +145,28 @@ class ANNCMCGSNode(Node):
         
         t = self.get_clock().now().nanoseconds / 1e9
 
-        #get a dummy reference trajectory calculation here
-        #TODO: adapt to problem definition to read in from yaml 
-        radius = 0.3
-        omega = 0.71
-        px_d = radius * np.cos(omega * t)
-        py_d = radius * np.sin(omega * t)
-        th_d = omega * t + np.pi/2
-        vx_d = -radius * omega * np.sin(omega * t)
-        vy_d = radius * omega * np.cos(omega * t)
-        w_d = omega
-        ax_d = -radius * omega**2 * np.cos(omega * t)
-        ay_d = -radius * omega**2 * np.sin(omega * t)
+        if self.latest_plan is not None:
+             px_d = self.latest_plan.x
+             py_d = self.latest_plan.y
+             th_d = self.latest_plan.theta
+             
+             # Zero derivatives if not provided (assume static target point for now)
+             vx_d = 0.0
+             vy_d = 0.0
+             w_d = 0.0
+             ax_d = 0.0
+             ay_d = 0.0
+        else:
+            # If no plan, stay put at current location (or stop)
+            # We'll set desired state to current state to minimize error -> zero control
+            px_d = x_true
+            py_d = y_true
+            th_d = theta_true
+            vx_d = 0.0
+            vy_d = 0.0
+            w_d = 0.0
+            ax_d = 0.0
+            ay_d = 0.0
         
         ref_state = [px_d, py_d, th_d, vx_d, vy_d, w_d, ax_d, ay_d]
         
@@ -171,7 +195,7 @@ class ANNCMCGSNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = ANNCMCGSNode()
+    node = CMCGSCtrlNode()
     
     try:
         rclpy.spin(node)

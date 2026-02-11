@@ -164,6 +164,7 @@ private:
         std::string uri;
         if (this->get_parameter<std::string>("uri1", uri)) {
             robot_ids_[0] = getName(extractRadioIdFromUri(uri));
+            
         }
         if (this->get_parameter<std::string>("uri2", uri)) {
             robot_ids_[1] = getName(extractRadioIdFromUri(uri));

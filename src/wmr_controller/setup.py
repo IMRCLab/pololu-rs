@@ -18,7 +18,8 @@ setup(
     entry_points={
         'console_scripts': [
             'wmr_controller_node = wmr_controller.wmr_controller_node:main',
-            'ann_cmcgs_node = wmr_controller.ann_cmcgs_node:main',
+            'cmcgs_plan = wmr_controller.cmcgs_plan:main',
+            'cmcgs_ctrl = wmr_controller.cmcgs_ctrl:main',
             'reference_publisher_node = wmr_controller.reference_publisher_example:main',
             'timing_monitor = wmr_controller.timing_monitor:main'
         ],
