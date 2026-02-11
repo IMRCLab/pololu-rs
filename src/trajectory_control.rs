@@ -469,16 +469,13 @@ pub async fn wheel_speed_inner_loop(
     };
 
     loop {
-        match select3(ticker.next(), STOP_WHEEL_INNER_SIG.wait(), TRAJ_PAUSE_SIG.wait()).await {
-            Either3::First(_) => { 
-                // Normal loop 
-            }
-            Either3::Second(_) => {
+        match select3(STOP_WHEEL_INNER_SIG.wait(), TRAJ_PAUSE_SIG.wait(), ticker.next()).await {
+            Either3::First(_) => {
                 motor.set_speed(0.0, 0.0).await;
                 defmt::warn!("STOP inner loop -> exit");
                 return;    // Stop inner loop, stop trajectory following task, back to menu
             }
-            Either3::Third(_) => {
+            Either3::Second(_) => {
                 motor.set_speed(0.0, 0.0).await;
                 loop {
                     match select(TRAJ_RESUME_SIG.wait(), STOP_WHEEL_INNER_SIG.wait()).await {
@@ -490,6 +487,9 @@ pub async fn wheel_speed_inner_loop(
                     }
                 }
                 continue;
+            }
+            Either3::Third(_) => {
+                // Normal loop - ticker fired
             }
         }
 
