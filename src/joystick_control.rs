@@ -1,4 +1,4 @@
-use crate::encoder::get_rpms;
+use crate::encoder::{get_rpms, wheel_speed_from_counts_now};
 use crate::motor::MotorController;
 use crate::orchestrator_signal::{
     LEN_FUNC_SELECT_CMD, Mode, ORCH_CH, OrchestratorMsg, STOP_MOTOR_CTRL_SIG, STOP_TELEOP_UART_SIG,
@@ -179,27 +179,28 @@ pub async fn teleop_motor_control_task(
     let tau: f32 = 1.0 / (2.0 * PI * fc_hz);
     let alpha: f32 = dt / (tau + dt);
 
-    let mut prev_l = 0i32;
-    let mut prev_r = 0i32;
+    // CRITICAL: Initialize prev encoder counts with CURRENT values to avoid velocity spike
+    let mut prev_l = *left_counter.lock().await;
+    let mut prev_r = *right_counter.lock().await;
 
     let mut omega_l_lp: f32 = 0.0;
     let mut omega_r_lp: f32 = 0.0;
 
+    let mut loop_count = 0u32;
+
     loop {
-        match select(ticker.next(), STOP_MOTOR_CTRL_SIG.wait()).await {
-            Either::First(_) => {}
-            Either::Second(_) => {
+        match select(STOP_MOTOR_CTRL_SIG.wait(), ticker.next()).await {
+            Either::First(_) => {
+                // Stop signal received - zero commands and motors, then exit
+                let mut lock = CONTROL_CMD_UNICYCLE.lock().await;
+                *lock = ControlCommandUnicycle { v: 0.0, omega: 0.0 };
                 motor.set_speed(0.0, 0.0).await;
-                {
-                    let mut lock = CONTROL_CMD_UNICYCLE.lock().await;
-                    *lock = ControlCommandUnicycle { v: 0.0, omega: 0.0 };
-                }
                 return;
             }
+            Either::Second(_) => {}
         }
 
         let cmd = CONTROL_CMD_UNICYCLE.lock().await.clone();
-        // defmt::info!("unicyclecmds: ({},{})", cmd.v, cmd.omega);
         let v = cmd.v; // m/s
         let omega = cmd.omega; //rad/s
 
@@ -207,20 +208,11 @@ pub async fn teleop_motor_control_task(
         let v_left = v - omega * robot_cfg.wheel_base / 2.0;
         let v_right = v + omega * robot_cfg.wheel_base / 2.0;
 
-        defmt::info!("wheel speeds in meter/s: ({},{})", v_left, v_right);
-
         // Convert linear wheel velocity to angular velocity (rad/s)
         let omega_l_target = v_left / robot_cfg.wheel_radius;
         let omega_r_target = v_right / robot_cfg.wheel_radius;
 
-        defmt::info!(
-            "wheel angular velocities (rad/s): target L: {}, R: {}",
-            omega_l_target,
-            omega_r_target
-        );
-
         // Get raw angular velocity of the wheels using encoder counts
-        use crate::encoder::wheel_speed_from_counts_now;
         let ((omega_l_raw, omega_r_raw), (ln, rn)) = wheel_speed_from_counts_now(
             left_counter,
             right_counter,
@@ -231,16 +223,6 @@ pub async fn teleop_motor_control_task(
         );
         prev_l = ln;
         prev_r = rn;
-
-        defmt::info!(
-            "wheel speed counts: target: ({},{}), reading raw: ({},{}), lp: ({},{})",
-            omega_l_target,
-            omega_r_target,
-            omega_l_raw,
-            omega_r_raw,
-            omega_l_lp,
-            omega_r_lp
-        );
 
         // =========== Low Pass Filter ==============
         omega_l_lp = omega_l_lp + alpha * (omega_l_raw - omega_l_lp);
@@ -269,19 +251,6 @@ pub async fn teleop_motor_control_task(
         let duty_l = -u_l * robot_cfg.motor_direction_left;
         let duty_r = -u_r * robot_cfg.motor_direction_right;
 
-        // defmt::info!("duty: ({},{})", duty_l, duty_r);
-        defmt::info!(
-            "target ω L: {}, R: {}, meas ω L: {}, R: {}, error L: {}, R: {}, duty L: {}, duty R: {}",
-            omega_l_target,
-            omega_r_target,
-            omega_l_lp,
-            omega_r_lp,
-            el,
-            er,
-            duty_l,
-            duty_r
-        );
-
         motor.set_speed(duty_l, duty_r).await;
 
         Timer::after(Duration::from_millis(robot_cfg.joystick_control_dt_ms)).await;
@@ -302,10 +271,7 @@ pub async fn teleop_uart_task(cfg: UartCfg) {
         let len: Option<u8> = match select3(read_len_fut, timeout_len_fut, stop_fut).await {
             Either3::First(v) => Some(v),
             Either3::Second(_) => None,
-            Either3::Third(_) => {
-                info!("mocap uart: stop signal on len -> exit");
-                return;
-            }
+            Either3::Third(_) => return,
         };
 
         let Some(len) = len else {
@@ -334,10 +300,7 @@ pub async fn teleop_uart_task(cfg: UartCfg) {
             let b_opt: Option<u8> = match select3(read_byte_fut, timeout_fut, stop_fut).await {
                 Either3::First(b) => Some(b),
                 Either3::Second(_) => None,
-                Either3::Third(_) => {
-                    info!("uart: stop signal on payload -> exit");
-                    return;
-                }
+                Either3::Third(_) => return,
             };
 
             let Some(b) = b_opt else {
@@ -386,8 +349,6 @@ pub async fn teleop_uart_task(cfg: UartCfg) {
                     let mut lock = CONTROL_CMD_UNICYCLE.lock().await;
                     *lock = cmd;
                 }
-
-                debug_warn!("Updated Control: {}, {}", cmd.v, cmd.omega);
             }
         }
 
@@ -418,20 +379,22 @@ pub async fn control_action_uart_task(cfg: UartCfg) {
 
     loop {
         let read_len_fut = UART_RX_CHANNEL.receive();
-        let timeout_len_fut = Timer::after(Duration::from_millis(1));
+        let timeout_len_fut = Timer::after(Duration::from_millis(100)); // 100ms timeout for MPC
         let stop_fut = STOP_TELEOP_UART_SIG.wait(); // reuse existing signal
 
         let len: Option<u8> = match select3(read_len_fut, timeout_len_fut, stop_fut).await {
             Either3::First(v) => Some(v),
-            Either3::Second(_) => None,
-            Either3::Third(_) => {
-                info!("control_action uart: stop signal -> exit");
-                return;
+            Either3::Second(_) => {
+                // MPC timeout - zero commands for safety
+                let mut lock = CONTROL_CMD_UNICYCLE.lock().await;
+                *lock = ControlCommandUnicycle { v: 0.0, omega: 0.0 };
+                Timer::after(Duration::from_micros(400)).await;
+                None
             }
+            Either3::Third(_) => return,
         };
 
         let Some(len) = len else {
-            Timer::after(Duration::from_micros(400)).await;
             continue;
         };
 
@@ -452,10 +415,7 @@ pub async fn control_action_uart_task(cfg: UartCfg) {
             let b_opt: Option<u8> = match select3(read_byte_fut, timeout_fut, stop_fut).await {
                 Either3::First(b) => Some(b),
                 Either3::Second(_) => None,
-                Either3::Third(_) => {
-                    info!("control_action uart: stop signal on payload -> exit");
-                    return;
-                }
+                Either3::Third(_) => return,
             };
 
             let Some(b) = b_opt else {
@@ -484,8 +444,6 @@ pub async fn control_action_uart_task(cfg: UartCfg) {
                     let mut lock = CONTROL_CMD_UNICYCLE.lock().await;
                     *lock = cmd;
                 }
-
-                debug_warn!("CtrlAction: v={}, omega={}", cmd.v, cmd.omega);
             }
         }
 
@@ -506,7 +464,6 @@ pub async fn control_action_uart_task(cfg: UartCfg) {
     }
 }
 /* ============== Control Action UART task - direct (v, omega) from ROS ================= */
-
 /* ===================================== Unused ========================================== */
 /* ================ Joy Stick Speed Control Task (without pd controller) ================= */
 // #[embassy_executor::task]

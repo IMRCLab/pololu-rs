@@ -7,7 +7,7 @@ pub const FRAME_MAX: usize = 54;
 pub const LEN_FUNC_SELECT_CMD: u8 = 3;
 pub const LEN_STOP_RESUME_CMD: u8 = 4;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, defmt::Format)]
 pub enum Mode {
     Menu,
     TeleOp,

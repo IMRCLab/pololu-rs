@@ -192,15 +192,21 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         drain_signal(&STOP_MENU_UART_SIG, 2).await;
                     }
                     Mode::TeleOp | Mode::CtrlAction => {
-                        defmt::info!("Stopping TeleOp/CtrlAction tasks...");
+                        // Signal tasks to stop
                         STOP_TELEOP_UART_SIG.signal(());
                         STOP_MOTOR_CTRL_SIG.signal(());
+                        defmt::warn!("Stop signals sent");
 
-                        Timer::after(Duration::from_millis(50)).await; // Wait longer for tasks to exit
+                        //wait for tasks to actually terminate (they run at 50Hz, so 40ms = 2 cycles)
+                        Timer::after(Duration::from_millis(40)).await;
 
+                        //safety: ensure motors are stopped after tasks terminate
+                        devices.motor.set_speed(0.0, 0.0).await;
+                        defmt::warn!("Tasks stopped, motors zeroed");
+
+                        //drain signals to clear state
                         drain_signal(&STOP_TELEOP_UART_SIG, 2).await;
                         drain_signal(&STOP_MOTOR_CTRL_SIG, 2).await;
-                        defmt::info!("TeleOp/CtrlAction tasks stopped");
                     }
                     Mode::TrajMocap | Mode::TrajDuty => {
                         STOP_MOCAP_UART_SIG.signal(());
@@ -237,7 +243,9 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             encoder_count_right,
                             devices.config,
                         )) {
-                            defmt::warn!("Teleop motor control task already running or failed to spawn");
+                            defmt::warn!(
+                                "Teleop motor control task already running or failed to spawn"
+                            );
                         }
                     }
                     Mode::TrajMocap => {
@@ -288,7 +296,9 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         defmt::info!("CONTROL-ACTION Mode is selected!!!!!");
 
                         if let Err(_) = spawner.spawn(control_action_uart_task(cfg)) {
-                            defmt::warn!("Control action UART task already running or failed to spawn");
+                            defmt::warn!(
+                                "Control action UART task already running or failed to spawn"
+                            );
                         }
 
                         if let Err(_) = spawner.spawn(teleop_motor_control_task(
@@ -297,7 +307,9 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             encoder_count_right,
                             devices.config,
                         )) {
-                            defmt::warn!("Teleop motor control task already running or failed to spawn");
+                            defmt::warn!(
+                                "Teleop motor control task already running or failed to spawn"
+                            );
                         }
                     }
                 }

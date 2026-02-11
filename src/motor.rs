@@ -42,7 +42,6 @@ impl MotorController {
     }
 
     pub async fn set_speed(&self, left: f32, right: f32) {
-        defmt::info!("motor speeds set: ({},{})", left, right);
         self.left.lock().await.set_speed(left);
         self.right.lock().await.set_speed(right);
     }
