@@ -456,8 +456,9 @@ pub async fn wheel_speed_inner_loop(
     let tau: f32 = 1.0 / (2.0 * core::f32::consts::PI * fc_hz);
     let alpha: f32 = dt / (tau + dt);
 
-    let mut prev_l = 0i32;
-    let mut prev_r = 0i32;
+    //need to get current state of the encoders, because it is potentially leading to v spikes when switching programs.
+    let mut prev_l = *left_counter.lock().await;
+    let mut prev_r = *right_counter.lock().await;
 
     let mut omega_l_lp: f32 = 0.0;
     let mut omega_r_lp: f32 = 0.0;
@@ -486,6 +487,13 @@ pub async fn wheel_speed_inner_loop(
                         }
                     }
                 }
+                //reset the controller errors before resuming to avoid v spikes.
+                il = 0.0; ir = 0.0;
+                prev_el = 0.0; prev_er = 0.0;
+                omega_l_lp = 0.0; omega_r_lp = 0.0;
+                prev_l = *left_counter.lock().await;
+                prev_r = *right_counter.lock().await;
+                last_cmd = WheelCmd { omega_l: 0.0, omega_r: 0.0, stamp: Instant::now() };
                 continue;
             }
             Either3::Third(_) => {

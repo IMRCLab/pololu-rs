@@ -1,25 +1,18 @@
-use crate::encoder::{get_rpms, wheel_speed_from_counts_now};
+use crate::encoder::wheel_speed_from_counts_now;
 use crate::motor::MotorController;
 use crate::orchestrator_signal::{
     LEN_FUNC_SELECT_CMD, Mode, ORCH_CH, OrchestratorMsg, STOP_MOTOR_CTRL_SIG, STOP_TELEOP_UART_SIG,
     decode_functionality_select_command,
 };
-use crate::packet::{CmdLegacyPacketF32, CmdTeleopPacketMix, StateLoopBackPacketF32};
+use crate::packet::CmdTeleopPacketMix;
 use crate::read_robot_config_from_sd::RobotConfig;
 use crate::trajectory_uart::UartCfg;
 use crate::uart::UART_RX_CHANNEL;
-use crate::uart::{SharedUart, update_robot_state};
-use defmt::info;
 use embassy_futures::select::{Either, Either3, select, select3};
 use embassy_sync::blocking_mutex::raw::{NoopRawMutex, ThreadModeRawMutex};
 use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Ticker, Timer};
-use embassy_usb::msos::DescriptorSetInformation;
 use heapless::Vec as HVec;
-// Import the global verbosity macros
-use crate::debug_warn;
-
-use heapless::Vec;
 
 const PI: f32 = core::f32::consts::PI;
 const TELEOP_PACK_LEN: u8 = 9;
@@ -34,120 +27,15 @@ pub fn get_gear_ratio() -> f32 {
     GEAR_RATIO
 }
 
-/// Get motor direction multipliers for runtime identification
-pub fn get_motor_directions() -> (f32, f32) {
-    (MOTOR_DIRECTION_LEFT, MOTOR_DIRECTION_RIGHT)
-}
-
-#[derive(Copy, Clone, Debug)]
-pub struct ControlCommand {
-    pub left_speed: f32,
-    pub right_speed: f32,
-}
-
 #[derive(Copy, Clone, Debug)]
 pub struct ControlCommandUnicycle {
     pub v: f32,
     pub omega: f32,
 }
 
-pub static CONTROL_CMD: Mutex<ThreadModeRawMutex, ControlCommand> = Mutex::new(ControlCommand {
-    left_speed: 0.0,
-    right_speed: 0.0,
-});
-
 pub static CONTROL_CMD_UNICYCLE: Mutex<ThreadModeRawMutex, ControlCommandUnicycle> =
     Mutex::new(ControlCommandUnicycle { v: 0.0, omega: 0.0 });
 
-/* ===================================== Unused ========================================== */
-/* ================ Joy Stick Speed Control Task (without pd controller) ================= */
-#[embassy_executor::task]
-pub async fn motor_task(motor: MotorController) {
-    loop {
-        let cmd = CONTROL_CMD.lock().await.clone();
-        motor
-            .set_speed(
-                (cmd.left_speed as f32) / 10000.0,
-                (cmd.right_speed as f32) / 10000.0,
-            )
-            .await;
-
-        // 50ms
-        Timer::after(Duration::from_millis(50)).await;
-    }
-}
-
-/* ===================== simple uart teleop command receiving task ======================= */
-#[embassy_executor::task]
-pub async fn robot_command_task(uart: SharedUart<'static>) {
-    let mut buffer: Vec<u8, 32> = Vec::new();
-
-    loop {
-        let timeout = Timer::after(Duration::from_millis(500));
-        let byte_future = async {
-            let mut uart = uart.lock().await;
-            let mut b = [0u8; 1];
-            match uart.read(&mut b).await {
-                Ok(_) => Some(b[0]),
-                Err(_) => None,
-            }
-        };
-
-        match select(timeout, byte_future).await {
-            Either::First(_) => {
-                {
-                    let mut lock = CONTROL_CMD.lock().await;
-                    *lock = ControlCommand {
-                        left_speed: 0.0,
-                        right_speed: 0.0,
-                    };
-                    debug_warn!("UART timeout, stop motors");
-                }
-                buffer.clear();
-                continue;
-            }
-
-            Either::Second(Some(byte)) => {
-                if buffer.is_empty() && !(byte == 9 || byte == 13 || byte == 17) {
-                    continue;
-                }
-
-                buffer.push(byte).ok();
-
-                if buffer.len() == 2 && buffer[1] != 0x3C {
-                    buffer.clear();
-                    continue;
-                }
-
-                let expected_len = buffer[0] as usize + 1;
-                if buffer.len() == expected_len {
-                    if let Some(pkt) = CmdLegacyPacketF32::from_bytes(&buffer) {
-                        let cmd = ControlCommand {
-                            left_speed: pkt.left_pwm_duty * pkt.left_direction,
-                            right_speed: pkt.right_pwm_duty * pkt.right_direction,
-                        };
-
-                        {
-                            let mut lock = CONTROL_CMD.lock().await;
-                            *lock = cmd;
-                        }
-
-                        info!("Updated Control: {}, {}", cmd.left_speed, cmd.right_speed);
-                    }
-                    buffer.clear();
-                }
-            }
-
-            Either::Second(None) => {
-                continue;
-            }
-        }
-    }
-}
-/* ===================== simple uart teleop command receiving task ======================= */
-/* ===================================== Unused ========================================== */
-
-/* ================================== currently used ===================================== */
 /* ========================== Joy Stick Speed Control Task =============================== */
 #[embassy_executor::task]
 pub async fn teleop_motor_control_task(
@@ -186,12 +74,7 @@ pub async fn teleop_motor_control_task(
     let mut omega_l_lp: f32 = 0.0;
     let mut omega_r_lp: f32 = 0.0;
 
-    let mut loop_count = 0u32;
-
-    let mut i: i32 = 0;
-
     loop {
-        i += 1;
         match select(STOP_MOTOR_CTRL_SIG.wait(), ticker.next()).await {
             Either::First(_) => {
                 // Stop signal received - zero commands and motors, then exit
@@ -250,28 +133,9 @@ pub async fn teleop_motor_control_task(
         let u_l = (kp * el + il + kd * dl).clamp(-1.0, 1.0);
         let u_r = (kp * er + ir + kd * dr).clamp(-1.0, 1.0);
 
-        //apply robot-specific motor direction corrections ... why neg sign?
+        //apply robot-specific motor direction corrections
         let duty_l = u_l * robot_cfg.motor_direction_left;
         let duty_r = u_r * robot_cfg.motor_direction_right;
-        if i < 20 {
-            defmt::info!("encoder CPR: {}", robot_cfg.encoder_cpr);
-            defmt::info!(
-                "Motor Directions: left {}, right {}",
-                robot_cfg.motor_direction_left,
-                robot_cfg.motor_direction_right
-            );
-            defmt::info!(
-                "encoder readings, raw omega_l: {}, raw omega_r: {}",
-                omega_l_raw,
-                omega_r_raw
-            );
-            defmt::info!(
-                "Initial control loop, duty_l: {}, duty_r: {}",
-                duty_l,
-                duty_r
-            ); //counter to see the start of the control loop
-            defmt::info!("Controller Errors: {}, {}", el, er);
-        }
 
         motor.set_speed(duty_l, duty_r).await;
 
@@ -486,90 +350,3 @@ pub async fn control_action_uart_task(cfg: UartCfg) {
     }
 }
 /* ============== Control Action UART task - direct (v, omega) from ROS ================= */
-/* ===================================== Unused ========================================== */
-/* ================ Joy Stick Speed Control Task (without pd controller) ================= */
-// #[embassy_executor::task]
-// pub async fn motor_task(motor: MotorController) {
-//     loop {
-//         let cmd = CONTROL_CMD.lock().await.clone();
-//         motor
-//             .set_speed(
-//                 (cmd.left_speed as f32) / 10000.0,
-//                 (cmd.right_speed as f32) / 10000.0,
-//             )
-//             .await;
-
-//         // 50ms
-//         Timer::after(Duration::from_millis(50)).await;
-//     }
-// }
-
-// /* ===================== simple uart teleop command receiving task ======================= */
-// #[embassy_executor::task]
-// pub async fn robot_command_task(uart: SharedUart<'static>) {
-//     let mut buffer: Vec<u8, 32> = Vec::new();
-
-//     loop {
-//         let timeout = Timer::after(Duration::from_millis(500));
-//         let byte_future = async {
-//             let mut uart = uart.lock().await;
-//             let mut b = [0u8; 1];
-//             match uart.read(&mut b).await {
-//                 Ok(_) => Some(b[0]),
-//                 Err(_) => None,
-//             }
-//         };
-
-//         match select(timeout, byte_future).await {
-//             Either::First(_) => {
-//                 {
-//                     let mut lock = CONTROL_CMD.lock().await;
-//                     *lock = ControlCommand {
-//                         left_speed: 0.0,
-//                         right_speed: 0.0,
-//                     };
-//                     debug_warn!("UART timeout, stop motors");
-//                 }
-//                 buffer.clear();
-//                 continue;
-//             }
-
-//             Either::Second(Some(byte)) => {
-//                 if buffer.is_empty() && !(byte == 9 || byte == 13 || byte == 17) {
-//                     continue;
-//                 }
-
-//                 buffer.push(byte).ok();
-
-//                 if buffer.len() == 2 && buffer[1] != 0x3C {
-//                     buffer.clear();
-//                     continue;
-//                 }
-
-//                 let expected_len = buffer[0] as usize + 1;
-//                 if buffer.len() == expected_len {
-//                     if let Some(pkt) = CmdLegacyPacketF32::from_bytes(&buffer) {
-//                         let cmd = ControlCommand {
-//                             left_speed: pkt.left_pwm_duty * pkt.left_direction,
-//                             right_speed: pkt.right_pwm_duty * pkt.right_direction,
-//                         };
-
-//                         {
-//                             let mut lock = CONTROL_CMD.lock().await;
-//                             *lock = cmd;
-//                         }
-
-//                         info!("Updated Control: {}, {}", cmd.left_speed, cmd.right_speed);
-//                     }
-//                     buffer.clear();
-//                 }
-//             }
-
-//             Either::Second(None) => {
-//                 continue;
-//             }
-//         }
-//     }
-// }
-// /* ===================== simple uart teleop command receiving task ======================= */
-// /* ===================================== Unused ========================================== */

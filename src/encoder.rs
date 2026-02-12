@@ -7,7 +7,6 @@ use embassy_time::{Duration, Timer};
 use static_cell::StaticCell;
 
 use crate::encoder_lib::{PioEncoder, PioEncoderProgram};
-use crate::robot_parameters_default::robot_constants::*;
 
 /// Encoder struct for both encoders
 pub struct EncoderPair<'a> {
