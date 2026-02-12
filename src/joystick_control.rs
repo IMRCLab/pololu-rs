@@ -188,7 +188,10 @@ pub async fn teleop_motor_control_task(
 
     let mut loop_count = 0u32;
 
+    let mut i: i32 = 0;
+
     loop {
+        i += 1;
         match select(STOP_MOTOR_CTRL_SIG.wait(), ticker.next()).await {
             Either::First(_) => {
                 // Stop signal received - zero commands and motors, then exit
@@ -247,9 +250,28 @@ pub async fn teleop_motor_control_task(
         let u_l = (kp * el + il + kd * dl).clamp(-1.0, 1.0);
         let u_r = (kp * er + ir + kd * dr).clamp(-1.0, 1.0);
 
-        // Apply robot-specific motor direction corrections
-        let duty_l = -u_l * robot_cfg.motor_direction_left;
-        let duty_r = -u_r * robot_cfg.motor_direction_right;
+        //apply robot-specific motor direction corrections ... why neg sign?
+        let duty_l = u_l * robot_cfg.motor_direction_left;
+        let duty_r = u_r * robot_cfg.motor_direction_right;
+        if i < 20 {
+            defmt::info!("encoder CPR: {}", robot_cfg.encoder_cpr);
+            defmt::info!(
+                "Motor Directions: left {}, right {}",
+                robot_cfg.motor_direction_left,
+                robot_cfg.motor_direction_right
+            );
+            defmt::info!(
+                "encoder readings, raw omega_l: {}, raw omega_r: {}",
+                omega_l_raw,
+                omega_r_raw
+            );
+            defmt::info!(
+                "Initial control loop, duty_l: {}, duty_r: {}",
+                duty_l,
+                duty_r
+            ); //counter to see the start of the control loop
+            defmt::info!("Controller Errors: {}, {}", el, er);
+        }
 
         motor.set_speed(duty_l, duty_r).await;
 
@@ -326,7 +348,7 @@ pub async fn teleop_uart_task(cfg: UartCfg) {
                     let abs_raw = raw.abs();
 
                     let normalized = ((abs_raw - 1000.0) / 19000.0).clamp(0.0, 1.0);
-                    let speed_upper_limits = MAX_SPEED;
+                    let speed_upper_limits = MAX_SPEED * 0.5; //safety reduction 
                     let speed = speed_upper_limits * (libm::expf(2.0 * normalized) - 1.0)
                         / (libm::expf(2.0) - 1.0);
                     sign * speed
