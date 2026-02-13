@@ -30,9 +30,25 @@ else:
     print(f"Error: Could not find wmr-simulator scripts at {wmr_sim_path}")
 
 # Add ann-cmcgs-async to path
-ann_cmcgs_path = os.path.join(os.path.dirname(__file__), '../external/ann-cmcgs-async')
+ann_cmcgs_path = None
+try:
+    # Try finding in share (installed mode)
+    package_share_directory = ament_index_python.packages.get_package_share_directory('wmr_controller')
+    ann_cmcgs_path = os.path.join(package_share_directory, 'external/ann-cmcgs-async')
+except Exception:
+    pass
+
+if not ann_cmcgs_path or not os.path.exists(os.path.join(ann_cmcgs_path, 'tools')):
+    # Try relative to source file (dev mode)
+    ann_cmcgs_path = os.path.join(os.path.dirname(__file__), '../external/ann-cmcgs-async')
+
 if os.path.exists(ann_cmcgs_path):
     sys.path.insert(0, ann_cmcgs_path)
+
+    
+    # We prioritize the local path vs openai baseline
+    sys.path.insert(0, ann_cmcgs_path)
+    
     # Register envs
     import gymnasium as gym
     import tools.planners as planners
@@ -53,8 +69,17 @@ class ROSMCGSPlanner(MCGSPlanner):
 
     def receive_latest_state(self, use_hardware: bool = True):
         if use_hardware:
+            # Determine start state for the planner
+            # If we have an active setpoint we are driving to, plan from there
+            if self.node.active_setpoint_state is not None:
+                state = self.node.active_setpoint_state.copy()
+                # Update time to now (or projected arrival time?)
+                # For now, using current time as the "start time" for the next plan segment
+                current_time = self.node.get_clock().now().nanoseconds / 1e9 - self.node.start_time
+                state[3] = current_time
+                return state
+
             if self.node.latest_pose is None:
-                # Fallback if no pose yet, though planner loop guards against this
                 return np.zeros(4) 
             
             # Construct state [x, y, theta, time]
@@ -64,26 +89,18 @@ class ROSMCGSPlanner(MCGSPlanner):
             q = self.node.latest_pose.orientation
             theta = np.arctan2(2*(q.w*q.z + q.x*q.y), 1 - 2*(q.y**2 + q.z**2))
             
-            # Using ROS time as the time dimension
-            # Ensure it fits the scale expected by the planner (seconds)
             current_time = self.node.get_clock().now().nanoseconds / 1e9 - self.node.start_time
             
             new_state = np.array([x, y, theta, current_time], dtype=np.float32)
-            # self.node.get_logger().info(f"ROS Planner State: {new_state}")
             return new_state
         else:
             return super().receive_latest_state(use_hardware=False)
 
     def publish_setpoint(self, setpoint_state, use_hardware: bool = True):
         if use_hardware:
-            # setpoint_state is [x, y, theta, time]
-            msg = Pose2D()
-            msg.x = float(setpoint_state[0])
-            msg.y = float(setpoint_state[1])
-            msg.theta = float(setpoint_state[2])
-            
-            self.node.plan_pub.publish(msg)
-            # self.node.get_logger().info(f"Published Plan Setpoint: {msg}")
+            # Do NOT publish to ROS yet
+            # Store as pending setpoint
+            self.node.pending_setpoint_state = setpoint_state
         else:
             super().publish_setpoint(setpoint_state, use_hardware=False)
 
@@ -119,6 +136,10 @@ class CMCGSPlanNode(Node):
         self.latest_pose = None
         self.initialized = False
         self.start_time = self.get_clock().now().nanoseconds / 1e9
+        
+        # Receding Horizon State
+        self.active_setpoint_state = None  # The setpoint we are currently driving to
+        self.pending_setpoint_state = None # The setpoint the planner just calculated
 
         # Initialize Environment
         self.env = gym.make('NavigationEnvPololu-v0', 
@@ -178,8 +199,51 @@ class CMCGSPlanNode(Node):
             self.get_logger().warn('Waiting for first mocap pose...', throttle_duration_sec=2.0)
             return
 
-        # Use the MCGS Planner's online planning method
-        # This will call receive_latest_state -> update_planner -> plan -> publish_setpoint
+        # Check if we have a pending setpoint waiting to be activated
+        if self.pending_setpoint_state is not None:
+             # We have a plan ready.
+             # Check if we should activate it (i.e. if we reached the previous active setpoint)
+             
+             activate = False
+             if self.active_setpoint_state is None:
+                 # First plan ever
+                 activate = True
+             else:
+                 # Check distance to active setpoint
+                 sp_x = self.active_setpoint_state[0]
+                 sp_y = self.active_setpoint_state[1]
+                 curr_x = self.latest_pose.position.x
+                 curr_y = self.latest_pose.position.y
+                 dist = np.sqrt((sp_x - curr_x)**2 + (sp_y - curr_y)**2)
+                 
+                 if dist <= self.plan_tolerance:
+                     activate = True
+                     # self.get_logger().info(f"reached waypoint, dist={dist:.3f}")
+             
+             if activate:
+                 # Promote pending to active and publish
+                 self.active_setpoint_state = self.pending_setpoint_state
+                 self.pending_setpoint_state = None
+                 
+                 # Publish
+                 msg = Pose2D()
+                 msg.x = float(self.active_setpoint_state[0])
+                 msg.y = float(self.active_setpoint_state[1])
+                 msg.theta = float(self.active_setpoint_state[2])
+                 self.plan_pub.publish(msg)
+                 # self.get_logger().info(f"Published Plan: {msg.x:.2f}, {msg.y:.2f}")
+                 
+                 # Now pending is None, so we will fall through to planning below in the NEXT loop?
+                 # Actually we can start planning immediately if we want continuous planning.
+             else:
+                 # Still driving to active setpoint, and we already have the NEXT one planned.
+                 # So we just wait.
+                 return
+
+        # If we are here, pending_setpoint_state is None.
+        # This means we need to plan the next step.
+        # The planner will use active_setpoint_state as start if it exists (see receive_latest_state)
+        
         try:
             self.planner.plan_online(
                 computational=True,
@@ -217,3 +281,10 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+
+# set up planner
+# plan one iteration (may take up to 1sec)
+# take flag from controller interface, (if the controll follower was actualy started or not )only publish on /plan if the flag is set to true
+# publish the first state as setpoint
+# replan, take the setpoint as if was the actual robot position (so plan the next step)
+# publish the new setpoint (only if pose matches setpoint)

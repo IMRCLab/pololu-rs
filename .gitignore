@@ -10,3 +10,4 @@ test_results/
 
 .vscode/
 compile_commands.json
+.venv/

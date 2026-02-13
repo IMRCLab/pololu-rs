@@ -32,8 +32,20 @@ def generate_launch_description():
         
         Node(
             package='wmr_controller',
-            executable='ann_cmcgs_node',
-            name='ann_cmcgs_node',
+            executable='cmcgs_plan',
+            name='cmcgs_plan',
+            output='screen',
+            parameters=[{
+                'robot_name': LaunchConfiguration('robot_name'),
+                'mocap_topic': LaunchConfiguration('mocap_topic'),
+                'cmd_vel_topic': LaunchConfiguration('cmd_unicycle_topic'),
+                'control_rate': LaunchConfiguration('control_rate'),
+            }]
+        ),
+        Node(
+            package='wmr_controller',
+            executable='cmcgs_ctrl',
+            name='cmcgs_ctrl',
             output='screen',
             parameters=[{
                 'robot_name': LaunchConfiguration('robot_name'),

@@ -15,3 +15,6 @@
 [submodule "src/wmr_controller/external/cmcgs"]
 	path = src/wmr_controller/external/cmcgs
 	url = https://github.com/kallekku/cmcgs.git
+[submodule "src/wmr_controller/external/ann-cmcgs-async/baselines/cmcgs"]
+	path = src/wmr_controller/external/ann-cmcgs-async/baselines/cmcgs
+	url = https://github.com/kallekku/cmcgs.git
