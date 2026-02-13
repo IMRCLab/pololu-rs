@@ -12,3 +12,6 @@
 [submodule "src/wmr_controller/deps/wmr-simulator"]
 	path = src/wmr_controller/deps/wmr-simulator
 	url = git@github.com:IMRCLab/wmr-simulator.git
+[submodule "src/wmr_controller/external/cmcgs"]
+	path = src/wmr_controller/external/cmcgs
+	url = https://github.com/kallekku/cmcgs.git
