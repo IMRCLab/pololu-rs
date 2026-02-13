@@ -1,0 +1,70 @@
+# Dummy/Template Configuration File
+# This file contains all possible configuration sections with default values
+# Use this as a template for creating new experiment configurations
+
+# Default planner to use if not specified
+default_planner: "MCGS"
+
+experiment:
+  render_mode: null
+  save_replay: false
+  computational_budget_max: 100
+  time_budget_max: 20.0
+  sleep_time: 0.1
+  max_steps: 1000
+  num_episodes: 1
+
+environment:
+  name: "NavigationEnv-v0"
+  # Environment parameters
+  dt: 1.0
+  render_mode: null
+  atol: 0.0
+  rtol: 0.1
+  multi_step_count: 1
+  obstacle_mode: "circles"
+  render_sleep: 0.0
+
+planners:
+  MCGS:
+    config:
+      expand_n_times: 3
+      kappa: 0.8
+      alpha: 0.8
+      k: 5
+      radius_threshold: 2.0
+      progressive_widening_method: "default"
+      abstraction_refinement_exponent: -0.5
+      c_uct: 0.5
+      plan_in_space_time: true
+      use_controller: true
+      tracking_tolerance: 0.2
+      yield_mode: 'N'
+      random_rollout_n_times: 30
+      random_rollout_length: 3
+  CMCGS:
+    config:
+      min_graph_length: 3
+      rollout_length: 5
+      clustering_alg: "agglomerative"
+      elite_ratio: 0.1
+      optimal_prob: 0.1
+      optimal_n_top: 5
+      optimal_range: 0.5
+      max_n_clusters: 2147483646  # np.iinfo(np.int32).max - 1
+      min_update_divisor: 1.0
+      alpha: 5
+      beta: 2
+  MCTS_Bootstrap:
+    config:
+      expand_n_times: 2
+      kappa: 0.6
+      alpha: 0.8
+      k: 0
+      radius_threshold: 0.3
+      progressive_widening_method: "default"
+      abstraction_refinement_exponent: 0.0
+      c_uct: 0.6
+      plan_in_space_time: true
+      use_controller: true
+      tracking_tolerance: 0.9

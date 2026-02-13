@@ -1,0 +1,144 @@
+# Hyperparameter Optimization Configuration
+
+# Parameter search spaces for MCGS
+mcgs_search_space:
+  computational_budget_max:
+    type: int
+    low: 50
+    high: 350
+    step: 50
+  time_budget_max:
+    type: float
+    low: 5.0
+    high: 30.0
+  expand_n_times:
+    type: int
+    low: 1
+    high: 5
+  kappa:
+    type: float
+    low: 0.1
+    high: 2.0
+  alpha:
+    type: float
+    low: 0.1
+    high: 1.0
+  k:
+    type: int
+    low: 2
+    high: 30
+  radius_threshold:
+    type: float
+    low: 0.1
+    high: 5.0
+  c_uct:
+    type: float
+    low: 0.1
+    high: 2.0
+  tracking_tolerance:
+    type: float
+    low: 0.1
+    high: 1.0
+  abstraction_refinement_exponent:
+    type: float
+    low: -1.0
+    high: 0.0
+  progressive_widening_method:
+    type: categorical
+    choices: ['default', 'expansion_attempts', 'epsilon_greedy']
+  epsilon:
+    type: float
+    low: 0.01
+    high: 0.5
+  expand_n_times_min:
+    type: int
+    low: 1
+    high: 3
+  expand_n_times_max:
+    type: int
+    low: 3
+    high: 8
+  sample_best_X_actions:
+    type: int
+    low: 5
+    high: 20
+  yield_mode:
+    type: categorical
+    choices: ['N', 'Q']
+  random_rollout_n_times:
+    type: int
+    low: 5
+    high: 50
+  random_rollout_length:
+    type: int
+    low: 1
+    high: 15
+
+# Parameter search spaces for CMCGS
+cmcgs_search_space:
+  simulation_budget:
+    type: int
+    low: 50
+    high: 350
+    step: 50
+  time_budget_max:
+    type: float
+    low: 5.0
+    high: 30.0
+  min_graph_length:
+    type: int
+    low: 2
+    high: 10
+  rollout_length:
+    type: int
+    low: 3
+    high: 15
+  elite_ratio:
+    type: float
+    low: 0.05
+    high: 0.3
+  optimal_prob:
+    type: float
+    low: 0.05
+    high: 0.3
+  optimal_n_top:
+    type: int
+    low: 3
+    high: 15
+  optimal_range:
+    type: float
+    low: 0.1
+    high: 1.0
+  min_update_divisor:
+    type: float
+    low: 0.5
+    high: 2.0
+  alpha:
+    type: int
+    low: 1
+    high: 10
+  beta:
+    type: int
+    low: 1
+    high: 10
+
+# Optimization settings
+optimization:
+  n_trials: 50
+  n_episodes_per_trial: 5
+  max_steps_per_episode: 20
+  timeout: null  # seconds, null for no timeout
+  
+# Environments to test on
+environments:
+  - "NavigationEnvBaseline-v0"
+  - "NavigationEnvSingleIntegrator-v0"
+  - "NavigationEnvSingleIntegratorUnicycle-v0"
+  - "NavigationEnvSingleIntegratorUnicycleBrokenRudder-v0"
+  - "NavigationEnvDoubleIntegrator-v0"
+
+# Study configuration
+study:
+  direction: maximize  # maximize reward
+  sampler: TPE  # Tree-structured Parzen Estimator
+  pruner: MedianPruner  # Prune unpromising trials
