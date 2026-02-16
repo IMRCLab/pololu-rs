@@ -35,7 +35,7 @@ def get_data_files():
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob('launch/*launch.[pxy][yma]*')),
         (os.path.join('share', package_name, 'deps/wmr-simulator/scripts'), glob('deps/wmr-simulator/scripts/*.py')),
-        ('lib/' + package_name, ['scripts/cmcgs_plan']),
+        ('lib/' + package_name, ['scripts/cmcgs_plan', 'scripts/cmcgs_ctrl']),
     ]
     
     # Add external/ann-cmcgs-async recursively
@@ -74,7 +74,6 @@ setup(
     entry_points={
         'console_scripts': [
             'wmr_controller_node = wmr_controller.wmr_controller_node:main',
-            'cmcgs_ctrl = wmr_controller.cmcgs_ctrl:main',
 
             'reference_publisher_node = wmr_controller.reference_publisher_example:main',
             'timing_monitor = wmr_controller.timing_monitor:main'

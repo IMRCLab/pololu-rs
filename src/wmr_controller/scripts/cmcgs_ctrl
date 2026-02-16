@@ -1,0 +1,36 @@
+#!/home/lndw/wmr-ros/.venv/bin/python3
+import sys
+import os
+
+# Try to import any standard libraries or installed packages
+try:
+    import rclpy
+except ImportError:
+    pass
+
+# Attempt to find the wmr_controller package if not installed in the venv
+try:
+    import wmr_controller.cmcgs_ctrl
+except ImportError:
+    # Logic to find the package in the install directory relative to this script
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # Try looking for python site-packages in the install tree
+    # We navigate up from lib/wmr_controller to lib/pythonX.Y/site-packages
+    
+    # Go up to 'lib'
+    lib_dir = os.path.dirname(script_dir) # install/wmr_controller/lib
+    
+    # Look for python* directories
+    if os.path.exists(lib_dir):
+        for d in os.listdir(lib_dir):
+            if d.startswith('python'):
+                site_packages = os.path.join(lib_dir, d, 'site-packages')
+                if os.path.exists(site_packages):
+                    sys.path.insert(0, site_packages)
+                    break
+
+import wmr_controller.cmcgs_ctrl
+
+if __name__ == '__main__':
+    wmr_controller.cmcgs_ctrl.main()

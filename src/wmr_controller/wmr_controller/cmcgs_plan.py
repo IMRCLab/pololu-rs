@@ -67,18 +67,35 @@ class ROSMCGSPlanner(MCGSPlanner):
         super().__init__(*args, **kwargs)
         self.node = node
 
+    def is_executing(self):
+        """Check if robot is still executing actions (driving to setpoint)."""
+        if self.node.active_setpoint_state is None:
+            return False
+            
+        if self.node.latest_pose is None:
+            return False
+
+        # Calculate distance to active setpoint
+        sp_x = self.node.active_setpoint_state[0]
+        sp_y = self.node.active_setpoint_state[1]
+        curr_x = self.node.latest_pose.position.x
+        curr_y = self.node.latest_pose.position.y
+        dist = np.sqrt((sp_x - curr_x)**2 + (sp_y - curr_y)**2)
+        
+        return dist > self.node.plan_tolerance
+
     def receive_latest_state(self, use_hardware: bool = True):
         if use_hardware:
             # Determine start state for the planner
-            # If we have an active setpoint we are driving to, plan from there
-            if self.node.active_setpoint_state is not None:
+            
+            # If we are executing, plan from the target we are driving to
+            if self.is_executing():
                 state = self.node.active_setpoint_state.copy()
-                # Update time to now (or projected arrival time?)
-                # For now, using current time as the "start time" for the next plan segment
                 current_time = self.node.get_clock().now().nanoseconds / 1e9 - self.node.start_time
                 state[3] = current_time
                 return state
 
+            # If not executing (idle/reached), plan from current robot pose
             if self.node.latest_pose is None:
                 return np.zeros(4) 
             
@@ -98,9 +115,16 @@ class ROSMCGSPlanner(MCGSPlanner):
 
     def publish_setpoint(self, setpoint_state, use_hardware: bool = True):
         if use_hardware:
-            # Do NOT publish to ROS yet
-            # Store as pending setpoint
-            self.node.pending_setpoint_state = setpoint_state
+            # Update active setpoint
+            self.node.active_setpoint_state = setpoint_state
+            
+            # Publish to ROS
+            msg = Pose2D()
+            msg.x = float(setpoint_state[0])
+            msg.y = float(setpoint_state[1])
+            msg.theta = float(setpoint_state[2])
+            self.node.plan_pub.publish(msg)
+            # self.node.get_logger().info(f"Published setpoint: {msg.x:.2f}, {msg.y:.2f}")
         else:
             super().publish_setpoint(setpoint_state, use_hardware=False)
 
@@ -139,7 +163,6 @@ class CMCGSPlanNode(Node):
         
         # Receding Horizon State
         self.active_setpoint_state = None  # The setpoint we are currently driving to
-        self.pending_setpoint_state = None # The setpoint the planner just calculated
 
         # Initialize Environment
         self.env = gym.make('NavigationEnvPololu-v0', 
@@ -199,50 +222,11 @@ class CMCGSPlanNode(Node):
             self.get_logger().warn('Waiting for first mocap pose...', throttle_duration_sec=2.0)
             return
 
-        # Check if we have a pending setpoint waiting to be activated
-        if self.pending_setpoint_state is not None:
-             # We have a plan ready.
-             # Check if we should activate it (i.e. if we reached the previous active setpoint)
-             
-             activate = False
-             if self.active_setpoint_state is None:
-                 # First plan ever
-                 activate = True
-             else:
-                 # Check distance to active setpoint
-                 sp_x = self.active_setpoint_state[0]
-                 sp_y = self.active_setpoint_state[1]
-                 curr_x = self.latest_pose.position.x
-                 curr_y = self.latest_pose.position.y
-                 dist = np.sqrt((sp_x - curr_x)**2 + (sp_y - curr_y)**2)
-                 
-                 if dist <= self.plan_tolerance:
-                     activate = True
-                     # self.get_logger().info(f"reached waypoint, dist={dist:.3f}")
-             
-             if activate:
-                 # Promote pending to active and publish
-                 self.active_setpoint_state = self.pending_setpoint_state
-                 self.pending_setpoint_state = None
-                 
-                 # Publish
-                 msg = Pose2D()
-                 msg.x = float(self.active_setpoint_state[0])
-                 msg.y = float(self.active_setpoint_state[1])
-                 msg.theta = float(self.active_setpoint_state[2])
-                 self.plan_pub.publish(msg)
-                 # self.get_logger().info(f"Published Plan: {msg.x:.2f}, {msg.y:.2f}")
-                 
-                 # Now pending is None, so we will fall through to planning below in the NEXT loop?
-                 # Actually we can start planning immediately if we want continuous planning.
-             else:
-                 # Still driving to active setpoint, and we already have the NEXT one planned.
-                 # So we just wait.
-                 return
-
-        # If we are here, pending_setpoint_state is None.
-        # This means we need to plan the next step.
-        # The planner will use active_setpoint_state as start if it exists (see receive_latest_state)
+        # Continuous planning loop
+        # The ROSMCGSPlanner.plan_online() method handles:
+        # 1. Checking if we are executing (using is_executing override)
+        # 2. Publishing new setpoints if idle (using publish_setpoint override)
+        # 3. Refining the plan while driving (using budget)
         
         try:
             self.planner.plan_online(
@@ -282,9 +266,3 @@ def main(args=None):
 if __name__ == '__main__':
     main()
 
-# set up planner
-# plan one iteration (may take up to 1sec)
-# take flag from controller interface, (if the controll follower was actualy started or not )only publish on /plan if the flag is set to true
-# publish the first state as setpoint
-# replan, take the setpoint as if was the actual robot position (so plan the next step)
-# publish the new setpoint (only if pose matches setpoint)
