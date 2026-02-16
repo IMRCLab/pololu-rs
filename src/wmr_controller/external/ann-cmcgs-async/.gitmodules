@@ -1,6 +1,0 @@
-[submodule "cmcgs"]
-	path = cmcgs
-	url = https://github.com/kallekku/cmcgs.git
-[submodule "baselines/cmcgs"]
-	path = baselines/cmcgs
-	url = https://github.com/kallekku/cmcgs.git

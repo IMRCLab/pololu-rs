@@ -34,13 +34,13 @@ ann_cmcgs_path = None
 try:
     # Try finding in share (installed mode)
     package_share_directory = ament_index_python.packages.get_package_share_directory('wmr_controller')
-    ann_cmcgs_path = os.path.join(package_share_directory, 'external/ann-cmcgs-async')
+    ann_cmcgs_path = os.path.join(package_share_directory, 'external/ann-cmcgs')
 except Exception:
     pass
 
 if not ann_cmcgs_path or not os.path.exists(os.path.join(ann_cmcgs_path, 'tools')):
     # Try relative to source file (dev mode)
-    ann_cmcgs_path = os.path.join(os.path.dirname(__file__), '../external/ann-cmcgs-async')
+    ann_cmcgs_path = os.path.join(os.path.dirname(__file__), '../external/ann-cmcgs')
 
 if os.path.exists(ann_cmcgs_path):
     sys.path.insert(0, ann_cmcgs_path)
@@ -109,11 +109,22 @@ class ROSMCGSPlanner(MCGSPlanner):
             current_time = self.node.get_clock().now().nanoseconds / 1e9 - self.node.start_time
             
             new_state = np.array([x, y, theta, current_time], dtype=np.float32)
+            #self.node.get_logger().info(f"ROSMCGSPlanner: New state received from hardware: {new_state}")
+            
+            # --- CRITICAL FIX ------------------------------------
+            # The base MCGSPlanner.update_planner() reads state directly from self.env.agent.state
+            # It ignores the return value of receive_latest_state() when updating internal graph!
+            # So we MUST update the environment state here manually.
+            if hasattr(self.env, 'agent'):
+                self.env.agent.state = new_state
+            # -----------------------------------------------------
+
             return new_state
         else:
             return super().receive_latest_state(use_hardware=False)
 
     def publish_setpoint(self, setpoint_state, use_hardware: bool = True):
+        self.node.get_logger().info(f"Published setpoint: {setpoint_state}")
         if use_hardware:
             # Update active setpoint
             self.node.active_setpoint_state = setpoint_state
@@ -135,9 +146,24 @@ class CMCGSPlanNode(Node):
         # Parameters
         self.declare_parameter('robot_name', 'Pololu08')
         self.declare_parameter('plan_tolerance', 0.05)  # 5cm tolerance for reaching waypoint
+        #obstacles are a list of x1,z1,r1 x2,z2,r2 -> a list of circels
+        self.declare_parameter('obstacles', [
+            -0.25, -0.5, 0.245,     #P01
+            0.0, 0.75, 0.245,       #P02
+            0.5, 0.75, 0.245,       #P03
+            -0.5, -0.25, 0.3        #P04
+            ])
+        # Manual goal setting
+        self.declare_parameter('goal_x', 0.75)
+        self.declare_parameter('goal_y', 1.75)
+        self.declare_parameter('goal_radius', 0.05)
 
         self.robot_name = self.get_parameter('robot_name').value
         self.plan_tolerance = self.get_parameter('plan_tolerance').value
+        obstacles_param = self.get_parameter('obstacles').value
+        self.goal_x = self.get_parameter('goal_x').value
+        self.goal_y = self.get_parameter('goal_y').value
+        self.goal_radius = self.get_parameter('goal_radius').value
         
         # ROS Communication
         mocap_qos = QoSProfile(
@@ -166,7 +192,7 @@ class CMCGSPlanNode(Node):
 
         # Initialize Environment
         self.env = gym.make('NavigationEnvPololu-v0', 
-               render_mode=None, # No rendering in ROS node
+               render_mode='human', # Enable rendering
                dt=1.0,
                atol=0.3,
                rtol=0.0,
@@ -177,9 +203,55 @@ class CMCGSPlanNode(Node):
         )
         self.env.reset(seed=42)
 
+        # --------------------------------------------------------------------------
+        # MANUALLY OVERRIDE GOAL 
+        # For real world experiments, we want a fixed goal, not a random one.
+        # We access the underlying environment to set 'goal_pos' and 'goal_radius'.
+        # --------------------------------------------------------------------------
+        try:
+             # Unwrap if necessary
+            if hasattr(self.env, 'unwrapped'):
+                env_unwrapped = self.env.unwrapped
+            else:
+                env_unwrapped = self.env
+            
+            # The environment expects goal_pos as a numpy array or list [x, y]
+            # Use object.__setattr__ just in case it's a frozen dataclass or similar
+            object.__setattr__(env_unwrapped, 'goal_pos', np.array([self.goal_x, self.goal_y]))
+            object.__setattr__(env_unwrapped, 'goal_radius', self.goal_radius)
+
+            # Fix for Observation Space Limits causing Truncation
+            # Original limits were derived from hardcoded start/end pos [0,3] -> [9,4]
+            # Robot is starting at [0,0] which is outside Y range [1, 5]
+            
+            # Create new expanded limits: [-5, 10, -5, 10]
+            # Structure: [x_min, x_max, y_min, y_max]
+            new_pos_limits = [-5.0, 10.0, -5.0, 10.0]
+            object.__setattr__(env_unwrapped, 'pos_limits', new_pos_limits)
+
+            # Re-create observation space with new limits
+            # State: [x, y, theta, time, goal_x, goal_y]
+            # Assuming NavigationEnvPololu structure
+            if isinstance(env_unwrapped, gym.Env):
+                 # Manually construct box based on known structure from NavigationEnvPololu
+                 low_obs = np.array([new_pos_limits[0], new_pos_limits[2], -np.pi, 0.0, new_pos_limits[0], new_pos_limits[2]], dtype=np.float32)
+                 high_obs = np.array([new_pos_limits[1], new_pos_limits[3], np.pi, np.inf, new_pos_limits[1], new_pos_limits[3]], dtype=np.float32)
+                 
+                 new_obs_space = gym.spaces.Box(low=low_obs, high=high_obs, dtype=np.float32)
+                 object.__setattr__(env_unwrapped, 'observation_space', new_obs_space)
+                 self.get_logger().info(f"Expanded environment observation space to {new_pos_limits}")
+
+            self.get_logger().info(f"Manually set Goal: ({self.goal_x}, {self.goal_y}) Radius: {self.goal_radius}")
+        except Exception as e:
+            self.get_logger().error(f"Failed to manually set goal/limits: {e}")
+
+        # Update obstacles in environment
+        if obstacles_param:
+            self.update_environment_obstacles(obstacles_param)
+
         # Initialize Planner
         computational_budget_max = 500
-        time_budget_max = 0.2
+        time_budget_max = 2.0
         
         self.planner = ROSMCGSPlanner(
             node=self,
@@ -217,6 +289,32 @@ class CMCGSPlanNode(Node):
         
         self.get_logger().info(f'CMCGS Planner started for robot: {self.robot_name}')
 
+    def update_environment_obstacles(self, obstacles_list):
+        """Update obstacles in the environment. Expects list [x1, y1, r1, x2, y2, r2...]"""
+        if not obstacles_list or len(obstacles_list) % 3 != 0:
+            self.get_logger().warn("Obstacles parameter must be a list of floats length multiple of 3 [x, y, r, ...]")
+            return
+            
+        new_obstacles = []
+        for i in range(0, len(obstacles_list), 3):
+            x = float(obstacles_list[i])
+            y = float(obstacles_list[i+1])
+            r = float(obstacles_list[i+2])
+            new_obstacles.append([x, y, r])
+            
+        try:
+            # Try to get the underlying environment if it's wrapped
+            if hasattr(self.env, 'unwrapped'):
+                env = self.env.unwrapped
+            else:
+                env = self.env
+            
+            # Use setattr to bypass any read-only properties if necessary
+            object.__setattr__(env, 'obstacles', new_obstacles)
+            self.get_logger().info(f"Updated environment with {len(new_obstacles)} obstacles")
+        except Exception as e:
+            self.get_logger().error(f"Failed to update obstacles: {e}")
+
     def planning_loop(self):
         if not self.initialized or self.latest_pose is None:
             self.get_logger().warn('Waiting for first mocap pose...', throttle_duration_sec=2.0)
@@ -230,9 +328,9 @@ class CMCGSPlanNode(Node):
         
         try:
             self.planner.plan_online(
-                computational=True,
-                time=False,
-                render=False,
+                computational=False,
+                time=True,
+                render=False, # Disable rendering to avoid blocking/overhead
                 use_hardware=True 
             )
         except Exception as e:
@@ -245,6 +343,7 @@ class CMCGSPlanNode(Node):
         for pose in msg.poses:
             if pose.name == self.robot_name:
                 self.latest_pose = pose.pose
+                # self.get_logger().info(f"Mocap Poses Callback update: {pose.pose.position.x:.3f}, {pose.pose.position.y:.3f}")
                 if not self.initialized:
                     self.initialized = True
                     self.get_logger().info('Planner received first pose')
