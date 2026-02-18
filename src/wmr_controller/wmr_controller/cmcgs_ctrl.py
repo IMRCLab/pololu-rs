@@ -38,7 +38,7 @@ class CMCGSControllerNode(Node):
         super().__init__('cmcgs_controller_node')
         
         # Parameters
-        self.declare_parameter('robot_name', 'Pololu08')
+        self.declare_parameter('robot_name', 'Pololu10')
         self.declare_parameter('frequency', 10)  # match control action frequency
 
         self.robot_name = self.get_parameter('robot_name').value
@@ -123,6 +123,7 @@ class CMCGSControllerNode(Node):
 
         #idea: mocap publishes at its own rate. The last pose that was incoming is stored for usage at the defined control loop execution rate.
         for pose in msg.poses:
+            print("wir haben eine Pose erhalten")
             if pose.name == self.robot_name:
                 self.latest_pose = pose.pose
 

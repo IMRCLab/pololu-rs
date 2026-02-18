@@ -12,17 +12,8 @@
 [submodule "src/wmr_controller/deps/wmr-simulator"]
 	path = src/wmr_controller/deps/wmr-simulator
 	url = git@github.com:IMRCLab/wmr-simulator.git
-[submodule "src/wmr_controller/external/cmcgs"]
-	path = src/wmr_controller/external/cmcgs
-	url = https://github.com/kallekku/cmcgs.git
-[submodule "src/wmr_controller/external/ann-cmcgs-async/baselines/cmcgs"]
-	path = src/wmr_controller/external/ann-cmcgs-async/baselines/cmcgs
-	url = https://github.com/kallekku/cmcgs.git
-[submodule "src/wmr_controller/external/test"]
-	path = src/wmr_controller/external/test
-	url = https://github.com/c-scherer/ann-cmcgs/
-	branch = async
+
 [submodule "src/wmr_controller/external/ann-cmcgs"]
 	path = src/wmr_controller/external/ann-cmcgs
-	url = https://github.com/c-scherer/ann-cmcgs/
+	url = git@github.com:c-scherer/ann-cmcgs.git
 	branch = async

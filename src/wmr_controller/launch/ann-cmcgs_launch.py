@@ -8,7 +8,7 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument(
             'robot_name',
-            default_value='Pololu08',
+            default_value='Pololu09',
             description='Name of the robot in motion capture system'
         ),
         DeclareLaunchArgument(

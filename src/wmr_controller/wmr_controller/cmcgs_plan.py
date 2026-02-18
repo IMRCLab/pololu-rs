@@ -3,6 +3,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 from geometry_msgs.msg import Twist, Vector3, Pose2D
+from std_msgs.msg import Bool
 from motion_capture_tracking_interfaces.msg import NamedPoseArray
 import numpy as np
 import sys
@@ -82,6 +83,11 @@ class ROSMCGSPlanner(MCGSPlanner):
         curr_y = self.node.latest_pose.position.y
         dist = np.sqrt((sp_x - curr_x)**2 + (sp_y - curr_y)**2)
         
+        # # If deviation is too large, abort execution state so we can replan
+        # if dist > 0.2:
+        #     self.node.get_logger().warn(f"Deviation too large ({dist:.3f}m)! Aborting execution of current setpoint.")
+        #     return False
+
         return dist > self.node.plan_tolerance
 
     def receive_latest_state(self, use_hardware: bool = True):
@@ -90,10 +96,24 @@ class ROSMCGSPlanner(MCGSPlanner):
             
             # If we are executing, plan from the target we are driving to
             if self.is_executing():
-                state = self.node.active_setpoint_state.copy()
-                current_time = self.node.get_clock().now().nanoseconds / 1e9 - self.node.start_time
-                state[3] = current_time
-                return state
+                # Check if we are too far from the executed path (robot didn't move or deviated)
+                # If the robot is very far from the setpoint it's supposed to be reaching, 
+                # maybe we should replan from current pose instead of the target?
+                sp_x = self.node.active_setpoint_state[0]
+                sp_y = self.node.active_setpoint_state[1]
+                curr_x = self.node.latest_pose.position.x
+                curr_y = self.node.latest_pose.position.y
+                dist = np.sqrt((sp_x - curr_x)**2 + (sp_y - curr_y)**2)
+                
+                # If distance is huge (e.g. > 20cm), assume we are stuck or startup failed, 
+                # and force replan from current pose
+                if dist < 0.2: 
+                    state = self.node.active_setpoint_state.copy()
+                    current_time = self.node.get_clock().now().nanoseconds / 1e9 - self.node.start_time
+                    state[3] = current_time
+                    return state
+                else:
+                    self.node.get_logger().warn(f"Execution deviation too large ({dist:.3f}m). Replanning from current pose.")
 
             # If not executing (idle/reached), plan from current robot pose
             if self.node.latest_pose is None:
@@ -139,23 +159,30 @@ class ROSMCGSPlanner(MCGSPlanner):
         else:
             super().publish_setpoint(setpoint_state, use_hardware=False)
 
+    def _execute_actions_realtime(self, action_list, dt_list, use_hardware: bool = True):
+        if use_hardware:
+            pass
+        else:
+            super()._execute_actions_realtime(self, action_list, dt_list, use_hardware=False)
+
+
 class CMCGSPlanNode(Node):
     def __init__(self):
         super().__init__('cmcgs_plan')
         
         # Parameters
-        self.declare_parameter('robot_name', 'Pololu08')
+        self.declare_parameter('robot_name', 'Pololu10')
         self.declare_parameter('plan_tolerance', 0.05)  # 5cm tolerance for reaching waypoint
         #obstacles are a list of x1,z1,r1 x2,z2,r2 -> a list of circels
         self.declare_parameter('obstacles', [
-            -0.25, -0.5, 0.245,     #P01
-            0.0, 0.75, 0.245,       #P02
-            0.5, 0.75, 0.245,       #P03
-            -0.5, -0.25, 0.3        #P04
+            0.25,-0.5, 0.1225,     #P01
+            0.0, -0.75, 0.1225,       #P02
+            0.5, -0.75, 0.1225,       #P03
+            -0.5, 0.25, 0.15        #P04
             ])
         # Manual goal setting
         self.declare_parameter('goal_x', 0.75)
-        self.declare_parameter('goal_y', 1.75)
+        self.declare_parameter('goal_y', -1.75)
         self.declare_parameter('goal_radius', 0.05)
 
         self.robot_name = self.get_parameter('robot_name').value
@@ -177,6 +204,15 @@ class CMCGSPlanNode(Node):
             '/poses',
             self.poses_callback,
             mocap_qos
+        )
+
+        # Readiness subscription
+        self.experiment_ready = False
+        self.ready_sub = self.create_subscription(
+            Bool,
+            '/experiment/ready',
+            self.readiness_callback,
+            10
         )
         
         # Plan publisher - keep only the latest plan (size 1)
@@ -207,6 +243,9 @@ class CMCGSPlanNode(Node):
         # MANUALLY OVERRIDE GOAL 
         # For real world experiments, we want a fixed goal, not a random one.
         # We access the underlying environment to set 'goal_pos' and 'goal_radius'.
+
+
+        # is this fixed with newest christoph code??
         # --------------------------------------------------------------------------
         try:
              # Unwrap if necessary
@@ -226,7 +265,7 @@ class CMCGSPlanNode(Node):
             
             # Create new expanded limits: [-5, 10, -5, 10]
             # Structure: [x_min, x_max, y_min, y_max]
-            new_pos_limits = [-5.0, 10.0, -5.0, 10.0]
+            new_pos_limits = [-1.0, 1.0, -2.0, 2.0]
             object.__setattr__(env_unwrapped, 'pos_limits', new_pos_limits)
 
             # Re-create observation space with new limits
@@ -315,7 +354,21 @@ class CMCGSPlanNode(Node):
         except Exception as e:
             self.get_logger().error(f"Failed to update obstacles: {e}")
 
+    def readiness_callback(self, msg: Bool):
+        if msg.data and not self.experiment_ready:
+            self.get_logger().info("Experiment READY signal received. Starting planning.")
+        elif not msg.data and self.experiment_ready:
+            self.get_logger().warn("Experiment NOT READY. Pausing planning.")
+            # Optionally reset active setpoint so we don't resume from old plan state
+            self.active_setpoint_state = None
+            
+        self.experiment_ready = msg.data
+
     def planning_loop(self):
+        if not self.experiment_ready:
+            self.get_logger().info('Waiting for experiment ready signal...', throttle_duration_sec=2.0)
+            return
+
         if not self.initialized or self.latest_pose is None:
             self.get_logger().warn('Waiting for first mocap pose...', throttle_duration_sec=2.0)
             return

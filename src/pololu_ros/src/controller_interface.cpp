@@ -13,6 +13,7 @@
 
 //includes for listening to the Motion Capture Tracking interface poses
 #include "motion_capture_tracking_interfaces/msg/named_pose_array.hpp"
+#include "std_msgs/msg/bool.hpp"
 
 
 using namespace bitcraze::crazyflieLinkCpp;
@@ -64,6 +65,9 @@ public:
 
         this->declare_parameter("frequency", 10);
         this->get_parameter<int>("frequency", frequency_);
+
+        // Publisher for control action active status
+        status_publisher_ = this->create_publisher<std_msgs::msg::Bool>("/experiment/ready", 10);
 
         this->declare_parameter("uri1", "radio://*/80/2M/E7C2C2C210?safelink=0&autoping=0");
         std::string uri1;
@@ -194,6 +198,15 @@ private:
     // Publish Function, sending tele operation command
     void publish() 
     {
+        // Publish status of selected robot (if it is in control action mode)
+        auto msg = std_msgs::msg::Bool();
+        // Check if ANY robot is in control action mode, or just the selected one?
+        // For simplicity, let's publish true if the *selected* robot has control action active.
+        // Or if the specific robot we care about is active.
+        // Assuming single robot workflow for now:
+        msg.data = control_action_active[selected_robot_];
+        status_publisher_->publish(msg);
+
         //handle communication tied to the frequency here. 
 
         // Only send to selected robot and only if teleop is active
@@ -680,6 +693,7 @@ private:
     rclcpp::TimerBase::SharedPtr timer_;
     geometry_msgs::msg::Twist twist_[1];
     rclcpp::Logger logger_;
+    rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr status_publisher_;
     int frequency_;
     float dt_;
     std::shared_ptr<Connection> connection_[4];
