@@ -7,7 +7,6 @@ use embassy_time::{Duration, Timer};
 use static_cell::StaticCell;
 
 use crate::encoder_lib::{PioEncoder, PioEncoderProgram};
-use crate::robot_parameters_default::robot_constants::*;
 
 /// Encoder struct for both encoders
 pub struct EncoderPair<'a> {
@@ -81,7 +80,7 @@ pub async fn encoder_left_task(
 
         if delta != 0 {
             let mut g = counter.lock().await;
-            *g = g.wrapping_add(delta * (MOTOR_DIRECTION_LEFT as i32));
+            *g = g.wrapping_add(delta);
 
             // defmt::info!("Left encoder count = {}", *g);
         }
@@ -108,7 +107,7 @@ pub async fn encoder_right_task(
 
         if delta != 0 {
             let mut g = counter.lock().await;
-            *g = g.wrapping_add(delta * (MOTOR_DIRECTION_RIGHT as i32));
+            *g = g.wrapping_add(delta);
 
             // defmt::info!("Right encoder count = {}", *g);
         }

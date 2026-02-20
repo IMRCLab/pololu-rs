@@ -49,7 +49,7 @@ impl Default for RobotConfig {
             ky_traj: KY_TRAJ,
             ktheta_traj: KTHETA_TRAJ,
             gear_ratio: GEAR_RATIO,
-            encoder_cpr: -GEAR_RATIO * 12.0,
+            encoder_cpr: ENCODER_CPR, // Use constant from robot_parameters_default
             max_speed: MAX_SPEED,
             max_omega: MAX_OMEGA,
             wheel_max: WHEEL_MAX,

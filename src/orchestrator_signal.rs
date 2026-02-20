@@ -7,12 +7,13 @@ pub const FRAME_MAX: usize = 54;
 pub const LEN_FUNC_SELECT_CMD: u8 = 3;
 pub const LEN_STOP_RESUME_CMD: u8 = 4;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, defmt::Format)]
 pub enum Mode {
     Menu,
     TeleOp,
     TrajMocap,
     TrajDuty,
+    CtrlAction,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -44,7 +45,7 @@ pub fn decode_functionality_select_command(payload: &[u8], robot_id: u8) -> Opti
     if payload.len() != (LEN_FUNC_SELECT_CMD as usize) || payload[0] != 0x3C {
         // related to channel and port number
         // PORT 3 identifier
-        info!("payload {}", payload);
+
         return None;
     }
 
@@ -62,6 +63,7 @@ pub fn decode_functionality_select_command(payload: &[u8], robot_id: u8) -> Opti
         b'T' => Some(1), // Tele operation
         b'M' => Some(2), // Traj following
         b'D' => Some(3), // Traj following
+        b'A' => Some(4), // Control Action
         _ => None,       // Invalid mode
     }
 }
