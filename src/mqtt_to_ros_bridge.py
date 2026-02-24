@@ -1,26 +1,29 @@
 #!/usr/bin/env python3
 """
-MQTT → ROS 2 Bridge Node
+MQTT -> ROS 2 Bridge Node
 
 Subscribes to the MQTT topic (configured in config.yaml) and republishes
 all detected robots as a motion_capture_tracking_interfaces/msg/NamedPoseArray
-on topic /poses — matching the motion_capture_tracking format.
+on topic /poses — matching the motion_capture_tracking format used by mocap subscribers controller_interface, mocap_broadcast and ann-cmgs controller
 
 Each robot is identified by its name (e.g. "Pololu10") via the 'robots'
-mapping in config.yaml (ArUco marker ID → robot name).
+mapping in config.yaml (ArUco marker ID -> robot name end digits).
 
 The 2D position [x, y] is mapped to pose.position.x/.y (z = 0).
-The heading angle (degrees) is converted to a quaternion around the Z axis.
+The yaw angle (degrees) is converted to a quaternion around the z axis.
 
 Usage:
+    Start server.py from the mqtt-tracking-system repo root first, then run this bridge node:
     python3 mqtt_to_ros_bridge.py
     python3 mqtt_to_ros_bridge.py path/to/config.yaml
 
 Requires:
-    - Source your ROS 2 workspace that contains motion_capture_tracking_interfaces
-    - e.g.: source ~/IMRCLab/worksation_ros/install/setup.bash
-"""
+    - webcam: BRIO 4K
+    - source ROS2 
+    - Source your ROS2 workspace that contains motion_capture_tracking_interfaces
+    - e.g.: source install/setup.bash in that workspace
 
+"""
 import json
 import math
 import sys
