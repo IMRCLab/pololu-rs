@@ -14,6 +14,7 @@ pub enum Mode {
     TrajMocap,
     TrajDuty,
     CtrlAction,
+    TrajOnboard,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -22,7 +23,7 @@ pub enum OrchestratorMsg {
 }
 
 // Global Command Channel: Any uart task can put commands into the channel
-pub static ORCH_CH: Channel<Raw, OrchestratorMsg, 4> = Channel::new();
+pub static ORCH_CH: Channel<Raw, OrchestratorMsg, 32> = Channel::new();
 
 // Top level functionality selection task stop signal
 pub static STOP_MENU_UART_SIG: Signal<Raw, ()> = Signal::new();
@@ -61,9 +62,10 @@ pub fn decode_functionality_select_command(payload: &[u8], robot_id: u8) -> Opti
     match payload[2] {
         b'q' => Some(0), // Menu
         b'T' => Some(1), // Tele operation
-        b'M' => Some(2), // Traj following
-        b'D' => Some(3), // Traj following
+        b'M' => Some(2), // Traj following (Mocap)
+        b'D' => Some(3), // Traj following (Direct duty)
         b'A' => Some(4), // Control Action
+        b'F' => Some(5), // Onboard trajectory (figure-8 etc.)
         _ => None,       // Invalid mode
     }
 }
