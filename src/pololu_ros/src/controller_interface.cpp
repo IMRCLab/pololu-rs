@@ -64,11 +64,11 @@ public:
         );
 
         // Subscribe to waypoint commands
-        cmd_waypoint_subscription = this->create_subscription<geometry_msgs::msg::Twist>(
-            "/cmd_waypoint",
-            cmd_qos,
-            std::bind(&TeleopNode::cmdWaypointChanged, this, _1)
-        );
+        // cmd_waypoint_subscription = this->create_subscription<geometry_msgs::msg::Twist>(
+        //     "/cmd_waypoint",
+        //     cmd_qos,
+        //     std::bind(&TeleopNode::cmdWaypointChanged, this, _1)
+        // );
 
         this->declare_parameter("frequency", 10);
         this->get_parameter<int>("frequency", frequency_);
@@ -294,36 +294,36 @@ private:
     }
 
     //callback for waypoints from controller
-    void cmdWaypointChanged(const geometry_msgs::msg::Twist::SharedPtr msg)
-    {
-        // Track callback timing for debugging
-        static auto last_callback_time = std::chrono::steady_clock::now();
-        auto now = std::chrono::steady_clock::now();
-        auto interval_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_callback_time).count();
+    // void cmdWaypointChanged(const geometry_msgs::msg::Twist::SharedPtr msg)
+    // {
+    //     // Track callback timing for debugging
+    //     static auto last_callback_time = std::chrono::steady_clock::now();
+    //     auto now = std::chrono::steady_clock::now();
+    //     auto interval_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_callback_time).count();
         
-        // Only log if interval is significantly off (more than 10ms from 100ms target)
-        if (last_callback_time.time_since_epoch().count() != 0 && std::abs(interval_ms - 100) > 10) {
-            RCLCPP_WARN(logger_, "Waypoint callback interval: %ld ms (expected ~100ms)", interval_ms);
-        }
-        last_callback_time = now;
+    //     // Only log if interval is significantly off (more than 10ms from 100ms target)
+    //     if (last_callback_time.time_since_epoch().count() != 0 && std::abs(interval_ms - 100) > 10) {
+    //         RCLCPP_WARN(logger_, "Waypoint callback interval: %ld ms (expected ~100ms)", interval_ms);
+    //     }
+    //     last_callback_time = now;
         
-        //store the latest waypoint command
-        latest_cmd_waypoint_ = *msg;
+    //     //store the latest waypoint command
+    //     //latest_cmd_waypoint_ = *msg;
 
-        // Send to ONLY the selected robot if control_action_active
-        // Waypoints use x,y position and angular.z for orientation
-        if (control_action_active[selected_robot_]) {
-            connection_[selected_robot_]->send(PacketUtils::cmdLegacy_Waypoint(
-                latest_cmd_waypoint_.linear.x,   // x position
-                latest_cmd_waypoint_.linear.y,   // y position
-                latest_cmd_waypoint_.angular.z   // orientation/heading
-            ));
+    //     // Send to ONLY the selected robot if control_action_active
+    //     // Waypoints use x,y position and angular.z for orientation
+    //     if (control_action_active[selected_robot_]) {
+    //         connection_[selected_robot_]->send(PacketUtils::cmdLegacy_Waypoint(
+    //             latest_cmd_waypoint_.linear.x,   // x position
+    //             latest_cmd_waypoint_.linear.y,   // y position
+    //             latest_cmd_waypoint_.angular.z   // orientation/heading
+    //         ));
             
-            // Reduced logging - only log occasionally
-            // RCLCPP_INFO_THROTTLE(logger_, *this->get_clock(), 5000, "Sending waypoint to Robot %d: x=%.3f, y=%.3f, theta=%.3f", 
-            //     selected_robot_ + 1, latest_cmd_waypoint_.linear.x, latest_cmd_waypoint_.linear.y, latest_cmd_waypoint_.angular.z);
-        }
-    }
+    //         // Reduced logging - only log occasionally
+    //         // RCLCPP_INFO_THROTTLE(logger_, *this->get_clock(), 5000, "Sending waypoint to Robot %d: x=%.3f, y=%.3f, theta=%.3f", 
+    //         //     selected_robot_ + 1, latest_cmd_waypoint_.linear.x, latest_cmd_waypoint_.linear.y, latest_cmd_waypoint_.angular.z);
+    //     }
+    // }
 
     //control action subscription callback
     void cmdUnicycleChanged(const geometry_msgs::msg::Vector3::SharedPtr msg)
@@ -694,10 +694,10 @@ private:
     rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr subscription_[1];
     rclcpp::Subscription<motion_capture_tracking_interfaces::msg::NamedPoseArray>::SharedPtr mocap_subscription;
     rclcpp::Subscription<geometry_msgs::msg::Vector3>::SharedPtr cmd_unicycle_subscription;
-    rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_waypoint_subscription;
+    //rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_waypoint_subscription;
     motion_capture_tracking_interfaces::msg::NamedPoseArray latest_poses_;
     geometry_msgs::msg::Vector3 latest_cmd_unicycle_; // Store latest control action (v, w)
-    geometry_msgs::msg::Twist latest_cmd_waypoint_; // Store latest waypoint command
+    //geometry_msgs::msg::Twist latest_cmd_waypoint_; // Store latest waypoint command
     rclcpp::TimerBase::SharedPtr timer_;
     geometry_msgs::msg::Twist twist_[1];
     rclcpp::Logger logger_;
