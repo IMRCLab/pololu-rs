@@ -24,7 +24,7 @@ use pololu3pi2040_rs::{
     sdlog::SDLOGGER_SHARED,
     trajectory_control::{
         ControlMode, diffdrive_outer_loop_command_controlled_traj_following_from_sdcard,
-        mocap_update_task, wheel_speed_inner_loop,
+        diffdrive_outer_loop_onboard_traj, mocap_update_task, wheel_speed_inner_loop,
     },
     trajectory_uart::{UartCfg, uart_motioncap_receiving_task},
     uart::{UART_RX_CHANNEL, uart_hw_task},
@@ -123,6 +123,7 @@ pub async fn functionality_mode_selection_uart_task(cfg: UartCfg) {
                     2 => Mode::TrajMocap,
                     3 => Mode::TrajDuty,
                     4 => Mode::CtrlAction,
+                    5 => Mode::TrajOnboard,
                     _ => continue,
                 };
                 let _ = ORCH_CH.try_send(OrchestratorMsg::SwitchTo(target));
@@ -208,7 +209,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         drain_signal(&STOP_TELEOP_UART_SIG, 2).await;
                         drain_signal(&STOP_MOTOR_CTRL_SIG, 2).await;
                     }
-                    Mode::TrajMocap | Mode::TrajDuty => {
+                    Mode::TrajMocap | Mode::TrajDuty | Mode::TrajOnboard => {
                         STOP_MOCAP_UART_SIG.signal(());
                         STOP_MOCAP_UPDATE_SIG.signal(());
                         STOP_WHEEL_INNER_SIG.signal(());
@@ -311,6 +312,26 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                                 "Teleop motor control task already running or failed to spawn"
                             );
                         }
+                    }
+                    Mode::TrajOnboard => {
+                        defmt::info!("ONBOARD-TRAJ Mode (figure-8 etc.) is selected!!!!!");
+
+                        spawner.spawn(uart_motioncap_receiving_task(cfg)).unwrap();
+                        spawner.spawn(mocap_update_task()).unwrap();
+                        spawner
+                            .spawn(wheel_speed_inner_loop(
+                                devices.motor,
+                                encoder_count_left,
+                                encoder_count_right,
+                                devices.config,
+                            ))
+                            .unwrap();
+                        spawner
+                            .spawn(diffdrive_outer_loop_onboard_traj(
+                                ControlMode::DirectDuty,
+                                devices.config,
+                            ))
+                            .unwrap();
                     }
                 }
                 mode = target;

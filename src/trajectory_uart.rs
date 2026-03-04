@@ -1,6 +1,6 @@
 use defmt::*;
 use embassy_futures::select::{Either3, select3};
-use embassy_time::{Duration, Timer};
+use embassy_time::{Duration, Instant, Timer};
 use heapless::Vec as HVec;
 
 use crate::math::{quat_decompress, rpy_from_quaternion};
@@ -8,7 +8,7 @@ use crate::orchestrator_signal::{
     LEN_FUNC_SELECT_CMD, LEN_STOP_RESUME_CMD, Mode, ORCH_CH, OrchestratorMsg, STOP_MOCAP_UART_SIG,
     TRAJ_PAUSE_SIG, TRAJ_RESUME_SIG, decode_functionality_select_command,
 };
-use crate::trajectory_signal::{FIRST_MESSAGE, LAST_STATE, PoseAbs, STATE_SIG};
+use crate::trajectory_signal::{FIRST_MESSAGE, LAST_STATE, POSE_FRESH, PoseAbs, STATE_SIG};
 use crate::uart::UART_RX_CHANNEL;
 
 #[derive(Clone, Copy)]
@@ -124,11 +124,16 @@ pub async fn uart_motioncap_receiving_task(cfg: UartCfg) {
 
         if len == LEN_POSE {
             if let Some(pose) = decode_abs_pose(&frame, cfg.robot_id) {
+                let stamped = PoseAbs {
+                    stamp: Instant::now(),
+                    ..pose
+                };
                 {
                     let mut s = LAST_STATE.lock().await;
-                    *s = pose;
+                    *s = stamped;
                 }
-                STATE_SIG.signal(pose);
+                POSE_FRESH.store(true, portable_atomic::Ordering::Release);
+                STATE_SIG.signal(stamped);
 
                 if !seen_first {
                     FIRST_MESSAGE.signal(());
@@ -208,7 +213,12 @@ fn decode_abs_pose(payload: &[u8], robot_id: u8) -> Option<PoseAbs> {
     //     "robot Id: {}, x:{}, y:{}, z:{}, roll:{}, pitch:{}, yaw:{}",
     //     payload[1], x, y, z, roll, pitch, yaw,
     // );
-
+    // Pose logging disabled for performance — enable only for debugging
+    // let timestamp = Instant::now().as_millis();
+    // defmt::info!(
+    //     "Pose Abs: robot_id={}, x={} y={} z={} roll={} pitch={} yaw={} timestamp={}",
+    //     payload[1], x, y, z, roll, pitch, yaw, timestamp
+    // );
     Some(PoseAbs {
         x,
         y,
@@ -216,5 +226,6 @@ fn decode_abs_pose(payload: &[u8], robot_id: u8) -> Option<PoseAbs> {
         roll,
         pitch,
         yaw,
+        stamp: Instant::from_ticks(0), // caller will overwrite with Instant::now()
     })
 }

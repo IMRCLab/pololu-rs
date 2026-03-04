@@ -16,7 +16,7 @@ pub type SharedUart<'a> = &'a Mutex<ThreadModeRawMutex, Uart<'a, Async>>;
 // TX: Other Task -> Low level UART HW Task
 pub static UART_TX_CHANNEL: Channel<ThreadModeRawMutex, Vec<u8, 64>, 4> = Channel::new();
 // RX: Low level UART HW Task -> decode Task
-pub static UART_RX_CHANNEL: Channel<ThreadModeRawMutex, u8, 64> = Channel::new();
+pub static UART_RX_CHANNEL: Channel<ThreadModeRawMutex, u8, 512> = Channel::new();
 
 //
 // ===================== Low level UART HW Task =====================

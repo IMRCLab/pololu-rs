@@ -1,5 +1,3 @@
-#![allow(clippy::never_loop)]
-
 use crate::math::SO2;
 use crate::orchestrator_signal::{STOP_TRAJ_OUTER_SIG, STOP_WHEEL_INNER_SIG, TRAJ_PAUSE_SIG, TRAJ_RESUME_SIG, STOP_MOCAP_UPDATE_SIG};
 use crate::packet::StateLoopBackPacketF32;
@@ -30,7 +28,7 @@ use crate::led::LED_SHARED;
 use crate::sdlog::{SdLogger, TrajControlLog, SDLOGGER_SHARED};
 use crate::trajectory_reading::{Action, Pose, Trajectory};
 use crate::trajectory_signal::{
-    LAST_STATE, PoseAbs, STATE_SIG, TRAJECTORY_CONTROL_EVENT, WHEEL_CMD_CH, WheelCmd,
+    LAST_STATE, POSE_FRESH, PoseAbs, STATE_SIG, TRAJECTORY_CONTROL_EVENT, WHEEL_CMD_CH, WheelCmd,
 };
 
 use portable_atomic::{AtomicBool, Ordering};
@@ -405,6 +403,49 @@ impl DiffdriveCascade {
         DiffdriveSetpointCascade { des, vdes, wdes }
     }
 
+    //https://en.wikipedia.org/wiki/Lemniscate_of_Gerono
+    //parametric curve:
+    // x = cos(phi), y = sin(phi)*cos(phi) = 0.5*sin(2*phi) 
+    pub fn figure8_reference(
+        &self,
+        t: f32,
+        duration: f32,
+        ax: f32,
+        ay: f32,
+        x0: f32,
+        y0: f32,
+        phi0: f32,
+    ) -> DiffdriveSetpointCascade {
+        let w = 2.0 * PI / duration;
+
+        //flats
+        let x_loc = ax * sinf(w * t);
+        let y_loc = ay * sinf(2.0 * w * t) / 2.0;
+
+        //derivatives
+        let xd = ax * w * cosf(w * t);
+        let yd = ay * w * cosf(2.0 * w * t);
+
+        //second derivatives
+        let xdd = -ax * w * w * sinf(w * t);
+        let ydd = -2.0 * ay * w * w * sinf(2.0 * w * t);
+
+        //get actions from derivatives
+        let vdes = sqrtf(xd * xd + yd * yd);
+        let wdes = (ydd * xd - xdd * yd) / (xd * xd + yd * yd);
+        let theta_loc = atan2f(yd, xd);
+
+        //transform into world frame (in case of tracking)
+        let c = cosf(phi0);
+        let s = sinf(phi0);
+        let x = x0 + x_loc * c - y_loc * s;
+        let y = y0 + x_loc * s + y_loc * c;
+        let theta = SO2::new(theta_loc + phi0);
+
+        let des = DiffdriveStateCascade { x, y, theta };
+        DiffdriveSetpointCascade { des, vdes, wdes }
+    }
+
     // only for simulation?
     pub fn step(&mut self, action: DiffdriveActionCascade, dt: f32) {
         let x_new = self.s.x + (0.5 * self.r) * (action.ul + action.ur) * (self.s.theta).cos() * dt;
@@ -653,6 +694,9 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
             let s = LAST_STATE.lock().await;
             *s
         };
+        //check if a new pose was received since last loop execution. 
+        //Fallback for GRC demo Aruco Marker tracking
+        let pose_is_fresh = POSE_FRESH.swap(false, Ordering::Acquire);
         /* ========================================================================= */
 
         /* ====================== Current elapsed time ============================= */
@@ -685,60 +729,54 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
             vdes: vd,
             wdes: wd,
         };
-
-        info!(
-            "setpoint: x = {}, y = {}, theta = {}, v = {}, w = {}",
-            setpoint.des.x,
-            setpoint.des.y,
-            setpoint.des.theta.rad(),
-            setpoint.vdes,
-            setpoint.wdes
-        );
         /* ========================================================================= */
-
-        robot.s.x = pose.x;
-        robot.s.y = pose.y;
-        robot.s.theta = SO2::new(pose.yaw);
 
         let (ul, ur, x_error, y_error, theta_error);
 
         match mode {
             ControlMode::WithMocapController => {
-                info!("Mocap Control Mode");
-                let (action, x_e, y_e, yaw_e) = controller.control(&robot, setpoint);
-                ul = action.ul;
-                ur = action.ur;
-                x_error = x_e;
-                y_error = y_e;
-                theta_error = yaw_e;
+                robot.s.x = pose.x;
+                robot.s.y = pose.y;
+                robot.s.theta = SO2::new(pose.yaw);
 
-                while WHEEL_CMD_CH.try_receive().is_ok() {} //drain old commands
-                let _ = WHEEL_CMD_CH.try_send(WheelCmd {
-                    omega_l: ul,
-                    omega_r: ur,
-                    stamp: Instant::now(),
-                });
+                if pose_is_fresh {
+                    // ---- Fresh mocap pose → closed-loop feedback control ----
+                    let (action, x_e, y_e, yaw_e) = controller.control(&robot, setpoint);
+                    ul = action.ul;
+                    ur = action.ur;
+                    x_error = x_e;
+                    y_error = y_e;
+                    theta_error = yaw_e;
+                } else {
+                    // ---- Stale pose → open-loop feedforward (ArUco fallback) ----
+                    defmt::warn!("Mocap stale -> feedforward");
+                    ul = (2.0 * vd - robot_cfg.wheel_base * wd)
+                        / (2.0 * robot_cfg.wheel_radius);
+                    ur = (2.0 * vd + robot_cfg.wheel_base * wd)
+                        / (2.0 * robot_cfg.wheel_radius);
+                    x_error = 0.0;
+                    y_error = 0.0;
+                    theta_error = 0.0;
+                }
             }
             ControlMode::DirectDuty => {
-                let w_rad = setpoint.wdes;
-                let vd = setpoint.vdes;
-
-                ur = (2.0 * vd + robot_cfg.k_clip * robot_cfg.wheel_base * w_rad)
+                // ---- No mocap — always propagate actions directly ----
+                ul = (2.0 * vd - robot_cfg.wheel_base * wd)
                     / (2.0 * robot_cfg.wheel_radius);
-                ul = (2.0 * vd - robot_cfg.k_clip * robot_cfg.wheel_base * w_rad)
+                ur = (2.0 * vd + robot_cfg.wheel_base * wd)
                     / (2.0 * robot_cfg.wheel_radius);
                 x_error = 0.0;
                 y_error = 0.0;
                 theta_error = 0.0;
-
-                while WHEEL_CMD_CH.try_receive().is_ok() {} // drain old commands
-                let _ = WHEEL_CMD_CH.try_send(WheelCmd {
-                    omega_l: ul,
-                    omega_r: ur,
-                    stamp: Instant::now(),
-                });
             }
         }
+
+        while WHEEL_CMD_CH.try_receive().is_ok() {} // drain old commands
+        let _ = WHEEL_CMD_CH.try_send(WheelCmd {
+            omega_l: ul,
+            omega_r: ur,
+            stamp: Instant::now(),
+        });
 
         update_robot_state(StateLoopBackPacketF32 {
             header: 0xA1,
@@ -982,7 +1020,8 @@ pub async fn mocap_update_task() {
         match select(STATE_SIG.wait(), STOP_MOCAP_UPDATE_SIG.wait()).await {
             Either::First(new_pose) => {
                 let mut s = LAST_STATE.lock().await;
-                *s = new_pose;
+                *s = PoseAbs { stamp: Instant::now(), ..new_pose };
+                crate::trajectory_signal::POSE_FRESH.store(true, Ordering::Release);
             }
 
             Either::Second(_) => {
@@ -990,6 +1029,322 @@ pub async fn mocap_update_task() {
                 return;
             }
         }
+    }
+}
+
+/* ===================================================================================== */
+
+/* ========================== Onboard Trajectory Mode ================================= */
+
+async fn execute_trajectory_loop_onboard(
+    mode: ControlMode,
+    robot: &mut DiffdriveCascade,
+    controller: &mut DiffdriveControllerCascade,
+    robot_cfg: &RobotConfig,
+) -> TrajectoryResult {
+    let duration: f32 = 3.0;
+    let ax: f32 = 0.3;
+    let ay: f32 = 0.3;
+
+    let mut ticker = Ticker::every(Duration::from_millis(
+        (robot_cfg.traj_following_dt_s * 1000.0) as u64,
+    ));
+
+    let mut first_pose: PoseAbs = PoseAbs::default();
+    Timer::after_millis(100).await;
+    match mode {
+        ControlMode::WithMocapController => {
+            first_pose = {
+                let s = LAST_STATE.lock().await;
+                *s
+            };
+        }
+        ControlMode::DirectDuty => {
+            info!("Onboard traj: direct duty, initial pose (0,0,0)");
+        }
+    }
+
+    let start = Instant::now();
+
+    loop {
+        let either_result =
+            embassy_futures::select::select(ticker.next(), TRAJECTORY_CONTROL_EVENT.wait()).await;
+
+        match either_result {
+            embassy_futures::select::Either::First(_) => {}
+            embassy_futures::select::Either::Second(command) => {
+                if !command {
+                    let _ = WHEEL_CMD_CH.try_send(WheelCmd {
+                        omega_l: 0.0,
+                        omega_r: 0.0,
+                        stamp: Instant::now(),
+                    });
+                    defmt::info!("Onboard traj stopped by command");
+                    return TrajectoryResult::Stopped;
+                }
+            }
+        }
+
+        if STOP_ALL.load(Ordering::Relaxed) {
+            let _ = WHEEL_CMD_CH.try_send(WheelCmd {
+                omega_l: 0.0,
+                omega_r: 0.0,
+                stamp: Instant::now(),
+            });
+            defmt::info!("Onboard traj stopped via STOP_ALL");
+            break;
+        }
+
+        let pose = {
+            let s = LAST_STATE.lock().await;
+            *s
+        };
+        let pose_is_fresh = POSE_FRESH.swap(false, Ordering::Acquire);
+
+        let t = Instant::now() - start;
+        let t_sec = t.as_millis() as f32 / 1000.0;
+        let t_ms = t.as_millis() as u32;
+
+        // Generate setpoint from onboard figure-8 reference
+        let setpoint = robot.figure8_reference(
+            t_sec,
+            duration,
+            ax,
+            ay,
+            first_pose.x,
+            first_pose.y,
+            first_pose.yaw,
+        );
+
+        let vd = setpoint.vdes;
+        let wd = setpoint.wdes;
+
+        let (ul, ur, x_error, y_error, theta_error);
+
+        match mode {
+            ControlMode::WithMocapController => {
+                robot.s.x = pose.x;
+                robot.s.y = pose.y;
+                robot.s.theta = SO2::new(pose.yaw);
+
+                if pose_is_fresh {
+                    let (action, x_e, y_e, yaw_e) = controller.control(&robot, setpoint);
+                    ul = action.ul;
+                    ur = action.ur;
+                    x_error = x_e;
+                    y_error = y_e;
+                    theta_error = yaw_e;
+                } else {
+                    defmt::warn!("Mocap stale -> feedforward");
+                    ul = (2.0 * vd - robot_cfg.wheel_base * wd)
+                        / (2.0 * robot_cfg.wheel_radius);
+                    ur = (2.0 * vd + robot_cfg.wheel_base * wd)
+                        / (2.0 * robot_cfg.wheel_radius);
+                    x_error = 0.0;
+                    y_error = 0.0;
+                    theta_error = 0.0;
+                }
+            }
+            ControlMode::DirectDuty => {
+                ul = (2.0 * vd - robot_cfg.wheel_base * wd)
+                    / (2.0 * robot_cfg.wheel_radius);
+                ur = (2.0 * vd + robot_cfg.wheel_base * wd)
+                    / (2.0 * robot_cfg.wheel_radius);
+                x_error = 0.0;
+                y_error = 0.0;
+                theta_error = 0.0;
+            }
+        }
+
+        while WHEEL_CMD_CH.try_receive().is_ok() {}
+        let _ = WHEEL_CMD_CH.try_send(WheelCmd {
+            omega_l: ul,
+            omega_r: ur,
+            stamp: Instant::now(),
+        });
+
+        let log = TrajControlLog {
+            timestamp_ms: t_ms,
+            target_x: setpoint.des.x,
+            target_y: setpoint.des.y,
+            target_theta: setpoint.des.theta.rad(),
+            actual_x: robot.s.x,
+            actual_y: robot.s.y,
+            actual_theta: robot.s.theta.rad(),
+            target_vx: setpoint.vdes,
+            target_vy: 0.0,
+            target_vz: 0.0,
+            actual_vx: 0.0,
+            actual_vy: 0.0,
+            actual_vz: 0.0,
+            target_qw: setpoint.des.theta.cos(),
+            target_qx: 0.0,
+            target_qy: 0.0,
+            target_qz: setpoint.des.theta.sin(),
+            actual_qw: robot.s.theta.cos(),
+            actual_qx: 0.0,
+            actual_qy: 0.0,
+            actual_qz: robot.s.theta.sin(),
+            xerror: x_error,
+            yerror: y_error,
+            thetaerror: theta_error,
+            ul,
+            ur,
+            dutyl: 0.0,
+            dutyr: 0.0,
+        };
+
+        let _ = with_sdlogger(|logger| {
+            logger.log_traj_control_as_csv(&log);
+            logger.flush();
+        }).await;
+
+        let w_deg = setpoint.wdes * 180.0 / PI;
+        defmt::info!(
+            "t={}s, pos=({},{},{}), posd=({},{},{}), v={}, w={}rad/s ({}deg/s), u=({},{}), (xerr,yerr,theterr)=({},{},{})",
+            t_sec,
+            pose.x, pose.y, pose.yaw,
+            setpoint.des.x, setpoint.des.y, setpoint.des.theta.rad(),
+            setpoint.vdes, setpoint.wdes, w_deg,
+            ul, ur,
+            x_error, y_error, theta_error
+        );
+
+        if t_sec >= duration {
+            let _ = WHEEL_CMD_CH.try_send(WheelCmd {
+                omega_l: 0.0,
+                omega_r: 0.0,
+                stamp: Instant::now(),
+            });
+            defmt::info!("Onboard trajectory complete after {}s", t_sec);
+            return TrajectoryResult::Completed;
+        }
+    }
+
+    let _ = WHEEL_CMD_CH.try_send(WheelCmd {
+        omega_l: 0.0,
+        omega_r: 0.0,
+        stamp: Instant::now(),
+    });
+
+    TrajectoryResult::Stopped
+}
+
+#[embassy_executor::task]
+pub async fn diffdrive_outer_loop_onboard_traj(
+    mode: ControlMode,
+    cfg: Option<RobotConfig>,
+) {
+    let robot_cfg: RobotConfig = cfg.unwrap_or_default();
+
+    defmt::info!("Initializing onboard trajectory mode (figure-8)");
+    defmt::info!(
+        "Wheel radius[m]: {}, Wheel base[m]: {}, Wheel rotate speed max[rad/s]: {}",
+        robot_cfg.wheel_radius, robot_cfg.wheel_base, robot_cfg.wheel_max,
+    );
+
+    let mut robot = DiffdriveCascade::new(
+        robot_cfg.wheel_radius,
+        robot_cfg.wheel_base,
+        -robot_cfg.wheel_max,
+        robot_cfg.wheel_max,
+        -robot_cfg.wheel_max,
+        robot_cfg.wheel_max,
+    );
+
+    let mut controller = DiffdriveControllerCascade::new(
+        robot_cfg.kx_traj,
+        robot_cfg.ky_traj,
+        robot_cfg.ktheta_traj,
+    );
+
+    let _ = with_sdlogger(|logger| logger.write_traj_control_header()).await;
+
+    defmt::info!("Waiting for trajectory control commands...");
+
+    loop {
+        let start_fut = TRAJ_RESUME_SIG.wait();
+        let pause_fut = TRAJ_PAUSE_SIG.wait();
+        let stop_fut = STOP_TRAJ_OUTER_SIG.wait();
+
+        match select3(start_fut, stop_fut, pause_fut).await {
+            Either3::First(start) => {
+                if !start {
+                    continue;
+                }
+                defmt::info!("Starting onboard trajectory!");
+                led_set(true).await;
+            }
+            Either3::Second(_) => {
+                defmt::warn!("STOP outer loop -> exit");
+                led_set(false).await;
+                return;
+            }
+            Either3::Third(_) => {
+                defmt::warn!("PAUSE (idle) -> wait RESUME/STOP");
+                led_set(false).await;
+                loop {
+                    match select(TRAJ_RESUME_SIG.wait(), STOP_TRAJ_OUTER_SIG.wait()).await {
+                        Either::First(_) => {
+                            defmt::info!("RESUME(idle)");
+                            break;
+                        }
+                        Either::Second(_) => {
+                            defmt::warn!("STOP outer loop (idle) -> exit");
+                            return;
+                        }
+                    }
+                }
+                continue;
+            }
+        }
+
+        let exec_fut = execute_trajectory_loop_onboard(
+            mode,
+            &mut robot,
+            &mut controller,
+            &robot_cfg,
+        );
+        let stop_fut = STOP_TRAJ_OUTER_SIG.wait();
+        let pause_fut = TRAJ_PAUSE_SIG.wait();
+
+        match select3(exec_fut, stop_fut, pause_fut).await {
+            Either3::First(result) => {
+                match result {
+                    TrajectoryResult::Completed => {
+                        defmt::info!("Onboard trajectory completed.");
+                    }
+                    TrajectoryResult::Stopped => {
+                        defmt::info!("Onboard trajectory stopped internally.");
+                    }
+                }
+                led_set(false).await;
+            }
+            Either3::Second(_) => {
+                defmt::warn!("STOP outer during exec -> exit");
+                led_set(false).await;
+                return;
+            }
+            Either3::Third(_) => {
+                defmt::info!("PAUSE outer during exec -> wait RESUME/STOP");
+                led_set(false).await;
+                loop {
+                    match select(TRAJ_RESUME_SIG.wait(), STOP_TRAJ_OUTER_SIG.wait()).await {
+                        Either::First(_) => {
+                            defmt::info!("RESUME outer -> restart");
+                            led_set(true).await;
+                            break;
+                        }
+                        Either::Second(_) => {
+                            defmt::warn!("STOP outer (paused) -> exit");
+                            return;
+                        }
+                    }
+                }
+                continue;
+            }
+        }
+        defmt::info!("Waiting for next command...");
     }
 }
 
@@ -1051,14 +1406,7 @@ pub async fn diffdrive_outer_loop(
     defmt::info!("csv header written");
 
     /* ================ Record First Pose w.r.t the selected mode ================== */
-    let mut first_pose: PoseAbs = PoseAbs {
-        x: 0.0,
-        y: 0.0,
-        z: 0.0,
-        roll: 0.0,
-        pitch: 0.0,
-        yaw: 0.0,
-    };
+    let mut first_pose: PoseAbs = PoseAbs::default();
 
     Timer::after_millis(100).await; // has to wait until the first poses comes
     match mode {
@@ -1323,14 +1671,7 @@ pub async fn diffdrive_outer_loop_read_traj_from_json(
     // =============================================
 
     /* ================ Record First Pose w.r.t the selected mode ================== */
-    let mut first_pose: PoseAbs = PoseAbs {
-        x: 0.0,
-        y: 0.0,
-        z: 0.0,
-        roll: 0.0,
-        pitch: 0.0,
-        yaw: 0.0,
-    };
+    let mut first_pose: PoseAbs = PoseAbs::default();
 
     Timer::after_millis(100).await; // has to wait until the first poses comes
     match mode {
@@ -1620,14 +1961,7 @@ async fn execute_trajectory_loop_with_control(
     ));
 
     /* ================ Record First Pose w.r.t the selected mode ================== */
-    let mut first_pose: PoseAbs = PoseAbs {
-        x: 0.0,
-        y: 0.0,
-        z: 0.0,
-        roll: 0.0,
-        pitch: 0.0,
-        yaw: 0.0,
-    };
+    let mut first_pose: PoseAbs = PoseAbs::default();
 
     Timer::after_millis(100).await; // Wait until the first pose comes
     match mode {
@@ -1972,14 +2306,7 @@ async fn execute_trajectory_loop_with_control_for_tuning(
     ));
 
     /* ================ Record First Pose w.r.t the selected mode ================== */
-    let mut first_pose: PoseAbs = PoseAbs {
-        x: 0.0,
-        y: 0.0,
-        z: 0.0,
-        roll: 0.0,
-        pitch: 0.0,
-        yaw: 0.0,
-    };
+    let mut first_pose: PoseAbs = PoseAbs::default();
 
     Timer::after_millis(100).await; // Wait until the first pose comes
     match mode {
