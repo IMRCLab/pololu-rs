@@ -8,15 +8,13 @@ from launch.substitutions import LaunchConfiguration
 
 def generate_launch_description():
     # ── Paths ──────────────────────────────────────────────────────
-    controller_params = os.path.join(
-        get_package_share_directory('pololu'),
-        'config',
-        'controller_interface.yaml')
+    pololu_share = get_package_share_directory('pololu')
+    controller_params = os.path.join(pololu_share, 'config', 'controller_interface.yaml')
 
-    # mqtt-tracking-system lives next to the src/ directory
-    mqtt_tracking_dir = os.path.normpath(os.path.join(
-        os.path.dirname(os.path.realpath(__file__)),
-        '..', '..', '..', '..', 'mqtt-tracking-system'))
+    # Derive the colcon workspace root from the install path:
+    #   .../install/pololu/share/pololu  →  go up 4 levels  →  workspace root
+    ws_root = os.path.normpath(os.path.join(pololu_share, '..', '..', '..', '..'))
+    mqtt_tracking_dir = os.path.join(ws_root, 'mqtt-tracking-system')
 
     # ── Launch arguments ──────────────────────────────────────────
     config_arg = DeclareLaunchArgument(
