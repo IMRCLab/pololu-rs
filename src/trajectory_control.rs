@@ -31,6 +31,8 @@ use crate::trajectory_signal::{
     LAST_STATE, POSE_FRESH, PoseAbs, STATE_SIG, TRAJECTORY_CONTROL_EVENT, WHEEL_CMD_CH, WheelCmd,
 };
 
+use crate::odometry::{ODOM_STATE, OdomPose};
+
 use portable_atomic::{AtomicBool, Ordering};
 
 pub static STOP_ALL: AtomicBool = AtomicBool::new(false);
@@ -600,7 +602,7 @@ pub async fn wheel_speed_inner_loop(
 
 // Command-controlled trajectory following for gain tunning
 async fn execute_trajectory_loop_with_control_from_sdcard(
-    mode: ControlMode,
+    _mode: ControlMode,
     robot: &mut DiffdriveCascade,
     controller: &mut DiffdriveControllerCascade,
     // sdlogger: &mut Option<SdLogger>,
@@ -649,6 +651,31 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
     // }
     /* ============================================================================= */
 
+    /* =============== Fusion state: mocap-anchored dead reckoning ================= */
+    let mut odom_anchor: OdomPose;
+    let mut fused_x: f32;
+    let mut fused_y: f32;
+    let mut fused_yaw: f32;
+
+    // Seed fused pose from mocap if available, otherwise odometry
+    let init_fresh = POSE_FRESH.swap(false, Ordering::Acquire);
+    if init_fresh {
+        let mocap = *LAST_STATE.lock().await;
+        fused_x = mocap.x;
+        fused_y = mocap.y;
+        fused_yaw = mocap.yaw;
+        odom_anchor = *ODOM_STATE.lock().await;
+        info!("SD traj: initial pose from mocap ({},{},{})", fused_x, fused_y, fused_yaw);
+    } else {
+        let odom = *ODOM_STATE.lock().await;
+        fused_x = odom.x;
+        fused_y = odom.y;
+        fused_yaw = odom.theta;
+        odom_anchor = odom;
+        info!("SD traj: initial pose from odometry ({},{},{})", fused_x, fused_y, fused_yaw);
+    }
+    /* ============================================================================= */
+
     /* ======================== Get precise start time ============================= */
     let start = Instant::now();
     /* ============================================================================= */
@@ -689,14 +716,26 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
         }
         /* ========================================================================= */
 
-        /* ========================= Get robot pose ================================ */
-        let pose = {
-            let s = LAST_STATE.lock().await;
-            *s
-        };
-        //check if a new pose was received since last loop execution. 
-        //Fallback for GRC demo Aruco Marker tracking
+        /* ========================= Pose Fusion ===================================== */
+        let mocap_pose = *LAST_STATE.lock().await;
         let pose_is_fresh = POSE_FRESH.swap(false, Ordering::Acquire);
+        let odom_now = *ODOM_STATE.lock().await;
+
+        if pose_is_fresh {
+            // Fresh mocap → use directly, re-anchor odometry
+            fused_x = mocap_pose.x;
+            fused_y = mocap_pose.y;
+            fused_yaw = mocap_pose.yaw;
+            odom_anchor = odom_now;
+        } else {
+            // Stale mocap → propagate from last mocap using odometry delta
+            let dx = odom_now.x - odom_anchor.x;
+            let dy = odom_now.y - odom_anchor.y;
+            let dtheta = odom_now.theta - odom_anchor.theta;
+            fused_x = mocap_pose.x + dx;
+            fused_y = mocap_pose.y + dy;
+            fused_yaw = mocap_pose.yaw + dtheta;
+        }
         /* ========================================================================= */
 
         /* ====================== Current elapsed time ============================= */
@@ -731,45 +770,15 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
         };
         /* ========================================================================= */
 
-        let (ul, ur, x_error, y_error, theta_error);
+        /* ==================== Unified closed-loop control ========================= */
+        robot.s.x = fused_x;
+        robot.s.y = fused_y;
+        robot.s.theta = SO2::new(fused_yaw);
 
-        match mode {
-            ControlMode::WithMocapController => {
-                robot.s.x = pose.x;
-                robot.s.y = pose.y;
-                robot.s.theta = SO2::new(pose.yaw);
-
-                if pose_is_fresh {
-                    // ---- Fresh mocap pose → closed-loop feedback control ----
-                    let (action, x_e, y_e, yaw_e) = controller.control(&robot, setpoint);
-                    ul = action.ul;
-                    ur = action.ur;
-                    x_error = x_e;
-                    y_error = y_e;
-                    theta_error = yaw_e;
-                } else {
-                    // ---- Stale pose → open-loop feedforward (ArUco fallback) ----
-                    defmt::warn!("Mocap stale -> feedforward");
-                    ul = (2.0 * vd - robot_cfg.wheel_base * wd)
-                        / (2.0 * robot_cfg.wheel_radius);
-                    ur = (2.0 * vd + robot_cfg.wheel_base * wd)
-                        / (2.0 * robot_cfg.wheel_radius);
-                    x_error = 0.0;
-                    y_error = 0.0;
-                    theta_error = 0.0;
-                }
-            }
-            ControlMode::DirectDuty => {
-                // ---- No mocap — always propagate actions directly ----
-                ul = (2.0 * vd - robot_cfg.wheel_base * wd)
-                    / (2.0 * robot_cfg.wheel_radius);
-                ur = (2.0 * vd + robot_cfg.wheel_base * wd)
-                    / (2.0 * robot_cfg.wheel_radius);
-                x_error = 0.0;
-                y_error = 0.0;
-                theta_error = 0.0;
-            }
-        }
+        let (action, x_error, y_error, theta_error) = controller.control(&robot, setpoint);
+        let ul = action.ul;
+        let ur = action.ur;
+        /* ========================================================================= */
 
         while WHEEL_CMD_CH.try_receive().is_ok() {} // drain old commands
         let _ = WHEEL_CMD_CH.try_send(WheelCmd {
@@ -832,22 +841,14 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
 
         let w_deg = setpoint.wdes * 180.0 / PI;
         defmt::info!(
-            "t={}s, pos=({},{},{}), posd=({},{},{}), v={}, w={}rad/s ({}deg/s), u=({},{}), (xerr,yerr,theterr)=({},{},{})",
+            "t={}s, fused=({},{},{}), des=({},{},{}), v={}, w={}°/s, u=({},{}), err=({},{},{}), fresh={}",
             t_sec,
-            pose.x,
-            pose.y,
-            pose.yaw,
-            setpoint.des.x,
-            setpoint.des.y,
-            setpoint.des.theta.rad(),
-            setpoint.vdes,
-            setpoint.wdes,
-            w_deg,
-            ul,
-            ur,
-            x_error,
-            y_error,
-            theta_error
+            fused_x, fused_y, fused_yaw,
+            setpoint.des.x, setpoint.des.y, setpoint.des.theta.rad(),
+            setpoint.vdes, w_deg,
+            ul, ur,
+            x_error, y_error, theta_error,
+            pose_is_fresh
         );
 
         if t_sec >= (robot_cfg.traj_following_dt_s * (len as f32)) {
@@ -875,7 +876,7 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
 // Command-controlled trajectory following from SDCard
 #[embassy_executor::task]
 pub async fn diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
-    mode: ControlMode,
+    _mode: ControlMode,
     // mut sdlogger: Option<SdLogger>,
     // led_device: Option<led::Led>,
     cfg: Option<RobotConfig>,
@@ -964,7 +965,7 @@ pub async fn diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
         
 
         let exec_fut = execute_trajectory_loop_with_control_from_sdcard(
-            mode,
+            _mode,
             &mut robot,
             &mut controller,
             &robot_cfg,
@@ -1037,7 +1038,7 @@ pub async fn mocap_update_task() {
 /* ========================== Onboard Trajectory Mode ================================= */
 
 async fn execute_trajectory_loop_onboard(
-    mode: ControlMode,
+    _mode: ControlMode,
     robot: &mut DiffdriveCascade,
     controller: &mut DiffdriveControllerCascade,
     robot_cfg: &RobotConfig,
@@ -1050,19 +1051,43 @@ async fn execute_trajectory_loop_onboard(
         (robot_cfg.traj_following_dt_s * 1000.0) as u64,
     ));
 
-    let mut first_pose: PoseAbs = PoseAbs::default();
+    // --- Unified pose fusion state ---
+    // "Anchor" = the odometry snapshot at the moment we last received a fresh mocap pose.
+    // Between mocap updates we compute: pose = last_mocap + (odom_now - odom_anchor).
+    let mut odom_anchor: OdomPose;
+    let mut fused_x: f32;
+    let mut fused_y: f32;
+    let mut fused_yaw: f32;
+
+    // Wait a moment for first mocap/odom data to arrive
     Timer::after_millis(100).await;
-    match mode {
-        ControlMode::WithMocapController => {
-            first_pose = {
-                let s = LAST_STATE.lock().await;
-                *s
-            };
-        }
-        ControlMode::DirectDuty => {
-            info!("Onboard traj: direct duty, initial pose (0,0,0)");
-        }
+
+    // Try to get initial mocap pose; fall back to pure odometry if unavailable
+    let pose_is_fresh = POSE_FRESH.swap(false, Ordering::Acquire);
+    let mocap_pose = *LAST_STATE.lock().await;
+
+    if pose_is_fresh {
+        // Mocap available at startup — use it as ground truth
+        fused_x = mocap_pose.x;
+        fused_y = mocap_pose.y;
+        fused_yaw = mocap_pose.yaw;
+        odom_anchor = *ODOM_STATE.lock().await;
+        info!("Onboard traj: initial pose from mocap ({},{},{})",
+            fused_x, fused_y, fused_yaw);
+    } else {
+        // No mocap — start from odometry (0,0,0)
+        let odom = *ODOM_STATE.lock().await;
+        fused_x = odom.x;
+        fused_y = odom.y;
+        fused_yaw = odom.theta;
+        odom_anchor = odom;
+        info!("Onboard traj: initial pose from odometry ({},{},{})",
+            fused_x, fused_y, fused_yaw);
     }
+
+    let first_pose_x = fused_x;
+    let first_pose_y = fused_y;
+    let first_pose_yaw = fused_yaw;
 
     let start = Instant::now();
 
@@ -1095,11 +1120,27 @@ async fn execute_trajectory_loop_onboard(
             break;
         }
 
-        let pose = {
-            let s = LAST_STATE.lock().await;
-            *s
-        };
+        /* =================== Pose Fusion: mocap-anchored dead reckoning =================== */
+        let mocap_pose = *LAST_STATE.lock().await;
         let pose_is_fresh = POSE_FRESH.swap(false, Ordering::Acquire);
+        let odom_now = *ODOM_STATE.lock().await;
+
+        if pose_is_fresh {
+            // Fresh mocap → use directly, re-anchor odometry
+            fused_x = mocap_pose.x;
+            fused_y = mocap_pose.y;
+            fused_yaw = mocap_pose.yaw;
+            odom_anchor = odom_now;
+        } else {
+            // Stale mocap → propagate from last mocap using odometry delta
+            let dx = odom_now.x - odom_anchor.x;
+            let dy = odom_now.y - odom_anchor.y;
+            let dtheta = odom_now.theta - odom_anchor.theta;
+            fused_x = mocap_pose.x + dx;
+            fused_y = mocap_pose.y + dy;
+            fused_yaw = mocap_pose.yaw + dtheta;
+        }
+        /* ================================================================================== */
 
         let t = Instant::now() - start;
         let t_sec = t.as_millis() as f32 / 1000.0;
@@ -1111,50 +1152,20 @@ async fn execute_trajectory_loop_onboard(
             duration,
             ax,
             ay,
-            first_pose.x,
-            first_pose.y,
-            first_pose.yaw,
+            first_pose_x,
+            first_pose_y,
+            first_pose_yaw,
         );
 
-        let vd = setpoint.vdes;
-        let wd = setpoint.wdes;
+        // Update robot state from fused pose
+        robot.s.x = fused_x;
+        robot.s.y = fused_y;
+        robot.s.theta = SO2::new(fused_yaw);
 
-        let (ul, ur, x_error, y_error, theta_error);
-
-        match mode {
-            ControlMode::WithMocapController => {
-                robot.s.x = pose.x;
-                robot.s.y = pose.y;
-                robot.s.theta = SO2::new(pose.yaw);
-
-                if pose_is_fresh {
-                    let (action, x_e, y_e, yaw_e) = controller.control(&robot, setpoint);
-                    ul = action.ul;
-                    ur = action.ur;
-                    x_error = x_e;
-                    y_error = y_e;
-                    theta_error = yaw_e;
-                } else {
-                    defmt::warn!("Mocap stale -> feedforward");
-                    ul = (2.0 * vd - robot_cfg.wheel_base * wd)
-                        / (2.0 * robot_cfg.wheel_radius);
-                    ur = (2.0 * vd + robot_cfg.wheel_base * wd)
-                        / (2.0 * robot_cfg.wheel_radius);
-                    x_error = 0.0;
-                    y_error = 0.0;
-                    theta_error = 0.0;
-                }
-            }
-            ControlMode::DirectDuty => {
-                ul = (2.0 * vd - robot_cfg.wheel_base * wd)
-                    / (2.0 * robot_cfg.wheel_radius);
-                ur = (2.0 * vd + robot_cfg.wheel_base * wd)
-                    / (2.0 * robot_cfg.wheel_radius);
-                x_error = 0.0;
-                y_error = 0.0;
-                theta_error = 0.0;
-            }
-        }
+        // Always closed-loop feedback control
+        let (action, x_error, y_error, theta_error) = controller.control(&robot, setpoint);
+        let ul = action.ul;
+        let ur = action.ur;
 
         while WHEEL_CMD_CH.try_receive().is_ok() {}
         let _ = WHEEL_CMD_CH.try_send(WheelCmd {
@@ -1201,13 +1212,14 @@ async fn execute_trajectory_loop_onboard(
 
         let w_deg = setpoint.wdes * 180.0 / PI;
         defmt::info!(
-            "t={}s, pos=({},{},{}), posd=({},{},{}), v={}, w={}rad/s ({}deg/s), u=({},{}), (xerr,yerr,theterr)=({},{},{})",
+            "t={}s, fused=({},{},{}), des=({},{},{}), v={}, w={}°/s, u=({},{}), err=({},{},{}), fresh={}",
             t_sec,
-            pose.x, pose.y, pose.yaw,
+            fused_x, fused_y, fused_yaw,
             setpoint.des.x, setpoint.des.y, setpoint.des.theta.rad(),
-            setpoint.vdes, setpoint.wdes, w_deg,
+            setpoint.vdes, w_deg,
             ul, ur,
-            x_error, y_error, theta_error
+            x_error, y_error, theta_error,
+            pose_is_fresh
         );
 
         if t_sec >= duration {
@@ -1232,7 +1244,7 @@ async fn execute_trajectory_loop_onboard(
 
 #[embassy_executor::task]
 pub async fn diffdrive_outer_loop_onboard_traj(
-    mode: ControlMode,
+    _mode: ControlMode,
     cfg: Option<RobotConfig>,
 ) {
     let robot_cfg: RobotConfig = cfg.unwrap_or_default();
@@ -1300,7 +1312,7 @@ pub async fn diffdrive_outer_loop_onboard_traj(
         }
 
         let exec_fut = execute_trajectory_loop_onboard(
-            mode,
+            _mode,
             &mut robot,
             &mut controller,
             &robot_cfg,

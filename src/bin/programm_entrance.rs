@@ -14,13 +14,15 @@ use heapless::Vec as HVec;
 use pololu3pi2040_rs::init::{self, init_all};
 use pololu3pi2040_rs::orchestrator_signal::{
     FRAME_MAX, LEN_FUNC_SELECT_CMD, Mode, ORCH_CH, OrchestratorMsg, STOP_MENU_UART_SIG,
-    STOP_MOCAP_UART_SIG, STOP_MOCAP_UPDATE_SIG, STOP_MOTOR_CTRL_SIG, STOP_TELEOP_UART_SIG,
-    STOP_TRAJ_OUTER_SIG, STOP_WHEEL_INNER_SIG, decode_functionality_select_command,
+    STOP_MOCAP_UART_SIG, STOP_MOCAP_UPDATE_SIG, STOP_MOTOR_CTRL_SIG, STOP_ODOM_SIG,
+    STOP_TELEOP_UART_SIG, STOP_TRAJ_OUTER_SIG, STOP_WHEEL_INNER_SIG,
+    decode_functionality_select_command,
 };
 use pololu3pi2040_rs::{
     encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     joystick_control::{control_action_uart_task, teleop_motor_control_task, teleop_uart_task},
     led::LED_SHARED,
+    odometry::odometry_task,
     sdlog::SDLOGGER_SHARED,
     trajectory_control::{
         ControlMode, diffdrive_outer_loop_command_controlled_traj_following_from_sdcard,
@@ -214,6 +216,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         STOP_MOCAP_UPDATE_SIG.signal(());
                         STOP_WHEEL_INNER_SIG.signal(());
                         STOP_TRAJ_OUTER_SIG.signal(());
+                        STOP_ODOM_SIG.signal(());
 
                         Timer::after(Duration::from_millis(2)).await;
 
@@ -221,6 +224,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         drain_signal(&STOP_MOCAP_UPDATE_SIG, 2).await;
                         drain_signal(&STOP_WHEEL_INNER_SIG, 2).await;
                         drain_signal(&STOP_TRAJ_OUTER_SIG, 2).await;
+                        drain_signal(&STOP_ODOM_SIG, 2).await;
                     }
                 }
 
@@ -255,6 +259,13 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         spawner.spawn(uart_motioncap_receiving_task(cfg)).unwrap();
                         spawner.spawn(mocap_update_task()).unwrap();
                         spawner
+                            .spawn(odometry_task(
+                                encoder_count_left,
+                                encoder_count_right,
+                                devices.config,
+                            ))
+                            .unwrap();
+                        spawner
                             .spawn(wheel_speed_inner_loop(
                                 devices.motor,
                                 encoder_count_left,
@@ -276,6 +287,13 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
 
                         spawner.spawn(uart_motioncap_receiving_task(cfg)).unwrap();
                         spawner.spawn(mocap_update_task()).unwrap();
+                        spawner
+                            .spawn(odometry_task(
+                                encoder_count_left,
+                                encoder_count_right,
+                                devices.config,
+                            ))
+                            .unwrap();
                         spawner
                             .spawn(wheel_speed_inner_loop(
                                 devices.motor,
@@ -318,6 +336,13 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
 
                         spawner.spawn(uart_motioncap_receiving_task(cfg)).unwrap();
                         spawner.spawn(mocap_update_task()).unwrap();
+                        spawner
+                            .spawn(odometry_task(
+                                encoder_count_left,
+                                encoder_count_right,
+                                devices.config,
+                            ))
+                            .unwrap();
                         spawner
                             .spawn(wheel_speed_inner_loop(
                                 devices.motor,
