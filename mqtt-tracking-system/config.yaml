@@ -1,0 +1,32 @@
+arena:
+  width_m: 1.80
+  height_m: 0.90
+
+camera:
+  index: 4
+  fourcc: MJPG
+  frame_width: 3840
+  frame_height: 2160
+  autofocus: true    # enable to find correct focus, then lock with false + value
+  focus: 0   # min 0, max 255, increments of 5
+
+aruco:
+  dictionary: DICT_4X4_100  # DICT_4X4_100 (16-bit), DICT_5X5_1000 (25-bit), DICT_6X6_250, etc.
+
+mqtt:
+  broker: localhost #192.168.178.000 # IP address of the MQTT broker
+  port: 1883
+  topic: poses # Topic to publish the robot's position data
+
+# Map ArUco marker IDs to robot names (must match mocap asset names / nRF addresses)
+# The numeric suffix (07, 08, etc.) is the ID used across the whole stack
+robots:
+  7: "Pololu07"
+  8: "Pololu08"
+  9: "Pololu09"
+  10: "Pololu10"
+
+visualization:
+  enabled: false
+  # pixels per meter in the warped view window
+  warp_scale: 1000

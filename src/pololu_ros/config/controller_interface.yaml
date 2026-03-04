@@ -1,6 +1,6 @@
 /controller_interface:
   ros__parameters:
-    frequency: 10  # set to 0, to disable manual flight modes
+    frequency: 30  # set to 0, to disable manual flight modes
     #uri1: "radio://*/80/2M/00E6E6E6E6?safelink=0&autoping=0"
     uri1: "radio://*/80/2M/E7C2C2C210?safelink=0&autoping=0"
     #uri1: "radio://*/80/2M/00E6E6E6E7?safelink=0&autoping=0"

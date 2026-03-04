@@ -2,9 +2,11 @@
 #include <vector>
 #include <chrono>
 #include <math.h>
+#include <unistd.h>
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/joy.hpp"
 #include "geometry_msgs/msg/twist.hpp"
+#include "geometry_msgs/msg/vector3.hpp"
 
 //includes for sending messages using the crazy radio
 #include "crazyflieLinkCpp/Connection.h"
@@ -44,11 +46,28 @@ public:
         //adjust policy
         auto qos = rclcpp::QoS(rclcpp::KeepLast(10));
         qos.best_effort();
-        //include listener that will send MoCap package about position to the robot
+        
         mocap_subscription = this->create_subscription<motion_capture_tracking_interfaces::msg::NamedPoseArray>(
             "poses", 
             qos,
             std::bind(&TeleopNode::posesChanged, this, _1)
+        );
+
+        // Subscribe to control actions from wmr_controller
+        // Use BEST30FF //set frequency up to 30ORT QoS with depth 1 to only process latest message and avoid buffering
+        auto cmd_qos = rclcpp::QoS(rclcpp::KeepLast(1));
+        cmd_qos.best_effort();
+        cmd_unicycle_subscription = this->create_subscription<geometry_msgs::msg::Vector3>(
+            "/cmd_unicycle",
+            cmd_qos,
+            std::bind(&TeleopNode::cmdUnicycleChanged, this, _1)
+        );
+
+        // Subscribe to waypoint commands
+        cmd_waypoint_subscription = this->create_subscription<geometry_msgs::msg::Twist>(
+            "/cmd_waypoint",
+            cmd_qos,
+            std::bind(&TeleopNode::cmdWaypointChanged, this, _1)
         );
 
         this->declare_parameter("frequency", 10);
@@ -78,7 +97,8 @@ public:
         connection_[3] = std::make_shared<Connection>(uri4);
         std::cout << "Connection 4: " << uri4 << std::endl;
 
-        
+        initRobotIds();
+
 
 
         // declare cmd_rpy params
@@ -129,7 +149,8 @@ private:
         {"teleop", 0, "Manual TELEOPeration mode"},
         {"trajectory following w/ direct duty", 1, "TRAJ FOLLOWING with DIRECT DUTY"},
         {"traj following w/ mocap", 2, "TRAJ FOLLOWING with MOCAP"},
-        {"control action execution", 3, "CONTROL ACTION EXECUTION mode"}
+        {"control action execution", 3, "CONTROL ACTION EXECUTION mode"},
+        {"onboard trajectory exec", 4, "ONBOARD TRAJECTORY EXECUTION mode"}
         //add missing functionality here later
     };
 
@@ -185,22 +206,10 @@ private:
         //handle communication tied to the frequency here. 
 
         // Only send to selected robot and only if teleop is active
-        //RCLCPP_INFO(logger_, "selected robot is %d", selected_robot_);
-        //RCLCPP_INFO(logger_, "selected program is %s", available_programs_[selected_program_[selected_robot_]].name.c_str());
-        //RCLCPP_INFO(logger_, "teleop activated is %d", teleop_activated[selected_robot_]);
         if (teleop_activated[selected_robot_] == 1) {
             teleopCommand(selected_robot_);
         }   
-        //broadcast a control action to all robots who have that program running
-        for (int i = 0; i<4; i++) {
-            if (control_action_active[i]) {
-                //placeholder... 
-                //TODO: implement control action broadcasting + way to obtain it from the simulation.
-                ;;
-            }
-        }
-        broadcastPosition();
-
+        // Control actions are now sent immediately in cmdUnicycleChanged callback
     }
 
     void teleopCommand(int robot_id){
@@ -212,18 +221,6 @@ private:
 
     void joyChanged1(const sensor_msgs::msg::Joy::SharedPtr msg)
     {
-        //some debug logging
-        //RCLCPP_INFO(logger_, "Received joystick message with %zu axes and %zu buttons", msg->axes.size(), msg->buttons.size());
-        // Debug button states (only log when buttons are pressed)
-        // for (size_t i = 0; i < msg->buttons.size() && i < 8; ++i) {
-        //     if (msg->buttons[i] == 1) {
-        //         RCLCPP_INFO(logger_, "Button %zu pressed!", i);
-        //     }
-        // }
-        
-        // Debug D-Pad axes
-        //RCLCPP_INFO(logger_, "D-Pad axes - axis 6: %f, axis 7: %f", msg->axes[6], msg->axes[7]);
-
         //handle joystick movement
         twist_[0].linear.z = getAxis(msg, axes_[0].z);
         twist_[0].angular.z = getAxis(msg, axes_[0].yaw);
@@ -233,34 +230,6 @@ private:
         
         //handle robot selection
         handleRobotSelection(msg);
-    }
-
-    void broadcastPosition(){
-        for (int i = 0; i < 4; ++i)
-        {
-            for (const auto &pose : latest_poses_.poses)
-            {
-                // prepare the quaternion for compressing
-                float quat[4] = {
-                    (float)pose.pose.orientation.x, (float)pose.pose.orientation.y, (float)pose.pose.orientation.z, (float)pose.pose.orientation.w};
-
-                uint32_t comp = quatcompress(quat);
-
-                // split the compressed quaternion uint32_t into 2 uint16_t for packing in a supported variable type
-                uint16_t quat_first = comp & 0xFFFF;
-                uint16_t quat_second = (comp >> 16) & 0xFFFF;
-                //RCLCPP_INFO(logger_, "ID: %d", getName(pose.name));
-                //RCLCPP_INFO(logger_, "pose is x=%.4f, y=%.4f, z=%.4f", (float)pose.pose.position.x, (float)pose.pose.position.y, (float)pose.pose.position.z);
-                // connection_[i]->send(PacketUtils::cmdLegacy_Pololu_Teleop(twist_[i].linear.z, twist_[i].angular.z));
-
-                //only broadcast to robots that are currently not in teleoperation mode:
-                if (!teleop_activated[i])
-                {
-                    connection_[i]->send(PacketUtils::motionCapture_Pololu_fullstate(getName(pose.name), (float)pose.pose.position.x, (float)pose.pose.position.y, (float)pose.pose.position.z,
-                                                                                 quat_first, quat_second));
-                }
-            }
-        }
     }
 
     static inline uint32_t quatcompress(float const q[4])
@@ -300,18 +269,91 @@ private:
     //mocap related functionality
     void posesChanged(const motion_capture_tracking_interfaces::msg::NamedPoseArray::SharedPtr msg)
     {
-        // mocap_data_received_timepoints_.emplace_back(std::chrono::steady_clock::now());
-        // overwrite latest poses
-        //  std::cout << "Received pose" <<msg->poses.size() << "poses: " <<std::endl;
+        for (int i = 0; i < 4; ++i)
+        {
+            if (teleop_activated[i]) continue;
 
-        // for (const auto& pose : msg->poses) {
-        //     std::cout   << "name" << pose.name
-        //                 << "position: " << pose.pose.position.x << ","
-        //                                 << pose.pose.position.y << ","
-        //                                 << pose.pose.position.z << ","
-        //                                 << std::endl;
-        // }
+            for (const auto &pose : msg->poses)
+            {
+                if (getName(pose.name) != robot_ids_[i]) continue;
+
+                float quat[4] = {
+                    (float)pose.pose.orientation.x, (float)pose.pose.orientation.y, (float)pose.pose.orientation.z, (float)pose.pose.orientation.w};
+
+                uint32_t comp = quatcompress(quat);
+                uint16_t quat_first = comp & 0xFFFF;
+                uint16_t quat_second = (comp >> 16) & 0xFFFF;
+
+                connection_[i]->send(PacketUtils::motionCapture_Pololu_fullstate(
+                    getName(pose.name),
+                    (float)pose.pose.position.x, (float)pose.pose.position.y, (float)pose.pose.position.z,
+                    quat_first, quat_second));
+            }
+        }
         latest_poses_ = *msg;
+    }
+
+    //callback for waypoints from controller
+    void cmdWaypointChanged(const geometry_msgs::msg::Twist::SharedPtr msg)
+    {
+        // Track callback timing for debugging
+        static auto last_callback_time = std::chrono::steady_clock::now();
+        auto now = std::chrono::steady_clock::now();
+        auto interval_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_callback_time).count();
+        
+        // Only log if interval is significantly off (more than 10ms from 100ms target)
+        if (last_callback_time.time_since_epoch().count() != 0 && std::abs(interval_ms - 100) > 10) {
+            RCLCPP_WARN(logger_, "Waypoint callback interval: %ld ms (expected ~100ms)", interval_ms);
+        }
+        last_callback_time = now;
+        
+        //store the latest waypoint command
+        latest_cmd_waypoint_ = *msg;
+
+        // Send to ONLY the selected robot if control_action_active
+        // Waypoints use x,y position and angular.z for orientation
+        if (control_action_active[selected_robot_]) {
+            connection_[selected_robot_]->send(PacketUtils::cmdLegacy_Waypoint(
+                latest_cmd_waypoint_.linear.x,   // x position
+                latest_cmd_waypoint_.linear.y,   // y position
+                latest_cmd_waypoint_.angular.z   // orientation/heading
+            ));
+            
+            // Reduced logging - only log occasionally
+            // RCLCPP_INFO_THROTTLE(logger_, *this->get_clock(), 5000, "Sending waypoint to Robot %d: x=%.3f, y=%.3f, theta=%.3f", 
+            //     selected_robot_ + 1, latest_cmd_waypoint_.linear.x, latest_cmd_waypoint_.linear.y, latest_cmd_waypoint_.angular.z);
+        }
+    }
+
+    //control action subscription callback
+    void cmdUnicycleChanged(const geometry_msgs::msg::Vector3::SharedPtr msg)
+    {
+        // Track callback timing for debugging
+        static auto last_callback_time = std::chrono::steady_clock::now();
+        auto now = std::chrono::steady_clock::now();
+        auto interval_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_callback_time).count();
+        
+        // Only log if interval is significantly off (more than 10ms from 100ms target)
+        if (last_callback_time.time_since_epoch().count() != 0 && std::abs(interval_ms - 100) > 10) {
+            RCLCPP_WARN(logger_, "Callback interval: %ld ms (expected ~100ms)", interval_ms);
+        }
+        last_callback_time = now;
+        
+        //store the latest control action: x = linear velocity (v), y = angular velocity (w)
+        latest_cmd_unicycle_ = *msg;
+
+        // Send to ONLY the selected robot if control_action_active
+        // This assumes single-robot control. For multi-robot, use namespaced topics like /robot1/cmd_unicycle
+        if (control_action_active[selected_robot_]) {
+            connection_[selected_robot_]->send(PacketUtils::cmdLegacy_Pololu_Teleop(
+                latest_cmd_unicycle_.x,  //linear velocity (v)
+                latest_cmd_unicycle_.y   //angular velocity (w)
+            ));
+            
+            // Reduced logging - only log occasionally or on startup
+            // RCLCPP_INFO_THROTTLE(logger_, *this->get_clock(), 5000, "Sending control actions to Robot %d: v=%.3f, w=%.3f", 
+            //     selected_robot_ + 1, latest_cmd_unicycle_.x, latest_cmd_unicycle_.y);
+        }
     }
 
     static uint8_t getName(const std::string &name)
@@ -431,6 +473,7 @@ private:
                 sendIndividualCommand(selected_robot_, 113); //q in asccii is 113
                 robot_running[selected_robot_] = false;
                 teleop_activated[selected_robot_] = false; //deactivate teleop always when stopping
+                control_action_active[selected_robot_] = false; //deactivate control action when quitting
             }
             else
             {
@@ -528,27 +571,43 @@ private:
         this->get_parameter<float>(name + ".deadband", axis.deadband);
     }
 
+    // Retry helper: sends a packet and checks ACK via statistics, retries if not ACK'd
+    void sendWithRetry(int robot_id, const Packet& packet, int max_retries = 3)
+    {
+        
+        for (int attempt = 0; attempt < max_retries; ++attempt) {
+            auto stats_before = connection_[robot_id]->statistics();
+            connection_[robot_id]->send(packet);
+            //wait a bit for ack
+            usleep(1000);
+            auto stats_after = connection_[robot_id]->statistics();
+            if (stats_after.ack_count > stats_before.ack_count) {
+                return;
+            }
+            RCLCPP_WARN(logger_, "No ACK from robot %d, retry %d/%d", robot_id + 1, attempt + 1, max_retries);
+        }
+        RCLCPP_ERROR(logger_, "Robot %d did not ACK after %d attempts", robot_id + 1, max_retries);
+    }
+
     void sendIndividualCommand(int robot_id, uint8_t command)
     {
         //ID 255 means no specific robot is the receiver of the command. this is handled on the robot side. 
-        connection_[robot_id]->send(PacketUtils::cmdTrajectoryControl(robot_ids_[robot_id], command));
+        sendWithRetry(robot_id, PacketUtils::cmdTrajectoryControl(robot_ids_[robot_id], command));
         RCLCPP_INFO(logger_, "Sent command %d to robot %d", command, robot_id + 1);
     }
 
     void sendIndividualStart(int robot_id){
-        connection_[robot_id]->send(PacketUtils::cmdTrajectoryControlStartStop(robot_ids_[robot_id], 1));
+        sendWithRetry(robot_id, PacketUtils::cmdTrajectoryControlStartStop(robot_ids_[robot_id], 1));
         RCLCPP_INFO(logger_, "Sent START command to robot %d", robot_id + 1);
         robot_running[robot_id] = true;
     }
 
     void sendIndividualStop(int robot_id){
-
-        connection_[robot_id]->send(PacketUtils::cmdTrajectoryControlStartStop(robot_ids_[robot_id], 0));
+        sendWithRetry(robot_id, PacketUtils::cmdTrajectoryControlStartStop(robot_ids_[robot_id], 0));
         RCLCPP_INFO(logger_, "Sent STOP command to robot %d", robot_id + 1);
-        //robot_running[robot_id] = false;
-        teleop_activated[robot_id] = false; //deactivate teleop always when stopping the robot
+        teleop_activated[robot_id] = false;
+        control_action_active[robot_id] = false;
     }
-
 
     void sendGlobalCommand(uint8_t command)
     {
@@ -606,10 +665,12 @@ private:
                 // add here to expand functionality
                 RCLCPP_INFO(logger_, "Letting robot  %d go into CONTROL ACTION EXECUTION mode", robot_id + 1);
                 sendIndividualCommand(robot_id, 65); //go into control action execution mode on the robot "A" = ASCII 65
+                control_action_active[robot_id] = true; // Activate control action broadcasting
                 break;
-            case 4: //gain tuning mode on demo trajectory
-                // add here to expand functionality
-                RCLCPP_INFO(logger_, "not implemented!");
+            case 4: //onboard trajectory execution mode
+                RCLCPP_INFO(logger_, "Letting robot %d go into ONBOARD TRAJECTORY EXECUTION mode", robot_id + 1);
+                sendIndividualCommand(robot_id, 70); //go into onboard traj exec mode on the robot "F" = ASCII 70
+                //waiting for start command now
                 break;
             default:
                 RCLCPP_WARN(logger_, "Unknown program command %d for robot %d", program_command, robot_id + 1);
@@ -632,7 +693,11 @@ private:
     // Member variables
     rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr subscription_[1];
     rclcpp::Subscription<motion_capture_tracking_interfaces::msg::NamedPoseArray>::SharedPtr mocap_subscription;
+    rclcpp::Subscription<geometry_msgs::msg::Vector3>::SharedPtr cmd_unicycle_subscription;
+    rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_waypoint_subscription;
     motion_capture_tracking_interfaces::msg::NamedPoseArray latest_poses_;
+    geometry_msgs::msg::Vector3 latest_cmd_unicycle_; // Store latest control action (v, w)
+    geometry_msgs::msg::Twist latest_cmd_waypoint_; // Store latest waypoint command
     rclcpp::TimerBase::SharedPtr timer_;
     geometry_msgs::msg::Twist twist_[1];
     rclcpp::Logger logger_;
