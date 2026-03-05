@@ -1,7 +1,6 @@
 # pololu-rs
 A Rust-based Framework for Reproducible Multi-Robot Experiments.
 
-
 ![pololu-rs platform](pics/Zumo+3Pi.jpeg)
 
 [Documentation](https://imrclab.github.io/pololu-rs/)  | [Paper](https://imrclab.github.io/assets/pdf/2026-pololu-rs.pdf)
@@ -10,6 +9,8 @@ A Rust-based Framework for Reproducible Multi-Robot Experiments.
 
 ## Overview
 **pololu-rs** is a Rust-based research framework for commercially off-the-shelf (COTS) Pololu mobile robots, It combines open embedded firmware with a low-cost add-on board for logging and wireless communication, enabling reproducible and easy-to-deploy multi-robot experiments.
+
+---
 
 ## Key Features 
 - Firmware fully written in **Rust**.
