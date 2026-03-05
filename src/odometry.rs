@@ -53,7 +53,7 @@ pub static ODOM_STATE: Mutex<ThreadModeRawMutex, OdomPose> = Mutex::new(OdomPose
     w: 0.0,
 });
 
-//Odometry task — integrates encoder counts into (x, y, theta) at 50 Hz.
+//Odometry task: integrates encoder counts into (x, y, theta) at 50 Hz.
 //Responds to `STOP_ODOM_SIG` to cleanly exit when switching modes.
 #[embassy_executor::task]
 pub async fn odometry_task(
@@ -111,15 +111,15 @@ pub async fn odometry_task(
         odom.timestamp = Instant::now();
 
         //TODO:
-        // -IMU gyro yaw correction
+        // IMU gyro yaw correction
         // let imu_gz = read gyro z from shared signal/mutex;
         // let dtheta_imu = imu_gz * dt;
-        // // Complementary filter: trust gyro more for short-term heading
+        // Complementary filter: trust gyro more for short-term heading
         // let alpha = 0.98;
         // let dtheta_fused = alpha * dtheta_imu + (1.0 - alpha) * dtheta;
         // odom.theta = odom.theta.add(dtheta_fused - dtheta + dtheta); // replace encoder heading
 
-        // Publish to shared state (flat f32 for const-init compatibility)
+        // Publish to shared state
         {
             let mut s = ODOM_STATE.lock().await;
             *s = OdomPose {

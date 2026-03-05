@@ -149,6 +149,9 @@ pub async fn teleop_motor_control_task(
 pub async fn teleop_uart_task(cfg: UartCfg) {
     let mut frame: HVec<u8, 32> = HVec::new();
 
+    // Drain any stale bytes from duplicate dongle sends
+    while UART_RX_CHANNEL.try_receive().is_ok() {}
+
     loop {
         let read_len_fut = UART_RX_CHANNEL.receive();
         let timeout_len_fut = Timer::after(Duration::from_millis(1));
@@ -262,6 +265,9 @@ pub async fn teleop_uart_task(cfg: UartCfg) {
 #[embassy_executor::task]
 pub async fn control_action_uart_task(cfg: UartCfg) {
     let mut frame: HVec<u8, 32> = HVec::new();
+
+    // Drain any stale bytes from duplicate dongle sends
+    while UART_RX_CHANNEL.try_receive().is_ok() {}
 
     loop {
         let read_len_fut = UART_RX_CHANNEL.receive();

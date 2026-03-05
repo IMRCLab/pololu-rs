@@ -27,6 +27,9 @@ pub async fn uart_motioncap_receiving_task(cfg: UartCfg) {
     // let mut len_buf = [0u8; 1];
     let mut frame: HVec<u8, FRAME_MAX> = HVec::new();
 
+    // Drain any stale bytes from duplicate dongle sends
+    while UART_RX_CHANNEL.try_receive().is_ok() {}
+
     loop {
         // Read Length Buffer Byte First
         let read_len_fut = UART_RX_CHANNEL.receive();
@@ -92,17 +95,21 @@ pub async fn uart_motioncap_receiving_task(cfg: UartCfg) {
 
         // -------- Decoding --------
         if len == LEN_FUNC_SELECT_CMD {
-            info!("here_mocap");
             if let Some(sel) = decode_functionality_select_command(&frame, cfg.robot_id) {
                 let target = match sel {
                     0 => Mode::Menu,
                     1 => Mode::TeleOp,
                     2 => Mode::TrajMocap,
                     3 => Mode::TrajDuty,
+                    4 => Mode::CtrlAction,
+                    5 => Mode::TrajOnboard,
                     _ => Mode::Menu,
                 };
                 let _ = ORCH_CH.try_send(OrchestratorMsg::SwitchTo(target));
-                return;
+                // Don't return here — let STOP_MOCAP_UART_SIG handle task exit.
+                // Returning immediately kills this UART task before the orchestrator
+                // can process the switch, making the robot deaf on retransmits
+                // or same-mode duplicates.
             }
             continue;
         }

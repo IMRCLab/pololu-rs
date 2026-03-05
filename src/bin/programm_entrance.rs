@@ -33,6 +33,14 @@ use pololu3pi2040_rs::{
     uart::{UART_RX_CHANNEL, uart_hw_task},
 };
 
+/// Drain any stale bytes from the UART RX channel.
+/// Called between stopping old tasks and spawning new ones so that
+/// duplicate command bytes (the dongle sends each command 3×) don't
+/// corrupt the framing of the next UART task.
+fn drain_uart_rx_channel() {
+    while UART_RX_CHANNEL.try_receive().is_ok() {}
+}
+
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
     let p = init(Default::default());
@@ -55,7 +63,7 @@ async fn main(spawner: Spawner) {
     }
 
     spawner
-        .spawn(orchestrator(spawner, devices, UartCfg { robot_id: 10 }))
+        .spawn(orchestrator(spawner, devices, UartCfg { robot_id: 9 }))
         .unwrap();
 }
 
@@ -63,6 +71,9 @@ async fn main(spawner: Spawner) {
 pub async fn functionality_mode_selection_uart_task(cfg: UartCfg) {
     // let mut len_buf = [0u8; 1];
     let mut frame: HVec<u8, FRAME_MAX> = HVec::new();
+
+    // Drain any stale bytes that arrived between orchestrator drain and task start
+    drain_uart_rx_channel();
 
     loop {
         let read_len_fut = UART_RX_CHANNEL.receive();
@@ -224,7 +235,9 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         STOP_TRAJ_OUTER_SIG.signal(());
                         STOP_ODOM_SIG.signal(());
 
-                        Timer::after(Duration::from_millis(2)).await;
+                        Timer::after(Duration::from_millis(40)).await;
+
+                        devices.motor.set_speed(0.0, 0.0).await;
 
                         drain_signal(&STOP_MOCAP_UART_SIG, 2).await;
                         drain_signal(&STOP_MOCAP_UPDATE_SIG, 2).await;
@@ -233,6 +246,11 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         drain_signal(&STOP_ODOM_SIG, 2).await;
                     }
                 }
+
+                // Drain stale UART bytes left over from duplicate dongle sends
+                // (dongle sends each command 3×). Without this, the next UART
+                // task can read mid-frame bytes and lose framing permanently.
+                drain_uart_rx_channel();
 
                 match target {
                     Mode::Menu => {

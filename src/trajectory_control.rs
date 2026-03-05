@@ -513,33 +513,13 @@ pub async fn wheel_speed_inner_loop(
     };
 
     loop {
-        match select3(STOP_WHEEL_INNER_SIG.wait(), TRAJ_PAUSE_SIG.wait(), ticker.next()).await {
-            Either3::First(_) => {
+        match select(STOP_WHEEL_INNER_SIG.wait(), ticker.next()).await {
+            Either::First(_) => {
                 motor.set_speed(0.0, 0.0).await;
                 defmt::warn!("STOP inner loop -> exit");
-                return;    // Stop inner loop, stop trajectory following task, back to menu
+                return;
             }
-            Either3::Second(_) => {
-                motor.set_speed(0.0, 0.0).await;
-                loop {
-                    match select(TRAJ_RESUME_SIG.wait(), STOP_WHEEL_INNER_SIG.wait()).await {
-                        Either::First(_) => break,        // back to normal loop
-                        Either::Second(_) => {
-                            motor.set_speed(0.0, 0.0).await;
-                            return;
-                        }
-                    }
-                }
-                //reset the controller errors before resuming to avoid v spikes.
-                il = 0.0; ir = 0.0;
-                prev_el = 0.0; prev_er = 0.0;
-                omega_l_lp = 0.0; omega_r_lp = 0.0;
-                prev_l = *left_counter.lock().await;
-                prev_r = *right_counter.lock().await;
-                last_cmd = WheelCmd { omega_l: 0.0, omega_r: 0.0, stamp: Instant::now() };
-                continue;
-            }
-            Either3::Third(_) => {
+            Either::Second(_) => {
                 // Normal loop - ticker fired
             }
         }
@@ -678,18 +658,19 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
 
     /* ======================== Get precise start time ============================= */
     let start = Instant::now();
+    let mut pause_offset = Duration::from_millis(0);
     /* ============================================================================= */
 
     loop {
-        /* ======== wait for either the timer tick or a trajectory command ========= */
-        let either_result =
-            embassy_futures::select::select(ticker.next(), TRAJECTORY_CONTROL_EVENT.wait()).await;
+        /* ======== wait for either the timer tick, a trajectory command, or pause ========= */
+        let tick_result =
+            select3(ticker.next(), TRAJECTORY_CONTROL_EVENT.wait(), TRAJ_PAUSE_SIG.wait()).await;
 
-        match either_result {
-            embassy_futures::select::Either::First(_) => {
+        match tick_result {
+            Either3::First(_) => {
                 // timer tick: normal loop execution
             }
-            embassy_futures::select::Either::Second(command) => {
+            Either3::Second(command) => {
                 // command received during trajectory execution
                 if !command {
                     // Stop command - immediately stop motors
@@ -701,6 +682,31 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
                     defmt::info!("Stopping trajectory by command");
                     return TrajectoryResult::Stopped;
                 }
+            }
+            Either3::Third(_) => {
+                // Pause: zero wheels and wait for resume or stop
+                while WHEEL_CMD_CH.try_receive().is_ok() {}
+                let _ = WHEEL_CMD_CH.try_send(WheelCmd {
+                    omega_l: 0.0, omega_r: 0.0, stamp: Instant::now(),
+                });
+                let pause_start = Instant::now();
+                defmt::info!("Execute loop paused");
+                loop {
+                    match select(TRAJ_RESUME_SIG.wait(), TRAJECTORY_CONTROL_EVENT.wait()).await {
+                        Either::First(_) => {
+                            pause_offset += Instant::now() - pause_start;
+                            defmt::info!("Execute loop resumed");
+                            break;
+                        }
+                        Either::Second(_) => {
+                            let _ = WHEEL_CMD_CH.try_send(WheelCmd {
+                                omega_l: 0.0, omega_r: 0.0, stamp: Instant::now(),
+                            });
+                            return TrajectoryResult::Stopped;
+                        }
+                    }
+                }
+                continue;
             }
         }
 
@@ -739,12 +745,10 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
         /* ========================================================================= */
 
         /* ====================== Current elapsed time ============================= */
-        let t = Instant::now() - start;
+        let t = (Instant::now() - start) - pause_offset;
         let t_sec = t.as_millis() as f32 / 1000.0;
         let t_ms = t.as_millis() as u32;
         /* ========================================================================= */
-
-        /* ============= get corresponding reference state and action ============== */
         let mut i = (t_sec / robot_cfg.traj_following_dt_s) as usize;
         if i >= len {
             i = len - 1;
@@ -971,10 +975,9 @@ pub async fn diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
             &robot_cfg,
         );
         let stop_fut = STOP_TRAJ_OUTER_SIG.wait();
-        let pause_fut = TRAJ_PAUSE_SIG.wait();
 
-        match select3(exec_fut, stop_fut, pause_fut).await {
-            Either3::First(result) => {
+        match select(exec_fut, stop_fut).await {
+            Either::First(result) => {
                 match result {
                     TrajectoryResult::Completed => {
                         defmt::info!("Trajectory completed.");
@@ -985,28 +988,10 @@ pub async fn diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
                 }
                 led_set(false).await;
             }
-            Either3::Second(_) => {
+            Either::Second(_) => {
                 defmt::warn!("STOP outer during exec -> exit");
                 led_set(false).await;
                 return;
-            }
-            Either3::Third(_) => {
-                defmt::info!("PAUSE outer during exec -> wait RESUME/STOP");
-                led_set(false).await;
-                loop {
-                    match select(TRAJ_RESUME_SIG.wait(), STOP_TRAJ_OUTER_SIG.wait()).await {
-                        Either::First(_) => {
-                            defmt::info!("RESUME outer -> restart exec loop");
-                            led_set(true).await;
-                            break;
-                        }
-                        Either::Second(_) => {
-                            defmt::warn!("STOP outer during pause -> exit");
-                            return;
-                        }
-                    }
-                }
-                continue;
             }
         }
         defmt::info!("Waiting for next command...");
@@ -1090,14 +1075,15 @@ async fn execute_trajectory_loop_onboard(
     let first_pose_yaw = fused_yaw;
 
     let start = Instant::now();
+    let mut pause_offset = Duration::from_millis(0);
 
     loop {
-        let either_result =
-            embassy_futures::select::select(ticker.next(), TRAJECTORY_CONTROL_EVENT.wait()).await;
+        let tick_result =
+            select3(ticker.next(), TRAJECTORY_CONTROL_EVENT.wait(), TRAJ_PAUSE_SIG.wait()).await;
 
-        match either_result {
-            embassy_futures::select::Either::First(_) => {}
-            embassy_futures::select::Either::Second(command) => {
+        match tick_result {
+            Either3::First(_) => {} // normal tick
+            Either3::Second(command) => {
                 if !command {
                     let _ = WHEEL_CMD_CH.try_send(WheelCmd {
                         omega_l: 0.0,
@@ -1107,6 +1093,31 @@ async fn execute_trajectory_loop_onboard(
                     defmt::info!("Onboard traj stopped by command");
                     return TrajectoryResult::Stopped;
                 }
+            }
+            Either3::Third(_) => {
+                // Pause: zero wheels and wait for resume or stop
+                while WHEEL_CMD_CH.try_receive().is_ok() {}
+                let _ = WHEEL_CMD_CH.try_send(WheelCmd {
+                    omega_l: 0.0, omega_r: 0.0, stamp: Instant::now(),
+                });
+                let pause_start = Instant::now();
+                defmt::info!("Execute loop paused");
+                loop {
+                    match select(TRAJ_RESUME_SIG.wait(), TRAJECTORY_CONTROL_EVENT.wait()).await {
+                        Either::First(_) => {
+                            pause_offset += Instant::now() - pause_start;
+                            defmt::info!("Execute loop resumed");
+                            break;
+                        }
+                        Either::Second(_) => {
+                            let _ = WHEEL_CMD_CH.try_send(WheelCmd {
+                                omega_l: 0.0, omega_r: 0.0, stamp: Instant::now(),
+                            });
+                            return TrajectoryResult::Stopped;
+                        }
+                    }
+                }
+                continue;
             }
         }
 
@@ -1142,11 +1153,9 @@ async fn execute_trajectory_loop_onboard(
         }
         /* ================================================================================== */
 
-        let t = Instant::now() - start;
+        let t = (Instant::now() - start) - pause_offset;
         let t_sec = t.as_millis() as f32 / 1000.0;
         let t_ms = t.as_millis() as u32;
-
-        // Generate setpoint from onboard figure-8 reference
         let setpoint = robot.figure8_reference(
             t_sec,
             duration,
@@ -1318,10 +1327,9 @@ pub async fn diffdrive_outer_loop_onboard_traj(
             &robot_cfg,
         );
         let stop_fut = STOP_TRAJ_OUTER_SIG.wait();
-        let pause_fut = TRAJ_PAUSE_SIG.wait();
 
-        match select3(exec_fut, stop_fut, pause_fut).await {
-            Either3::First(result) => {
+        match select(exec_fut, stop_fut).await {
+            Either::First(result) => {
                 match result {
                     TrajectoryResult::Completed => {
                         defmt::info!("Onboard trajectory completed.");
@@ -1332,28 +1340,10 @@ pub async fn diffdrive_outer_loop_onboard_traj(
                 }
                 led_set(false).await;
             }
-            Either3::Second(_) => {
+            Either::Second(_) => {
                 defmt::warn!("STOP outer during exec -> exit");
                 led_set(false).await;
                 return;
-            }
-            Either3::Third(_) => {
-                defmt::info!("PAUSE outer during exec -> wait RESUME/STOP");
-                led_set(false).await;
-                loop {
-                    match select(TRAJ_RESUME_SIG.wait(), STOP_TRAJ_OUTER_SIG.wait()).await {
-                        Either::First(_) => {
-                            defmt::info!("RESUME outer -> restart");
-                            led_set(true).await;
-                            break;
-                        }
-                        Either::Second(_) => {
-                            defmt::warn!("STOP outer (paused) -> exit");
-                            return;
-                        }
-                    }
-                }
-                continue;
             }
         }
         defmt::info!("Waiting for next command...");
