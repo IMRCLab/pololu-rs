@@ -19,6 +19,7 @@ use pololu3pi2040_rs::orchestrator_signal::{
     decode_functionality_select_command,
 };
 use pololu3pi2040_rs::{
+    buzzer::{beep_signal, buzzer_beep_task},
     encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     joystick_control::{control_action_uart_task, teleop_motor_control_task, teleop_uart_task},
     led::LED_SHARED,
@@ -164,6 +165,9 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
     // ============= spawn low level uart task ======================
     spawner.spawn(uart_hw_task(devices.uart)).unwrap();
 
+    // ============= spawn buzzer beep task ========================
+    spawner.spawn(buzzer_beep_task(devices.buzzer)).unwrap();
+
     // ============== spawn func select task ========================
     spawner
         .spawn(functionality_mode_selection_uart_task(cfg))
@@ -179,6 +183,8 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
         match msg {
             OrchestratorMsg::SwitchTo(target) => {
                 defmt::info!("Orchestrator received mode switch request");
+                beep_signal();
+                beep_signal(); // non-blocking audible feedback
                 if target == mode {
                     info!("Already in target mode, ignoring");
                     continue;

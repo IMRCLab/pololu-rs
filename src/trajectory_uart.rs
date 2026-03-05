@@ -3,6 +3,7 @@ use embassy_futures::select::{Either3, select3};
 use embassy_time::{Duration, Instant, Timer};
 use heapless::Vec as HVec;
 
+use crate::buzzer::beep_signal;
 use crate::math::{quat_decompress, rpy_from_quaternion};
 use crate::orchestrator_signal::{
     LEN_FUNC_SELECT_CMD, LEN_STOP_RESUME_CMD, Mode, ORCH_CH, OrchestratorMsg, STOP_MOCAP_UART_SIG,
@@ -108,7 +109,7 @@ pub async fn uart_motioncap_receiving_task(cfg: UartCfg) {
 
         if len == LEN_STOP_RESUME_CMD {
             if let Some(start_trajectory) = decode_trajectory_command(&frame, cfg.robot_id) {
-                // TRAJECTORY_CONTROL_EVENT.signal(start_trajectory);
+                beep_signal();
                 info!("Trajectory control command received: {}", start_trajectory);
 
                 if start_trajectory {

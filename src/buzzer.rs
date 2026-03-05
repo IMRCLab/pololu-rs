@@ -3,6 +3,7 @@
 use embassy_rp::pwm::{Config as PwmConfig, Pwm};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::mutex::Mutex;
+use embassy_sync::signal::Signal;
 use embassy_time::{Duration, Timer};
 use fixed::traits::ToFixed;
 use static_cell::StaticCell;
@@ -207,5 +208,21 @@ pub async fn play_jingle_bells(buzzer: &BuzzerController) {
 
         buzzer.stop().await;
         Timer::after(Duration::from_millis(gap)).await;
+    }
+}
+
+pub static BUZZER_BEEP_SIG: Signal<ThreadModeRawMutex, ()> = Signal::new();
+
+pub fn beep_signal() {
+    BUZZER_BEEP_SIG.signal(());
+}
+
+#[embassy_executor::task]
+pub async fn buzzer_beep_task(buzzer: BuzzerController) {
+    loop {
+        BUZZER_BEEP_SIG.wait().await;
+        buzzer.tone(1000, 0.3).await;
+        Timer::after(Duration::from_millis(50)).await;
+        buzzer.stop().await;
     }
 }
