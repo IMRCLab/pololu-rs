@@ -637,8 +637,11 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
     let mut fused_y: f32;
     let mut fused_yaw: f32;
 
-    // Seed fused pose from mocap if available, otherwise odometry
-    let init_fresh = POSE_FRESH.swap(false, Ordering::Acquire);
+    // Seed fused pose from mocap if available, otherwise odometry.
+    // Use `load` not `swap` — swap(false) would eat the flag and cause
+    // the *next* restart within the same mode to fall through to the
+    // no-mocap branch even though mocap is running fine.
+    let init_fresh = POSE_FRESH.load(Ordering::Acquire);
     if init_fresh {
         let mocap = *LAST_STATE.lock().await;
         fused_x = mocap.x;
@@ -994,6 +997,10 @@ pub async fn diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
                     }
                 }
                 led_set(false).await;
+                // Clear stale resume/pause signals so the outer loop
+                // doesn't immediately re-enter execution on the next iteration.
+                TRAJ_RESUME_SIG.reset();
+                TRAJ_PAUSE_SIG.reset();
             }
             Either::Second(_) => {
                 defmt::warn!("STOP outer during exec -> exit");
@@ -1054,8 +1061,10 @@ async fn execute_trajectory_loop_onboard(
     // Wait a moment for first mocap/odom data to arrive
     Timer::after_millis(100).await;
 
-    // Try to get initial mocap pose; fall back to pure odometry if unavailable
-    let pose_is_fresh = POSE_FRESH.swap(false, Ordering::Acquire);
+    // Try to get initial mocap pose; fall back to pure odometry if unavailable.
+    // Use `load` not `swap` — swap(false) eats the flag and causes the next
+    // restart within the same mode to fall through to no-mocap.
+    let pose_is_fresh = POSE_FRESH.load(Ordering::Acquire);
     let mocap_pose = *LAST_STATE.lock().await;
 
     if pose_is_fresh {
@@ -1364,6 +1373,10 @@ pub async fn diffdrive_outer_loop_onboard_traj(
                     }
                 }
                 led_set(false).await;
+                // Clear stale resume/pause signals so the outer loop
+                // doesn't immediately re-enter execution on the next iteration.
+                TRAJ_RESUME_SIG.reset();
+                TRAJ_PAUSE_SIG.reset();
             }
             Either::Second(_) => {
                 defmt::warn!("STOP outer during exec -> exit");

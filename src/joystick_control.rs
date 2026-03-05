@@ -171,8 +171,13 @@ pub async fn teleop_uart_task(cfg: UartCfg) {
         };
 
         // let len = len_buf[0];
+        defmt::debug!("teleop uart: len={}", len);
         if !(len == TELEOP_PACK_LEN || len == LEN_FUNC_SELECT_CMD) {
-            // info!("teleop illegal");
+            // Unknown length — wait for remaining payload bytes to arrive
+            // then drain them so they don't corrupt framing of the next packet.
+            defmt::warn!("teleop uart: unknown len={}, draining", len);
+            Timer::after(Duration::from_millis(5)).await;
+            while UART_RX_CHANNEL.try_receive().is_ok() {}
             continue; // illegal Length
         }
 
@@ -237,6 +242,7 @@ pub async fn teleop_uart_task(cfg: UartCfg) {
                 {
                     let mut lock = CONTROL_CMD_UNICYCLE.lock().await;
                     *lock = cmd;
+                    defmt::info!("teleop: v={}, omega={}", cmd.v, cmd.omega);
                 }
             }
         }
@@ -252,7 +258,9 @@ pub async fn teleop_uart_task(cfg: UartCfg) {
                     _ => Mode::Menu,
                 };
                 let _ = ORCH_CH.try_send(OrchestratorMsg::SwitchTo(target));
-                return;
+                // Don't return here — let STOP_TELEOP_UART_SIG handle task exit.
+                // Returning kills this task before the orchestrator can process
+                // the switch, leaving the robot deaf to UART on duplicate commands.
             }
             continue;
         }
@@ -291,6 +299,10 @@ pub async fn control_action_uart_task(cfg: UartCfg) {
         };
 
         if !(len == TELEOP_PACK_LEN || len == LEN_FUNC_SELECT_CMD) {
+            // Unknown length — wait for remaining payload bytes to arrive
+            // then drain them so they don't corrupt framing of the next packet.
+            Timer::after(Duration::from_millis(5)).await;
+            while UART_RX_CHANNEL.try_receive().is_ok() {}
             continue;
         }
 
@@ -350,7 +362,6 @@ pub async fn control_action_uart_task(cfg: UartCfg) {
                     _ => Mode::Menu,
                 };
                 let _ = ORCH_CH.try_send(OrchestratorMsg::SwitchTo(target));
-                return;
             }
         }
     }
