@@ -647,12 +647,14 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
         odom_anchor = *ODOM_STATE.lock().await;
         info!("SD traj: initial pose from mocap ({},{},{})", fused_x, fused_y, fused_yaw);
     } else {
-        let odom = *ODOM_STATE.lock().await;
-        fused_x = odom.x;
-        fused_y = odom.y;
-        fused_yaw = odom.theta;
-        odom_anchor = odom;
-        info!("SD traj: initial pose from odometry ({},{},{})", fused_x, fused_y, fused_yaw);
+        // No mocap — start from (0,0,0).
+        // Anchor odometry at its current value so that the delta is zero
+        // at t=0, keeping fused == (0,0,0).
+        fused_x = 0.0;
+        fused_y = 0.0;
+        fused_yaw = 0.0;
+        odom_anchor = *ODOM_STATE.lock().await;
+        info!("SD traj: initial pose set to origin (no mocap)");
     }
     /* ============================================================================= */
 
@@ -928,6 +930,11 @@ pub async fn diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
     defmt::info!("Waiting for trajectory control commands...");
     defmt::info!("Commands: 't' = start, 's' = stop");
 
+    // Drain any stale start/pause signals that may have been set
+    // by a previous UART task racing with the orchestrator shutdown.
+    TRAJ_PAUSE_SIG.reset();
+    TRAJ_RESUME_SIG.reset();
+
     loop {
         // If user request stop task, stop immediately
         let start_fut = TRAJ_RESUME_SIG.wait();
@@ -1060,14 +1067,14 @@ async fn execute_trajectory_loop_onboard(
         info!("Onboard traj: initial pose from mocap ({},{},{})",
             fused_x, fused_y, fused_yaw);
     } else {
-        // No mocap — start from odometry (0,0,0)
-        let odom = *ODOM_STATE.lock().await;
-        fused_x = odom.x;
-        fused_y = odom.y;
-        fused_yaw = odom.theta;
-        odom_anchor = odom;
-        info!("Onboard traj: initial pose from odometry ({},{},{})",
-            fused_x, fused_y, fused_yaw);
+        // No mocap — start from (0,0,0).
+        // Anchor odometry at its current value so that the delta is zero
+        // at t=0, keeping fused == first_pose == (0,0,0).
+        fused_x = 0.0;
+        fused_y = 0.0;
+        fused_yaw = 0.0;
+        odom_anchor = *ODOM_STATE.lock().await;
+        info!("Onboard traj: initial pose set to origin (no mocap)");
     }
 
     let first_pose_x = fused_x;
@@ -1171,10 +1178,23 @@ async fn execute_trajectory_loop_onboard(
         robot.s.y = fused_y;
         robot.s.theta = SO2::new(fused_yaw);
 
-        // Always closed-loop feedback control
-        let (action, x_error, y_error, theta_error) = controller.control(&robot, setpoint);
-        let ul = action.ul;
-        let ur = action.ur;
+        // Compute wheel commands depending on control mode
+        let (ul, ur, x_error, y_error, theta_error) = match _mode {
+            ControlMode::WithMocapController => {
+                // Closed-loop: use pose feedback to correct trajectory tracking
+                let (action, xe, ye, te) = controller.control(&robot, setpoint);
+                (action.ul, action.ur, xe, ye, te)
+            }
+            ControlMode::DirectDuty => {
+                // Open-loop feedforward: convert (v, ω) directly to wheel speeds
+                // No position feedback — avoids odometry drift causing runaway
+                let vd = setpoint.vdes;
+                let wd = setpoint.wdes;
+                let ur_ff = (2.0 * vd + robot.l * wd) / (2.0 * robot.r);
+                let ul_ff = (2.0 * vd - robot.l * wd) / (2.0 * robot.r);
+                (ul_ff, ur_ff, 0.0, 0.0, 0.0)
+            }
+        };
 
         while WHEEL_CMD_CH.try_receive().is_ok() {}
         let _ = WHEEL_CMD_CH.try_send(WheelCmd {
@@ -1282,6 +1302,11 @@ pub async fn diffdrive_outer_loop_onboard_traj(
     let _ = with_sdlogger(|logger| logger.write_traj_control_header()).await;
 
     defmt::info!("Waiting for trajectory control commands...");
+
+    // Drain any stale start/pause signals that may have been set
+    // by a previous UART task racing with the orchestrator shutdown.
+    TRAJ_PAUSE_SIG.reset();
+    TRAJ_RESUME_SIG.reset();
 
     loop {
         let start_fut = TRAJ_RESUME_SIG.wait();

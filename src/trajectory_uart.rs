@@ -57,6 +57,9 @@ pub async fn uart_motioncap_receiving_task(cfg: UartCfg) {
             || len == LEN_FUNC_SELECT_CMD
             || len == LEN_STOP_RESUME_CMD)
         {
+            defmt::warn!("mocap uart: unknown len={}, draining", len);
+            Timer::after(Duration::from_millis(5)).await;
+            while UART_RX_CHANNEL.try_receive().is_ok() {}
             continue; // illegal Length
         }
 
@@ -64,6 +67,7 @@ pub async fn uart_motioncap_receiving_task(cfg: UartCfg) {
         frame.clear();
         let need = len as usize;
         let mut got = 0usize;
+        defmt::info!("mocap uart: reading payload for len={}", len);
 
         while got < need {
             let read_byte_fut = UART_RX_CHANNEL.receive();

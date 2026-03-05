@@ -15,8 +15,8 @@ use pololu3pi2040_rs::init::{self, init_all};
 use pololu3pi2040_rs::orchestrator_signal::{
     FRAME_MAX, LEN_FUNC_SELECT_CMD, Mode, ORCH_CH, OrchestratorMsg, STOP_MENU_UART_SIG,
     STOP_MOCAP_UART_SIG, STOP_MOCAP_UPDATE_SIG, STOP_MOTOR_CTRL_SIG, STOP_ODOM_SIG,
-    STOP_TELEOP_UART_SIG, STOP_TRAJ_OUTER_SIG, STOP_WHEEL_INNER_SIG,
-    decode_functionality_select_command,
+    STOP_TELEOP_UART_SIG, STOP_TRAJ_OUTER_SIG, STOP_WHEEL_INNER_SIG, TRAJ_PAUSE_SIG,
+    TRAJ_RESUME_SIG, decode_functionality_select_command,
 };
 use pololu3pi2040_rs::{
     buzzer::{beep_signal, buzzer_beep_task},
@@ -29,9 +29,11 @@ use pololu3pi2040_rs::{
         ControlMode, diffdrive_outer_loop_command_controlled_traj_following_from_sdcard,
         diffdrive_outer_loop_onboard_traj, mocap_update_task, wheel_speed_inner_loop,
     },
+    trajectory_signal::{LAST_STATE, POSE_FRESH, PoseAbs, TRAJECTORY_CONTROL_EVENT},
     trajectory_uart::{UartCfg, uart_motioncap_receiving_task},
     uart::{UART_RX_CHANNEL, uart_hw_task},
 };
+use portable_atomic::Ordering;
 
 /// Drain any stale bytes from the UART RX channel.
 /// Called between stopping old tasks and spawning new ones so that
@@ -39,6 +41,24 @@ use pololu3pi2040_rs::{
 /// corrupt the framing of the next UART task.
 fn drain_uart_rx_channel() {
     while UART_RX_CHANNEL.try_receive().is_ok() {}
+}
+
+/// Reset shared mocap/pose state so that a new trajectory session
+/// does not inherit stale data from a previous mode.
+async fn reset_pose_state() {
+    POSE_FRESH.store(false, Ordering::Release);
+    let mut s = LAST_STATE.lock().await;
+    *s = PoseAbs::default();
+}
+
+/// Clear any stale trajectory signals left from a previous session.
+/// Without this, a stale TRAJ_PAUSE_SIG causes the outer loop to
+/// enter the "PAUSE (idle)" branch immediately, swallowing the
+/// first real start command.
+fn drain_trajectory_signals() {
+    TRAJ_PAUSE_SIG.reset();
+    TRAJ_RESUME_SIG.reset();
+    TRAJECTORY_CONTROL_EVENT.reset();
 }
 
 #[embassy_executor::main]
@@ -92,8 +112,14 @@ pub async fn functionality_mode_selection_uart_task(cfg: UartCfg) {
             continue;
         };
 
-        if !(len == LEN_FUNC_SELECT_CMD) {
-            continue; // illegal Length
+        // Only handle mode-select packets; for anything else,
+        // wait briefly for the remaining payload bytes to arrive
+        // from the HW UART task, then drain them so they don't
+        // corrupt framing of the next packet.
+        if len != LEN_FUNC_SELECT_CMD {
+            Timer::after(Duration::from_millis(5)).await;
+            drain_uart_rx_channel();
+            continue;
         }
 
         // -------- read payload，until [len] bytes --------
@@ -251,6 +277,14 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                 // (dongle sends each command 3×). Without this, the next UART
                 // task can read mid-frame bytes and lose framing permanently.
                 drain_uart_rx_channel();
+
+                // Reset shared mocap/pose state so new trajectory tasks
+                // don't inherit stale position data from a previous session.
+                reset_pose_state().await;
+
+                // Drain stale trajectory start/pause/resume signals so a
+                // previous session's leftovers don't confuse new tasks.
+                drain_trajectory_signals();
 
                 match target {
                     Mode::Menu => {
