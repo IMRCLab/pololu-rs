@@ -5,4 +5,6 @@
 	path = ground_robot_ros
 	url = git@github.com:IMRCLab/pololu3pi2040-rs.git
 	branch = workstation_ros
-
+[submodule "nRF52840_Pololu"]
+	path = nRF52840_Pololu
+	url = git@github.com:Olumat/pololu-nRF52840-dongle-firmware.git
