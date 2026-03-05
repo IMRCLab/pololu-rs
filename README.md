@@ -1,6 +1,10 @@
 # pololu-rs
 A Rust-based Framework for Reproducible Multi-Robot Experiments.
 
+![License](https://img.shields.io/badge/license-MIT-blue)
+![Docs](https://img.shields.io/badge/docs-online-green)
+![Rust](https://img.shields.io/badge/language-Rust-orange)
+
 ![pololu-rs platform](pics/Zumo+3Pi.jpeg)
 
 [Documentation](https://imrclab.github.io/pololu-rs/)  | [Paper](https://imrclab.github.io/assets/pdf/2026-pololu-rs.pdf)
@@ -8,7 +12,7 @@ A Rust-based Framework for Reproducible Multi-Robot Experiments.
 ---
 
 ## Overview
-**pololu-rs** is a Rust-based research framework for commercially off-the-shelf (COTS) Pololu mobile robots, It combines open embedded firmware with a low-cost add-on board for logging and wireless communication, enabling reproducible and easy-to-deploy multi-robot experiments.
+**pololu-rs** is a Rust-based research framework for commercially off-the-shelf (COTS) Pololu mobile robots. It combines open embedded firmware with a low-cost add-on board for logging and wireless communication, enabling reproducible and easy-to-deploy multi-robot experiments.
 
 ---
 
@@ -61,7 +65,7 @@ The quickstart guide covers:
 
 --- 
 ## Citation
-If you use **pololu-rs** in your reasearch, please cite the paper:
+If you use **pololu-rs** in your research, please cite the paper:
 ```
 @misc{pololu_rs_2026,
   title={pololu-rs: A Rust-based Framework for Reproducible Multi-Robot Experiments},
@@ -74,3 +78,9 @@ If you use **pololu-rs** in your reasearch, please cite the paper:
 
 ## License
 MIT License
+
+---
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=imrclab/pololu-rs&type=Date)](https://star-history.com/#imrclab/pololu-rs&Date)
