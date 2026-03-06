@@ -150,7 +150,8 @@ private:
         {"trajectory following w/ direct duty", 1, "TRAJ FOLLOWING with DIRECT DUTY"},
         {"traj following w/ mocap", 2, "TRAJ FOLLOWING with MOCAP"},
         {"control action execution", 3, "CONTROL ACTION EXECUTION mode"},
-        {"onboard trajectory exec", 4, "ONBOARD TRAJECTORY EXECUTION mode"}
+        {"onboard trajectory exec", 4, "ONBOARD TRAJECTORY EXECUTION mode"},
+        {"onboard trajectory exec spin", 5, "ONBOARD TRAJECTORY EXECUTION 2 mode"}
         //add missing functionality here later
     };
 
@@ -579,7 +580,7 @@ private:
             auto stats_before = connection_[robot_id]->statistics();
             connection_[robot_id]->send(packet);
             //wait a bit for ack
-            usleep(1000);
+            usleep(3000); //waiting for ack is nonsense, but send 3 times anyways for robustness
             auto stats_after = connection_[robot_id]->statistics();
             if (stats_after.ack_count > stats_before.ack_count) {
                 return;
@@ -670,6 +671,11 @@ private:
             case 4: //onboard trajectory execution mode
                 RCLCPP_INFO(logger_, "Letting robot %d go into ONBOARD TRAJECTORY EXECUTION mode", robot_id + 1);
                 sendIndividualCommand(robot_id, 70); //go into onboard traj exec mode on the robot "F" = ASCII 70
+                //waiting for start command now
+                break;
+            case 5: //offboard trajectory execution mode
+                RCLCPP_INFO(logger_, "Letting robot %d go into OFFBOARD TRAJECTORY EXECUTION 2 mode", robot_id + 1);
+                sendIndividualCommand(robot_id, 71); //Go into spinning mode with "G"
                 //waiting for start command now
                 break;
             default:
