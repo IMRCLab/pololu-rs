@@ -121,14 +121,15 @@ pub async fn uart_motioncap_receiving_task(cfg: UartCfg) {
 
         if len == LEN_STOP_RESUME_CMD {
             if let Some(start_trajectory) = decode_trajectory_command(&frame, cfg.robot_id) {
-                beep_signal();
                 info!("Trajectory control command received: {}", start_trajectory);
 
                 if start_trajectory {
                     TRAJ_RESUME_SIG.signal(true);
+                    beep_signal(b'b');
                     info!("Trajectory following resume!!");
                 } else {
                     TRAJ_PAUSE_SIG.signal(true);
+                    beep_signal(b's');
                     info!("Trajectory following pause!!");
                 }
             }

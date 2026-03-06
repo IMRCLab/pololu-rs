@@ -86,6 +86,24 @@ impl BuzzerController {
     }
 }
 
+async fn beep_short(buzzer: &mut BuzzerController) {
+    buzzer.tone(1200, 0.15).await;
+    Timer::after(Duration::from_millis(80)).await;
+    buzzer.stop().await;
+}
+
+async fn beep_long(buzzer: &mut BuzzerController) {
+    buzzer.tone(800, 0.4).await;
+    Timer::after(Duration::from_millis(120)).await;
+    buzzer.stop().await;
+}
+
+async fn beep_very_short(buzzer: &mut BuzzerController) {
+    buzzer.tone(1500, 0.05).await;
+    Timer::after(Duration::from_millis(50)).await;
+    buzzer.stop().await;
+}
+
 // ======================
 // Seven Notes (Hz)
 // ======================
@@ -211,18 +229,79 @@ pub async fn play_jingle_bells(buzzer: &BuzzerController) {
     }
 }
 
-pub static BUZZER_BEEP_SIG: Signal<ThreadModeRawMutex, ()> = Signal::new();
+pub static BUZZER_BEEP_SIG: Signal<ThreadModeRawMutex, u8> = Signal::new();
 
-pub fn beep_signal() {
-    BUZZER_BEEP_SIG.signal(());
+pub fn beep_signal(command_type: u8) {
+    BUZZER_BEEP_SIG.signal(command_type);
 }
 
 #[embassy_executor::task]
-pub async fn buzzer_beep_task(buzzer: BuzzerController) {
+pub async fn buzzer_beep_task(mut buzzer: BuzzerController) {
     loop {
-        BUZZER_BEEP_SIG.wait().await;
-        buzzer.tone(1000, 0.3).await;
-        Timer::after(Duration::from_millis(50)).await;
-        buzzer.stop().await;
+        let command = BUZZER_BEEP_SIG.wait().await;
+
+        match command {
+            b'q' => {
+                // Menu
+                beep_short(&mut buzzer).await;
+            }
+
+            b'T' => {
+                // Tele operation
+                beep_short(&mut buzzer).await;
+                beep_short(&mut buzzer).await;
+            }
+
+            b'M' => {
+                // Mocap trajectory
+                beep_short(&mut buzzer).await;
+                beep_short(&mut buzzer).await;
+                beep_short(&mut buzzer).await;
+            }
+
+            b'D' => {
+                // Direct duty
+                beep_long(&mut buzzer).await;
+            }
+
+            b'A' => {
+                // Control action
+                beep_short(&mut buzzer).await;
+                beep_long(&mut buzzer).await;
+            }
+
+            b'F' => {
+                // Onboard trajectory
+                beep_long(&mut buzzer).await;
+                beep_short(&mut buzzer).await;
+            }
+
+            b'R' => {
+                // Same mode
+                beep_long(&mut buzzer).await;
+                beep_long(&mut buzzer).await;
+            }
+
+            b'b' => {
+                // Begin trajectory
+                beep_short(&mut buzzer).await;
+                beep_short(&mut buzzer).await;
+                beep_long(&mut buzzer).await;
+            }
+
+            b's' => {
+                // Stop trajectory
+                beep_long(&mut buzzer).await;
+                beep_short(&mut buzzer).await;
+                beep_short(&mut buzzer).await;
+            }
+
+            b'n' => {
+                // Notice
+                beep_very_short(&mut buzzer).await;
+            }
+
+            _ => {}
+        }
     }
 }

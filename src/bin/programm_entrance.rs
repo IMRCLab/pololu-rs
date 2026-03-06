@@ -221,10 +221,10 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
         match msg {
             OrchestratorMsg::SwitchTo(target) => {
                 defmt::info!("Orchestrator received mode switch request");
-                beep_signal();
-                beep_signal(); // non-blocking audible feedback
+
                 if target == mode {
                     info!("Already in target mode, ignoring");
+                    beep_signal(b'R');
                     continue;
                 }
 
@@ -290,132 +290,164 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                 match target {
                     Mode::Menu => {
                         defmt::info!("Menu");
-                        if let Err(_) = spawner.spawn(functionality_mode_selection_uart_task(cfg)) {
-                            defmt::warn!("Menu task already running or failed to spawn");
+                        match spawner.spawn(functionality_mode_selection_uart_task(cfg)) {
+                            Ok(_) => {
+                                beep_signal(b'q'); // Quit to Menu
+                            }
+                            Err(_) => {
+                                defmt::warn!("Menu task already running or failed to spawn");
+                            }
                         }
                     }
                     Mode::TeleOp => {
                         defmt::info!("TELE-OPERATION Mode is selected!!!!!");
 
-                        if let Err(_) = spawner.spawn(teleop_uart_task(cfg)) {
+                        let uart_ok = spawner.spawn(teleop_uart_task(cfg)).is_ok();
+                        if !uart_ok {
                             defmt::warn!("Teleop UART task already running or failed to spawn");
                         }
 
-                        if let Err(_) = spawner.spawn(teleop_motor_control_task(
-                            devices.motor,
-                            encoder_count_left,
-                            encoder_count_right,
-                            devices.config,
-                        )) {
+                        let motor_ok = spawner
+                            .spawn(teleop_motor_control_task(
+                                devices.motor,
+                                encoder_count_left,
+                                encoder_count_right,
+                                devices.config,
+                            ))
+                            .is_ok();
+                        if !motor_ok {
                             defmt::warn!(
                                 "Teleop motor control task already running or failed to spawn"
                             );
+                        }
+
+                        if uart_ok && motor_ok {
+                            beep_signal(b'T');
                         }
                     }
                     Mode::TrajMocap => {
                         defmt::info!("TRAJ-FOLLOWING Mode (With Mocap) is selected!!!!!");
 
-                        spawner.spawn(uart_motioncap_receiving_task(cfg)).unwrap();
-                        spawner.spawn(mocap_update_task()).unwrap();
-                        spawner
+                        let uart_ok = spawner.spawn(uart_motioncap_receiving_task(cfg)).is_ok();
+                        let mocap_ok = spawner.spawn(mocap_update_task()).is_ok();
+                        let odo_ok = spawner
                             .spawn(odometry_task(
                                 encoder_count_left,
                                 encoder_count_right,
                                 devices.config,
                             ))
-                            .unwrap();
-                        spawner
+                            .is_ok();
+                        let inner_ok = spawner
                             .spawn(wheel_speed_inner_loop(
                                 devices.motor,
                                 encoder_count_left,
                                 encoder_count_right,
                                 devices.config,
                             ))
-                            .unwrap();
-                        spawner
+                            .is_ok();
+                        let outer_ok = spawner
                             .spawn(
                                 diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
                                     ControlMode::WithMocapController,
                                     devices.config,
                                 ),
                             )
-                            .unwrap();
+                            .is_ok();
+
+                        if uart_ok && mocap_ok && odo_ok && inner_ok && outer_ok {
+                            beep_signal(b'M');
+                        }
                     }
                     Mode::TrajDuty => {
                         defmt::info!("TRAJ-FOLLOWING Mode (Directduty) is selected!!!!!");
 
-                        spawner.spawn(uart_motioncap_receiving_task(cfg)).unwrap();
-                        spawner.spawn(mocap_update_task()).unwrap();
-                        spawner
+                        let uart_ok = spawner.spawn(uart_motioncap_receiving_task(cfg)).is_ok();
+                        let mocap_ok = spawner.spawn(mocap_update_task()).is_ok();
+                        let odo_ok = spawner
                             .spawn(odometry_task(
                                 encoder_count_left,
                                 encoder_count_right,
                                 devices.config,
                             ))
-                            .unwrap();
-                        spawner
+                            .is_ok();
+                        let inner_ok = spawner
                             .spawn(wheel_speed_inner_loop(
                                 devices.motor,
                                 encoder_count_left,
                                 encoder_count_right,
                                 devices.config,
                             ))
-                            .unwrap();
-                        spawner
+                            .is_ok();
+                        let outer_ok = spawner
                             .spawn(
                                 diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
                                     ControlMode::DirectDuty,
                                     devices.config,
                                 ),
                             )
-                            .unwrap();
+                            .is_ok();
+
+                        if uart_ok && mocap_ok && odo_ok && inner_ok && outer_ok {
+                            beep_signal(b'D');
+                        }
                     }
                     Mode::CtrlAction => {
                         defmt::info!("CONTROL-ACTION Mode is selected!!!!!");
 
-                        if let Err(_) = spawner.spawn(control_action_uart_task(cfg)) {
+                        let uart_ok = spawner.spawn(control_action_uart_task(cfg)).is_ok();
+                        if !uart_ok {
                             defmt::warn!(
                                 "Control action UART task already running or failed to spawn"
                             );
                         }
 
-                        if let Err(_) = spawner.spawn(teleop_motor_control_task(
-                            devices.motor,
-                            encoder_count_left,
-                            encoder_count_right,
-                            devices.config,
-                        )) {
+                        let teleop_ok = spawner
+                            .spawn(teleop_motor_control_task(
+                                devices.motor,
+                                encoder_count_left,
+                                encoder_count_right,
+                                devices.config,
+                            ))
+                            .is_ok();
+                        if !teleop_ok {
                             defmt::warn!(
                                 "Teleop motor control task already running or failed to spawn"
                             );
+                        }
+
+                        if uart_ok && teleop_ok {
+                            beep_signal(b'A');
                         }
                     }
                     Mode::TrajOnboard => {
                         defmt::info!("ONBOARD-TRAJ Mode (figure-8 etc.) is selected!!!!!");
 
-                        spawner.spawn(uart_motioncap_receiving_task(cfg)).unwrap();
-                        spawner.spawn(mocap_update_task()).unwrap();
-                        spawner
+                        let uart_ok = spawner.spawn(uart_motioncap_receiving_task(cfg)).is_ok();
+                        let mocap_ok = spawner.spawn(mocap_update_task()).is_ok();
+                        let odo_ok = spawner
                             .spawn(odometry_task(
                                 encoder_count_left,
                                 encoder_count_right,
                                 devices.config,
                             ))
-                            .unwrap();
-                        spawner
+                            .is_ok();
+                        let inner_ok = spawner
                             .spawn(wheel_speed_inner_loop(
                                 devices.motor,
                                 encoder_count_left,
                                 encoder_count_right,
                                 devices.config,
                             ))
-                            .unwrap();
-                        spawner
+                            .is_ok();
+                        let outer_ok = spawner
                             .spawn(diffdrive_outer_loop_onboard_traj(
                                 ControlMode::DirectDuty,
                                 devices.config,
                             ))
-                            .unwrap();
+                            .is_ok();
+                        if uart_ok && mocap_ok && odo_ok && inner_ok && outer_ok {
+                            beep_signal(b'F');
+                        }
                     }
                     Mode::TrajOnboard2 => {
                         defmt::info!("ONBOARD-TRAJ-2 Mode (demo) is selected!!!!!");

@@ -670,7 +670,7 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
         fused_y = 0.0;
         fused_yaw = 0.0;
         odom_anchor = *ODOM_STATE.lock().await;
-        info!("SD traj: initial pose set to origin (no mocap)");
+        info!("SD traj: initial pose set to origin ({},{},{}) (no mocap)", fused_x, fused_y, fused_yaw);
     }
     /* ============================================================================= */
 
