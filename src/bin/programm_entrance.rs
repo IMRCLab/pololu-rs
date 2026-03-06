@@ -452,29 +452,33 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                     Mode::TrajOnboard2 => {
                         defmt::info!("ONBOARD-TRAJ-2 Mode (demo) is selected!!!!!");
 
-                        spawner.spawn(uart_motioncap_receiving_task(cfg)).unwrap();
-                        spawner.spawn(mocap_update_task()).unwrap();
-                        spawner
+                        let uart_ok = spawner.spawn(uart_motioncap_receiving_task(cfg)).is_ok();
+                        let mocap_ok = spawner.spawn(mocap_update_task()).is_ok();
+                        let odo_ok = spawner
                             .spawn(odometry_task(
                                 encoder_count_left,
                                 encoder_count_right,
                                 devices.config,
                             ))
-                            .unwrap();
-                        spawner
+                            .is_ok();
+                        let inner_ok = spawner
                             .spawn(wheel_speed_inner_loop(
                                 devices.motor,
                                 encoder_count_left,
                                 encoder_count_right,
                                 devices.config,
                             ))
-                            .unwrap();
-                        spawner
+                            .is_ok();
+                        let outer_ok = spawner
                             .spawn(diffdrive_outer_loop_onboard_traj2(
                                 ControlMode::DirectDuty,
                                 devices.config,
                             ))
-                            .unwrap();
+                            .is_ok();
+
+                        if uart_ok && mocap_ok && odo_ok && inner_ok && outer_ok {
+                            beep_signal(b'G');
+                        }
                     }
                 }
                 mode = target;

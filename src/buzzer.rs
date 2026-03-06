@@ -276,6 +276,14 @@ pub async fn buzzer_beep_task(mut buzzer: BuzzerController) {
                 beep_short(&mut buzzer).await;
             }
 
+            b'G' => {
+                // Onboard trajectory
+                beep_long(&mut buzzer).await;
+                beep_short(&mut buzzer).await;
+                beep_long(&mut buzzer).await;
+                beep_long(&mut buzzer).await;
+            }
+
             b'R' => {
                 // Same mode
                 beep_long(&mut buzzer).await;
