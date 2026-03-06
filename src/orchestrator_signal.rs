@@ -15,6 +15,7 @@ pub enum Mode {
     TrajDuty,
     CtrlAction,
     TrajOnboard,
+    TrajOnboard2,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -67,6 +68,7 @@ pub fn decode_functionality_select_command(payload: &[u8], robot_id: u8) -> Opti
         b'D' => Some(3), // Traj following (Direct duty)
         b'A' => Some(4), // Control Action
         b'F' => Some(5), // Onboard trajectory (figure-8 etc.)
+        b'G' => Some(6), // Onboard trajectory 2 (demo)
         _ => None,       // Invalid mode
     }
 }

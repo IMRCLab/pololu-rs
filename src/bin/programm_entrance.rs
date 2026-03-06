@@ -27,7 +27,8 @@ use pololu3pi2040_rs::{
     sdlog::SDLOGGER_SHARED,
     trajectory_control::{
         ControlMode, diffdrive_outer_loop_command_controlled_traj_following_from_sdcard,
-        diffdrive_outer_loop_onboard_traj, mocap_update_task, wheel_speed_inner_loop,
+        diffdrive_outer_loop_onboard_traj, diffdrive_outer_loop_onboard_traj2, mocap_update_task,
+        wheel_speed_inner_loop,
     },
     trajectory_signal::{LAST_STATE, POSE_FRESH, PoseAbs, TRAJECTORY_CONTROL_EVENT},
     trajectory_uart::{UartCfg, uart_motioncap_receiving_task},
@@ -83,7 +84,7 @@ async fn main(spawner: Spawner) {
     }
 
     spawner
-        .spawn(orchestrator(spawner, devices, UartCfg { robot_id: 9 }))
+        .spawn(orchestrator(spawner, devices, UartCfg { robot_id: 10 }))
         .unwrap();
 }
 
@@ -141,7 +142,7 @@ pub async fn functionality_mode_selection_uart_task(cfg: UartCfg) {
             };
 
             let Some(b) = byte_opt else {
-                // timeout or error → drop frame
+                // timeout or error -> drop frame
                 frame.clear();
                 got = 0;
                 break;
@@ -164,6 +165,7 @@ pub async fn functionality_mode_selection_uart_task(cfg: UartCfg) {
                     3 => Mode::TrajDuty,
                     4 => Mode::CtrlAction,
                     5 => Mode::TrajOnboard,
+                    6 => Mode::TrajOnboard2,
                     _ => continue,
                 };
                 let _ = ORCH_CH.try_send(OrchestratorMsg::SwitchTo(target));
@@ -216,7 +218,6 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
     loop {
         // Wait for switching command sent by any task
         let msg = ORCH_CH.receive().await;
-
         match msg {
             OrchestratorMsg::SwitchTo(target) => {
                 defmt::info!("Orchestrator received mode switch request");
@@ -254,7 +255,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         drain_signal(&STOP_TELEOP_UART_SIG, 2).await;
                         drain_signal(&STOP_MOTOR_CTRL_SIG, 2).await;
                     }
-                    Mode::TrajMocap | Mode::TrajDuty | Mode::TrajOnboard => {
+                    Mode::TrajMocap | Mode::TrajDuty | Mode::TrajOnboard | Mode::TrajOnboard2 => {
                         STOP_MOCAP_UART_SIG.signal(());
                         STOP_MOCAP_UPDATE_SIG.signal(());
                         STOP_WHEEL_INNER_SIG.signal(());
@@ -411,6 +412,33 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             .unwrap();
                         spawner
                             .spawn(diffdrive_outer_loop_onboard_traj(
+                                ControlMode::DirectDuty,
+                                devices.config,
+                            ))
+                            .unwrap();
+                    }
+                    Mode::TrajOnboard2 => {
+                        defmt::info!("ONBOARD-TRAJ-2 Mode (demo) is selected!!!!!");
+
+                        spawner.spawn(uart_motioncap_receiving_task(cfg)).unwrap();
+                        spawner.spawn(mocap_update_task()).unwrap();
+                        spawner
+                            .spawn(odometry_task(
+                                encoder_count_left,
+                                encoder_count_right,
+                                devices.config,
+                            ))
+                            .unwrap();
+                        spawner
+                            .spawn(wheel_speed_inner_loop(
+                                devices.motor,
+                                encoder_count_left,
+                                encoder_count_right,
+                                devices.config,
+                            ))
+                            .unwrap();
+                        spawner
+                            .spawn(diffdrive_outer_loop_onboard_traj2(
                                 ControlMode::DirectDuty,
                                 devices.config,
                             ))

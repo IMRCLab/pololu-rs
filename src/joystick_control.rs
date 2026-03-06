@@ -255,6 +255,8 @@ pub async fn teleop_uart_task(cfg: UartCfg) {
                     2 => Mode::TrajMocap,
                     3 => Mode::TrajDuty,
                     4 => Mode::CtrlAction,
+                    5 => Mode::TrajOnboard,
+                    6 => Mode::TrajOnboard2,
                     _ => Mode::Menu,
                 };
                 let _ = ORCH_CH.try_send(OrchestratorMsg::SwitchTo(target));
@@ -359,6 +361,8 @@ pub async fn control_action_uart_task(cfg: UartCfg) {
                     2 => Mode::TrajMocap,
                     3 => Mode::TrajDuty,
                     4 => Mode::CtrlAction,
+                    5 => Mode::TrajOnboard,
+                    6 => Mode::TrajOnboard2,
                     _ => Mode::Menu,
                 };
                 let _ = ORCH_CH.try_send(OrchestratorMsg::SwitchTo(target));

@@ -107,6 +107,7 @@ pub async fn uart_motioncap_receiving_task(cfg: UartCfg) {
                     3 => Mode::TrajDuty,
                     4 => Mode::CtrlAction,
                     5 => Mode::TrajOnboard,
+                    6 => Mode::TrajOnboard2,
                     _ => Mode::Menu,
                 };
                 let _ = ORCH_CH.try_send(OrchestratorMsg::SwitchTo(target));
