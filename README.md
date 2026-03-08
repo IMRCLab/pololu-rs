@@ -52,6 +52,11 @@ The platform supports a wide range of robotics experiments:
 ---
 
 ## Quickstart
+Please Clone the repo with:
+```bash
+git clone --recurse-submodules https://github.com/IMRCLab/pololu-rs.git
+```
+
 For installation and setup instructions, please see the full documentation:
 
 👉 [Quickstart](https://imrclab.github.io/pololu-rs/quickstart/)
