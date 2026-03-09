@@ -1077,6 +1077,7 @@ async fn execute_trajectory_loop_onboard(
     // --- Unified pose fusion state ---
     // "Anchor" = the odometry snapshot at the moment we last received a fresh mocap pose.
     // Between mocap updates we compute: pose = last_mocap + (odom_now - odom_anchor).
+    let mut odom_anchor: OdomPose;
     let mut fused_x: f32;
     let mut fused_y: f32;
     let mut fused_yaw: f32;
@@ -1085,19 +1086,27 @@ async fn execute_trajectory_loop_onboard(
     Timer::after_millis(100).await;
 
     // Try to get initial mocap pose; fall back to pure odometry if unavailable.
+    // Use `load` not `swap` — swap(false) eats the flag and causes the next
+    // restart within the same mode to fall through to no-mocap.
     let pose_is_fresh = POSE_FRESH.load(Ordering::Acquire);
     let mocap_pose = *LAST_STATE.lock().await;
 
     if pose_is_fresh {
+        // Mocap available at startup — use it as ground truth
         fused_x = mocap_pose.x;
         fused_y = mocap_pose.y;
         fused_yaw = mocap_pose.yaw;
+        odom_anchor = *ODOM_STATE.lock().await;
         info!("Onboard traj: initial pose from mocap ({},{},{})",
             fused_x, fused_y, fused_yaw);
     } else {
+        // No mocap — start from (0,0,0).
+        // Anchor odometry at its current value so that the delta is zero
+        // at t=0, keeping fused == first_pose == (0,0,0).
         fused_x = 0.0;
         fused_y = 0.0;
         fused_yaw = 0.0;
+        odom_anchor = *ODOM_STATE.lock().await;
         info!("Onboard traj: initial pose set to origin (no mocap)");
     }
 
@@ -1162,25 +1171,27 @@ async fn execute_trajectory_loop_onboard(
             break;
         }
 
-        /* =================== Pose Fusion =================== */
+        /* =================== Pose Fusion: mocap-anchored dead reckoning =================== */
         let mocap_pose = *LAST_STATE.lock().await;
         let pose_is_fresh = POSE_FRESH.swap(false, Ordering::Acquire);
         let odom_now = *ODOM_STATE.lock().await;
 
         if pose_is_fresh {
-            // Fresh mocap -> use directly
+            // Fresh mocap → use directly, re-anchor odometry
             fused_x = mocap_pose.x;
             fused_y = mocap_pose.y;
             fused_yaw = mocap_pose.yaw;
+            odom_anchor = odom_now;
         } else {
-            // Stale mocap → integrate odom v,w in fused frame
-            let dt = robot_cfg.traj_following_dt_s;
-            let dtheta = odom_now.w * dt;
-            fused_yaw += dtheta;
-            fused_x += odom_now.v * cosf(fused_yaw) * dt;
-            fused_y += odom_now.v * sinf(fused_yaw) * dt;
+            // Stale mocap → propagate from last mocap using odometry delta
+            let dx = odom_now.x - odom_anchor.x;
+            let dy = odom_now.y - odom_anchor.y;
+            let dtheta = odom_now.theta - odom_anchor.theta;
+            fused_x = mocap_pose.x + dx;
+            fused_y = mocap_pose.y + dy;
+            fused_yaw = mocap_pose.yaw + dtheta;
         }
-        /* =================================================== */
+        /* ================================================================================== */
 
         let t = (Instant::now() - start) - pause_offset;
         let t_sec = t.as_millis() as f32 / 1000.0;
