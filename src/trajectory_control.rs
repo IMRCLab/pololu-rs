@@ -595,7 +595,7 @@ pub async fn wheel_speed_inner_loop(
 
 // Command-controlled trajectory following for gain tunning
 async fn execute_trajectory_loop_with_control_from_sdcard(
-    _mode: ControlMode,
+    mode: ControlMode,
     robot: &mut DiffdriveCascade,
     controller: &mut DiffdriveControllerCascade,
     // sdlogger: &mut Option<SdLogger>,
@@ -645,32 +645,24 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
     /* ============================================================================= */
 
     /* =============== Fusion state: mocap-anchored dead reckoning ================= */
-    let mut odom_anchor: OdomPose;
     let mut fused_x: f32;
     let mut fused_y: f32;
     let mut fused_yaw: f32;
 
-    // Seed fused pose from mocap if available, otherwise odometry.
-    // Use `load` not `swap` — swap(false) would eat the flag and cause
-    // the *next* restart within the same mode to fall through to the
-    // no-mocap branch even though mocap is running fine.
+    // Seed fused pose from mocap if available, otherwise from trajectory start.
     let init_fresh = POSE_FRESH.load(Ordering::Acquire);
     if init_fresh {
         let mocap = *LAST_STATE.lock().await;
         fused_x = mocap.x;
         fused_y = mocap.y;
         fused_yaw = mocap.yaw;
-        odom_anchor = *ODOM_STATE.lock().await;
         info!("SD traj: initial pose from mocap ({},{},{})", fused_x, fused_y, fused_yaw);
     } else {
-        // No mocap — start from (0,0,0).
-        // Anchor odometry at its current value so that the delta is zero
-        // at t=0, keeping fused == (0,0,0).
-        fused_x = 0.0;
-        fused_y = 0.0;
-        fused_yaw = 0.0;
-        odom_anchor = *ODOM_STATE.lock().await;
-        info!("SD traj: initial pose set to origin ({},{},{}) (no mocap)", fused_x, fused_y, fused_yaw);
+        // No mocap — use the first state from the trajectory file as initial pose.
+        fused_x = states[0].x;
+        fused_y = states[0].y;
+        fused_yaw = states[0].yaw;
+        info!("SD traj: initial pose from trajectory start ({},{},{}) (no mocap)", fused_x, fused_y, fused_yaw);
     }
     /* ============================================================================= */
 
@@ -746,19 +738,17 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
         let odom_now = *ODOM_STATE.lock().await;
 
         if pose_is_fresh {
-            // Fresh mocap → use directly, re-anchor odometry
+            // Fresh mocap -> use directly
             fused_x = mocap_pose.x;
             fused_y = mocap_pose.y;
             fused_yaw = mocap_pose.yaw;
-            odom_anchor = odom_now;
         } else {
-            // Stale mocap → propagate from last mocap using odometry delta
-            let dx = odom_now.x - odom_anchor.x;
-            let dy = odom_now.y - odom_anchor.y;
-            let dtheta = odom_now.theta - odom_anchor.theta;
-            fused_x = mocap_pose.x + dx;
-            fused_y = mocap_pose.y + dy;
-            fused_yaw = mocap_pose.yaw + dtheta;
+            // Stale mocap → integrate odom v,w in fused frame
+            let dt = robot_cfg.traj_following_dt_s;
+            let dtheta = odom_now.w * dt;
+            fused_yaw += dtheta;
+            fused_x += odom_now.v * cosf(fused_yaw) * dt;
+            fused_y += odom_now.v * sinf(fused_yaw) * dt;
         }
         /* ========================================================================= */
 
@@ -792,14 +782,35 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
         };
         /* ========================================================================= */
 
-        /* ==================== Unified closed-loop control ========================= */
-        robot.s.x = fused_x;
-        robot.s.y = fused_y;
-        robot.s.theta = SO2::new(fused_yaw);
+        /* ==================== Control ============================================ */
+        let (ul, ur, x_error, y_error, theta_error);
 
-        let (action, x_error, y_error, theta_error) = controller.control(&robot, setpoint);
-        let ul = action.ul;
-        let ur = action.ur;
+        match mode {
+            ControlMode::WithMocapController => {
+                robot.s.x = fused_x;
+                robot.s.y = fused_y;
+                robot.s.theta = SO2::new(fused_yaw);
+
+                let (action, x_e, y_e, yaw_e) = controller.control(&robot, setpoint);
+                ul = action.ul;
+                ur = action.ur;
+                x_error = x_e;
+                y_error = y_e;
+                theta_error = yaw_e;
+            }
+            ControlMode::DirectDuty => {
+                let w_rad = setpoint.wdes;
+                let vd = setpoint.vdes;
+
+                ur = (2.0 * vd + robot_cfg.k_clip * robot_cfg.wheel_base * w_rad)
+                    / (2.0 * robot_cfg.wheel_radius);
+                ul = (2.0 * vd - robot_cfg.k_clip * robot_cfg.wheel_base * w_rad)
+                    / (2.0 * robot_cfg.wheel_radius);
+                x_error = 0.0;
+                y_error = 0.0;
+                theta_error = 0.0;
+            }
+        }
         /* ========================================================================= */
 
         while WHEEL_CMD_CH.try_receive().is_ok() {} // drain old commands

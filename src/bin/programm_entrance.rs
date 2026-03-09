@@ -182,6 +182,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
         let mut g = LED_SHARED.lock().await;
         *g = Some(led_dev);
     }
+
     if let Some(sd) = devices.sdlogger.take() {
         let mut g = SDLOGGER_SHARED.lock().await;
         *g = Some(sd);
@@ -275,7 +276,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                 }
 
                 // Drain stale UART bytes left over from duplicate dongle sends
-                // (dongle sends each command 3×). Without this, the next UART
+                // (dongle sends each command 3x). Without this, the next UART
                 // task can read mid-frame bytes and lose framing permanently.
                 drain_uart_rx_channel();
 
