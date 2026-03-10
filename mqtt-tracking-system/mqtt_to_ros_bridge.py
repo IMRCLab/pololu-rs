@@ -137,7 +137,7 @@ class MqttToRosBridge(Node):
             return
 
         stamp = self.get_clock().now().to_msg()
-        print(f"[bridge] received {len(data)} robot(s){interval}")
+        #print(f"[bridge] received {len(data)} robot(s){interval}")
 
         # Build a single NamedPoseArray containing all robots
         array_msg = NamedPoseArray()

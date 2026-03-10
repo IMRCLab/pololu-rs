@@ -73,25 +73,25 @@ public:
         this->declare_parameter("frequency", 10);
         this->get_parameter<int>("frequency", frequency_);
 
-        this->declare_parameter("uri1", "radio://*/80/2M/E7C2C2C210?safelink=0&autoping=0");
+        this->declare_parameter("uri1", "radio://*/80/2M/E7C2C2C207?safelink=0&autoping=0");
         std::string uri1;
         this->get_parameter<std::string>("uri1", uri1);
         connection_[0] = std::make_shared<Connection>(uri1);
         std::cout << "Connection 1: " << uri1 << std::endl;         
 
-        this->declare_parameter("uri2", "radio://*/80/2M/E7C2C2C209?safelink=0&autoping=0");
+        this->declare_parameter("uri2", "radio://*/80/2M/E7C2C2C208?safelink=0&autoping=0");
         std::string uri2;
         this->get_parameter<std::string>("uri2", uri2);
         connection_[1] = std::make_shared<Connection>(uri2); 
         std::cout << "Connection 2: " << uri2 << std::endl;
 
-        this->declare_parameter("uri3", "radio://*/80/2M/E7C2C2C208?safelink=0&autoping=0");
+        this->declare_parameter("uri3", "radio://*/80/2M/E7C2C2C209?safelink=0&autoping=0");
         std::string uri3;
         this->get_parameter<std::string>("uri3", uri3);
         connection_[2] = std::make_shared<Connection>(uri3);
         std::cout << "Connection 3: " << uri3 << std::endl;
 
-        this->declare_parameter("uri4", "radio://*/80/2M/E7C2C2C207?safelink=0&autoping=0");
+        this->declare_parameter("uri4", "radio://*/80/2M/E7C2C2C210?safelink=0&autoping=0");
         std::string uri4;
         this->get_parameter<std::string>("uri4", uri4);
         connection_[3] = std::make_shared<Connection>(uri4);
@@ -137,6 +137,11 @@ private:
     bool teleop_activated[4] = {false, false, false, false}; //teleop active for robot
     bool robot_running[4] = {false, false, false, false}; 
     bool control_action_active[4] = {false, false, false, false}; //control action active for robot
+
+    // Demo mode: assign a program to each robot, then start all with one button
+    // Robots 1,2 (Pololu07,08) -> mode 5 (spin), Robots 3,4 (Pololu09,10) -> mode 4 (onboard traj)
+    int demo_programs_[4] = {5, 5, 4, 4};
+    bool demo_running_ = false;
 
     //define available programs
     struct Program {
@@ -450,6 +455,12 @@ private:
             RCLCPP_WARN(logger_, "STOP: Stopping ALL robots");
             sendGlobalStop();
         }
+
+        // Y button (3): Demo mode: configure all robots and start
+        if (getButton(msg, 3) && !prev_buttons_[3]) {
+            RCLCPP_INFO(logger_, "Y: Demo mode triggered");
+            startDemo();
+        }
         
         // A button (0) - Start selected robot
         if (getButton(msg, 0) && !prev_buttons_[0]) {
@@ -629,6 +640,43 @@ private:
         for (int i = 0; i < 4; ++i) {
             sendIndividualStop(i);
         }
+        demo_running_ = false;
+    }
+
+    void startDemo()
+    {
+        RCLCPP_INFO(logger_, "=== DEMO MODE ===");
+
+        // If already running, quit all programs first
+        if (demo_running_) {
+            RCLCPP_INFO(logger_, "Demo already running, stopping first...");
+            for (int i = 0; i < 4; ++i) {
+                sendIndividualStop(i);
+                usleep(20000);
+                sendIndividualCommand(i, 113); // 'q' quit to orchestrator
+                robot_running[i] = false;
+                teleop_activated[i] = false;
+                control_action_active[i] = false;
+                usleep(20000);
+            }
+            usleep(200000); // 200ms settle time
+        }
+
+        // Send program command to each robot
+        for (int i = 0; i < 4; ++i) {
+            sendProgramCommand(i, demo_programs_[i]);
+            RCLCPP_INFO(logger_, "  Robot %d -> program %d (%s)",
+                        i + 1, demo_programs_[i],
+                        available_programs_[demo_programs_[i]].name.c_str());
+            usleep(50000); // 50ms between commands
+        }
+
+        usleep(200000); // 200ms before starting
+
+        // Start all
+        sendGlobalStart();
+        demo_running_ = true;
+        RCLCPP_INFO(logger_, "=== DEMO STARTED ===");
     }
 
     void sendProgramCommand(int robot_id, uint8_t program_command)

@@ -8,6 +8,8 @@ import math
 import threading
 import os
 import time
+import csv
+from datetime import datetime
 
 
 DEFAULT_CONFIG_PATH = "config.yaml"
@@ -171,6 +173,10 @@ class Tracker(threading.Thread):
         self.num_corner_tags = 0
         self.scale_factor = 0
         self.robots = {}
+        self.valid_robot_ids = set(int(k) for k in cfg.get("robots", {}).keys())
+        self._prev_poses = {}  # {robot_id: (x, y, angle)} for jump detection
+        self.MAX_JUMP_M = 0.3   # max plausible displacement per frame (meters)
+        self.MAX_JUMP_DEG = 60   # max plausible angle change per frame (degrees)
 
         self.visualize = bool(_get_required(cfg, "visualization.enabled"))
         self.H = H
@@ -236,6 +242,15 @@ class Tracker(threading.Thread):
         self.client.loop_start()
 
         self._t_loop = None  # for timing
+
+        # CSV pose logging
+        log_dir = "logs"
+        os.makedirs(log_dir, exist_ok=True)
+        log_filename = os.path.join(log_dir, f"poses_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv")
+        self._csv_file = open(log_filename, "w", newline="")
+        self._csv_writer = csv.writer(self._csv_file)
+        self._csv_writer.writerow(["timestamp", "robot_id", "x", "y", "angle", "qx", "qy", "qz", "qw", "detected"])
+        print(f"Logging poses to {log_filename}")
 
     def homography_to_world(self, pt):
             px = np.array([[pt[0], pt[1], 1]], dtype=np.float32).T
@@ -338,7 +353,7 @@ class Tracker(threading.Thread):
                 for id, raw_tag in zip(tag_ids, corners):
                     interval = f"  loop={1000*(t0-self._t_loop):.1f}ms" if self._t_loop else ""
                     print(f"Found ID {id}  capture={1000*(t1-t0):.1f}ms  detect={1000*(t2-t1):.1f}ms{interval}")
-                    if int(id) != 0: # Reserved tag ID for corners
+                    if int(id) in self.valid_robot_ids:
                         tag = Tag(id, raw_tag)
                         if(self.H is None):
                             cx = tag.center[0] / self.scale_factor
@@ -355,7 +370,21 @@ class Tracker(threading.Thread):
                             dx = front_world[0] - center_world[0]
                             dy = front_world[1] - center_world[1]
                             angle = math.degrees(math.atan2(dy, dx))
-                        self.robots[int(id)] = Robot(tag, position, angle)
+                        
+                        rid = int(id)
+                        # Jump detection: reject measurement if it jumps too far from previous
+                        prev = self._prev_poses.get(rid)
+                        if prev is not None:
+                            dp = math.hypot(position[0] - prev[0], position[1] - prev[1])
+                            da = abs(angle - prev[2])
+                            if da > 180:
+                                da = 360 - da
+                            if dp > self.MAX_JUMP_M or da > self.MAX_JUMP_DEG:
+                                print(f"JUMP REJECTED robot {rid}: dp={dp:.3f}m da={da:.1f}° "
+                                      f"({prev[0]:.3f},{prev[1]:.3f},{prev[2]:.1f}) -> ({position[0]:.3f},{position[1]:.3f},{angle:.1f})")
+                                continue
+                        self._prev_poses[rid] = (position[0], position[1], angle)
+                        self.robots[rid] = Robot(tag, position, angle)
 
                 if(self.visualize):
                     # Draw boundary of virtual environment based on corner tag positions
@@ -394,9 +423,23 @@ class Tracker(threading.Thread):
                 if cv2.waitKey(1) == ord('q'):
                     sys.exit()
 
+            # Log to CSV (log every valid robot each frame, detected or not)
+            t_now = time.time()
+            detected_ids = set(self.robots.keys())
+            for rid in self.valid_robot_ids:
+                if rid in detected_ids:
+                    robot = self.robots[rid]
+                    pos = robot.position
+                    yaw = math.radians(robot.angle)
+                    qz = math.sin(yaw / 2.0)
+                    qw = math.cos(yaw / 2.0)
+                    self._csv_writer.writerow([f"{t_now:.6f}", rid, f"{pos[0]:.6f}", f"{pos[1]:.6f}", f"{robot.angle:.4f}", "0.0", "0.0", f"{qz:.6f}", f"{qw:.6f}", 1])
+                else:
+                    self._csv_writer.writerow([f"{t_now:.6f}", rid, "", "", "", "", "", "", "", 0])
+            self._csv_file.flush()
+
             # dump robot data to mqtt
             json_data = json.dumps({k: v.to_dict() for k, v in self.robots.items()})
-            #print("Published data: ",{k: v.to_dict() for k, v in self.robots.items()})
             self.client.publish(self.TOPIC, json_data)
             self._t_loop = t0
 

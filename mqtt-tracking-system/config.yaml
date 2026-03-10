@@ -8,7 +8,7 @@ camera:
   frame_width: 3840
   frame_height: 2160
   autofocus: true    # enable to find correct focus, then lock with false + value
-  focus: 0   # min 0, max 255, increments of 5
+  focus: 0           # min 0, max 255, increments of 5
 
 aruco:
   dictionary: DICT_4X4_100  # DICT_4X4_100 (16-bit), DICT_5X5_1000 (25-bit), DICT_6X6_250, etc.
