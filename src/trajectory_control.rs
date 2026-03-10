@@ -1400,7 +1400,7 @@ async fn execute_trajectory_loop_onboard2(
     robot_cfg: &RobotConfig,
 ) -> TrajectoryResult {
     // ---- Spin-in-place for 8 seconds ----
-    let duration: f32 = 8.0;
+    let duration: f32 = 3.0;
     // Body angular velocity for spin-in-place.
     // Max body w = 2 * r * w_wheel / L
     let max_spin_fraction: f32 = 0.8;
