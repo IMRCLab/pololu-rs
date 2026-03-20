@@ -644,26 +644,28 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
     // }
     /* ============================================================================= */
 
-    /* =============== Fusion state: mocap-anchored dead reckoning ================= */
+    /* =============== Fusion state: EKF ================= */
     let mut fused_x: f32;
     let mut fused_y: f32;
     let mut fused_yaw: f32;
 
     // Seed fused pose from mocap if available, otherwise from trajectory start.
     let init_fresh = POSE_FRESH.load(Ordering::Acquire);
-    if init_fresh {
+    let mut ekf = if init_fresh {
         let mocap = *LAST_STATE.lock().await;
         fused_x = mocap.x;
         fused_y = mocap.y;
         fused_yaw = mocap.yaw;
         info!("SD traj: initial pose from mocap ({},{},{})", fused_x, fused_y, fused_yaw);
+        crate::ekf::Ekf::default_at(fused_x, fused_y, fused_yaw)
     } else {
         // No mocap — use the first state from the trajectory file as initial pose.
         fused_x = states[0].x;
         fused_y = states[0].y;
         fused_yaw = states[0].yaw;
         info!("SD traj: initial pose from trajectory start ({},{},{}) (no mocap)", fused_x, fused_y, fused_yaw);
-    }
+        crate::ekf::Ekf::default_at(fused_x, fused_y, fused_yaw)
+    };
     /* ============================================================================= */
 
     /* ======================== Get precise start time ============================= */
@@ -733,23 +735,20 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
         /* ========================================================================= */
 
         /* ========================= Pose Fusion ===================================== */
-        let mocap_pose = *LAST_STATE.lock().await;
-        let pose_is_fresh = POSE_FRESH.swap(false, Ordering::Acquire);
         let odom_now = *ODOM_STATE.lock().await;
 
+        ekf.predict(odom_now.v, odom_now.w, robot_cfg.traj_following_dt_s);
+
+        let pose_is_fresh = POSE_FRESH.swap(false, Ordering::Acquire);
         if pose_is_fresh {
-            // Fresh mocap -> use directly
-            fused_x = mocap_pose.x;
-            fused_y = mocap_pose.y;
-            fused_yaw = mocap_pose.yaw;
-        } else {
-            // Stale mocap → integrate odom v,w in fused frame
-            let dt = robot_cfg.traj_following_dt_s;
-            let dtheta = odom_now.w * dt;
-            fused_yaw += dtheta;
-            fused_x += odom_now.v * cosf(fused_yaw) * dt;
-            fused_y += odom_now.v * sinf(fused_yaw) * dt;
+            let mocap_pose = *LAST_STATE.lock().await;
+            ekf.update(&crate::math::Vec3::new(mocap_pose.x, mocap_pose.y, mocap_pose.yaw));
         }
+
+        let (fx, fy, fth) = ekf.state();
+        fused_x = fx;
+        fused_y = fy;
+        fused_yaw = fth;
         /* ========================================================================= */
 
         /* ====================== Current elapsed time ============================= */
@@ -806,9 +805,11 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
                     / (2.0 * robot_cfg.wheel_radius);
                 ul = (2.0 * vd - robot_cfg.k_clip * robot_cfg.wheel_base * w_rad)
                     / (2.0 * robot_cfg.wheel_radius);
-                x_error = 0.0;
-                y_error = 0.0;
-                theta_error = 0.0;
+                x_error = setpoint.des.x - fused_x;
+                y_error = setpoint.des.y - fused_y;
+                let mut dtheta = setpoint.des.theta.rad() - fused_yaw;
+                dtheta = libm::atan2f(libm::sinf(dtheta), libm::cosf(dtheta));
+                theta_error = dtheta;
             }
         }
         /* ========================================================================= */
@@ -847,7 +848,7 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
             target_vx: setpoint.vdes,
             target_vy: 0.0,
             target_vz: 0.0,
-            actual_vx: 0.0,
+            actual_vx: odom_now.v,
             actual_vy: 0.0,
             actual_vz: 0.0,
             target_qw: setpoint.des.theta.cos(),
@@ -1086,20 +1087,21 @@ async fn execute_trajectory_loop_onboard(
 
     // Try to get initial mocap pose; fall back to pure odometry if unavailable.
     let pose_is_fresh = POSE_FRESH.load(Ordering::Acquire);
-    let mocap_pose = *LAST_STATE.lock().await;
-
-    if pose_is_fresh {
+    let mut ekf = if pose_is_fresh {
+        let mocap_pose = *LAST_STATE.lock().await;
         fused_x = mocap_pose.x;
         fused_y = mocap_pose.y;
         fused_yaw = mocap_pose.yaw;
         info!("Onboard traj: initial pose from mocap ({},{},{})",
             fused_x, fused_y, fused_yaw);
+        crate::ekf::Ekf::default_at(fused_x, fused_y, fused_yaw)
     } else {
         fused_x = 0.0;
         fused_y = 0.0;
         fused_yaw = 0.0;
         info!("Onboard traj: initial pose set to origin (no mocap)");
-    }
+        crate::ekf::Ekf::default_at_origin()
+    };
 
     let first_pose_x = fused_x;
     let first_pose_y = fused_y;
@@ -1163,23 +1165,20 @@ async fn execute_trajectory_loop_onboard(
         }
 
         /* =================== Pose Fusion =================== */
-        let mocap_pose = *LAST_STATE.lock().await;
-        let pose_is_fresh = POSE_FRESH.swap(false, Ordering::Acquire);
         let odom_now = *ODOM_STATE.lock().await;
 
+        ekf.predict(odom_now.v, odom_now.w, robot_cfg.traj_following_dt_s);
+
+        let pose_is_fresh = POSE_FRESH.swap(false, Ordering::Acquire);
         if pose_is_fresh {
-            // Fresh mocap -> use directly
-            fused_x = mocap_pose.x;
-            fused_y = mocap_pose.y;
-            fused_yaw = mocap_pose.yaw;
-        } else {
-            // Stale mocap → integrate odom v,w in fused frame
-            let dt = robot_cfg.traj_following_dt_s;
-            let dtheta = odom_now.w * dt;
-            fused_yaw += dtheta;
-            fused_x += odom_now.v * cosf(fused_yaw) * dt;
-            fused_y += odom_now.v * sinf(fused_yaw) * dt;
+            let mocap_pose = *LAST_STATE.lock().await;
+            ekf.update(&crate::math::Vec3::new(mocap_pose.x, mocap_pose.y, mocap_pose.yaw));
         }
+
+        let (fx, fy, fth) = ekf.state();
+        fused_x = fx;
+        fused_y = fy;
+        fused_yaw = fth;
         /* =================================================== */
 
         let t = (Instant::now() - start) - pause_offset;
@@ -1223,7 +1222,7 @@ async fn execute_trajectory_loop_onboard(
             target_vx: setpoint.vdes,
             target_vy: 0.0,
             target_vz: 0.0,
-            actual_vx: 0.0,
+            actual_vx: odom_now.v,
             actual_vy: 0.0,
             actual_vz: 0.0,
             target_qw: setpoint.des.theta.cos(),
@@ -1411,7 +1410,6 @@ async fn execute_trajectory_loop_onboard2(
         (robot_cfg.traj_following_dt_s * 1000.0) as u64,
     ));
 
-    let mut odom_anchor: OdomPose;
     let mut fused_x: f32;
     let mut fused_y: f32;
     let mut fused_yaw: f32;
@@ -1419,22 +1417,21 @@ async fn execute_trajectory_loop_onboard2(
     Timer::after_millis(100).await;
 
     let pose_is_fresh = POSE_FRESH.load(Ordering::Acquire);
-    let mocap_pose = *LAST_STATE.lock().await;
-
-    if pose_is_fresh {
+    let mut ekf = if pose_is_fresh {
+        let mocap_pose = *LAST_STATE.lock().await;
         fused_x = mocap_pose.x;
         fused_y = mocap_pose.y;
         fused_yaw = mocap_pose.yaw;
-        odom_anchor = *ODOM_STATE.lock().await;
         info!("Onboard traj2: initial pose from mocap ({},{},{})",
             fused_x, fused_y, fused_yaw);
+        crate::ekf::Ekf::default_at(fused_x, fused_y, fused_yaw)
     } else {
         fused_x = 0.0;
         fused_y = 0.0;
         fused_yaw = 0.0;
-        odom_anchor = *ODOM_STATE.lock().await;
         info!("Onboard traj2: initial pose set to origin (no mocap)");
-    }
+        crate::ekf::Ekf::default_at_origin()
+    };
 
     let first_pose_x = fused_x;
     let first_pose_y = fused_y;
@@ -1493,23 +1490,20 @@ async fn execute_trajectory_loop_onboard2(
         }
 
         /* =================== Pose Fusion =================== */
-        let mocap_pose = *LAST_STATE.lock().await;
-        let pose_is_fresh = POSE_FRESH.swap(false, Ordering::Acquire);
         let odom_now = *ODOM_STATE.lock().await;
 
+        ekf.predict(odom_now.v, odom_now.w, robot_cfg.traj_following_dt_s);
+
+        let pose_is_fresh = POSE_FRESH.swap(false, Ordering::Acquire);
         if pose_is_fresh {
-            fused_x = mocap_pose.x;
-            fused_y = mocap_pose.y;
-            fused_yaw = mocap_pose.yaw;
-            odom_anchor = odom_now;
-        } else {
-            let dx = odom_now.x - odom_anchor.x;
-            let dy = odom_now.y - odom_anchor.y;
-            let dtheta = odom_now.theta - odom_anchor.theta;
-            fused_x = mocap_pose.x + dx;
-            fused_y = mocap_pose.y + dy;
-            fused_yaw = mocap_pose.yaw + dtheta;
+            let mocap_pose = *LAST_STATE.lock().await;
+            ekf.update(&crate::math::Vec3::new(mocap_pose.x, mocap_pose.y, mocap_pose.yaw));
         }
+
+        let (fx, fy, fth) = ekf.state();
+        fused_x = fx;
+        fused_y = fy;
+        fused_yaw = fth;
         /* =================================================== */
 
         let t = (Instant::now() - start) - pause_offset;
@@ -1551,7 +1545,7 @@ async fn execute_trajectory_loop_onboard2(
             target_vx: setpoint.vdes,
             target_vy: 0.0,
             target_vz: 0.0,
-            actual_vx: 0.0,
+            actual_vx: odom_now.v,
             actual_vy: 0.0,
             actual_vz: 0.0,
             target_qw: setpoint.des.theta.cos(),
@@ -1702,244 +1696,6 @@ pub async fn diffdrive_outer_loop_onboard_traj2(
             }
         }
         defmt::info!("Waiting for next command (traj2)...");
-    }
-}
-
-/* ===================================================================================== */
-
-/* ======================== Onboard Trajectory 3 (EKF Demo) ============================ */
-
-async fn execute_trajectory_loop_onboard3(
-    _mode: ControlMode,
-    robot: &mut DiffdriveCascade,
-    _controller: &mut DiffdriveControllerCascade,
-    robot_cfg: &RobotConfig,
-) -> TrajectoryResult {
-    // ---- Spin-in-place for 3 seconds ----
-    let duration: f32 = 3.0;
-    let max_spin_fraction: f32 = 0.8;
-    let wd_spin = 2.0 * robot_cfg.wheel_radius * robot_cfg.wheel_max / robot_cfg.wheel_base * max_spin_fraction;
-
-    let dt = robot_cfg.traj_following_dt_s;
-    let mut ticker = Ticker::every(Duration::from_millis((dt * 1000.0) as u64));
-
-    Timer::after_millis(100).await;
-
-    let pose_is_fresh = POSE_FRESH.load(Ordering::Acquire);
-    let mocap_pose = *LAST_STATE.lock().await;
-
-    let mut ekf = if pose_is_fresh {
-        info!("Onboard traj3: initial pose from mocap ({},{},{})", mocap_pose.x, mocap_pose.y, mocap_pose.yaw);
-        crate::ekf::Ekf::default_at(mocap_pose.x, mocap_pose.y, mocap_pose.yaw)
-    } else {
-        info!("Onboard traj3: initial pose set to origin (no mocap)");
-        crate::ekf::Ekf::default_at_origin()
-    };
-
-    let first_pose_x = ekf.state().0;
-    let first_pose_y = ekf.state().1;
-    let first_pose_yaw = ekf.state().2;
-
-    let start = Instant::now();
-    let mut pause_offset = Duration::from_millis(0);
-
-    loop {
-        let tick_result =
-            select3(ticker.next(), TRAJECTORY_CONTROL_EVENT.wait(), TRAJ_PAUSE_SIG.wait()).await;
-
-        match tick_result {
-            Either3::First(_) => {}
-            Either3::Second(command) => {
-                if !command {
-                    let _ = WHEEL_CMD_CH.try_send(WheelCmd { omega_l: 0.0, omega_r: 0.0, stamp: Instant::now() });
-                    defmt::info!("Onboard traj3 stopped by command");
-                    return TrajectoryResult::Stopped;
-                }
-            }
-            Either3::Third(_) => {
-                while WHEEL_CMD_CH.try_receive().is_ok() {}
-                let _ = WHEEL_CMD_CH.try_send(WheelCmd { omega_l: 0.0, omega_r: 0.0, stamp: Instant::now() });
-                let pause_start = Instant::now();
-                defmt::info!("Execute loop paused (traj3)");
-                loop {
-                    match select(TRAJ_RESUME_SIG.wait(), TRAJECTORY_CONTROL_EVENT.wait()).await {
-                        Either::First(_) => {
-                            pause_offset += Instant::now() - pause_start;
-                            defmt::info!("Execute loop resumed (traj3)");
-                            break;
-                        }
-                        Either::Second(_) => {
-                            let _ = WHEEL_CMD_CH.try_send(WheelCmd { omega_l: 0.0, omega_r: 0.0, stamp: Instant::now() });
-                            return TrajectoryResult::Stopped;
-                        }
-                    }
-                }
-                continue;
-            }
-        }
-
-        if STOP_ALL.load(Ordering::Relaxed) {
-            let _ = WHEEL_CMD_CH.try_send(WheelCmd { omega_l: 0.0, omega_r: 0.0, stamp: Instant::now() });
-            defmt::info!("Onboard traj3 stopped via STOP_ALL");
-            break;
-        }
-
-        /* =================== EKF Pose Fusion =================== */
-        let odom_now = *ODOM_STATE.lock().await;
-
-        // Predict step using odometry (v, w)
-        ekf.predict(odom_now.v, odom_now.w, dt);
-
-        // Update step using Mocap
-        let mocap_pose = *LAST_STATE.lock().await;
-        let pose_is_fresh = POSE_FRESH.swap(false, Ordering::Acquire);
-        if pose_is_fresh {
-            ekf.update(&crate::math::Vec3::new(mocap_pose.x, mocap_pose.y, mocap_pose.yaw));
-        }
-
-        let (fused_x, fused_y, fused_yaw) = ekf.state();
-        /* ======================================================= */
-
-        let t = (Instant::now() - start) - pause_offset;
-        let t_sec = t.as_millis() as f32 / 1000.0;
-        let t_ms = t.as_millis() as u32;
-
-        let setpoint = robot.spinning_at_wd(wd_spin, t_sec, first_pose_x, first_pose_y, first_pose_yaw);
-
-        robot.s.x = fused_x;
-        robot.s.y = fused_y;
-        robot.s.theta = SO2::new(fused_yaw);
-
-        let (action, x_error, y_error, theta_error) = _controller.control(&robot, setpoint);
-        let ul = action.ul;
-        let ur = action.ur;
-
-        while WHEEL_CMD_CH.try_receive().is_ok() {}
-        let _ = WHEEL_CMD_CH.try_send(WheelCmd { omega_l: ul, omega_r: ur, stamp: Instant::now() });
-
-        let log = TrajControlLog {
-            timestamp_ms: t_ms,
-            target_x: setpoint.des.x, target_y: setpoint.des.y, target_theta: setpoint.des.theta.rad(),
-            actual_x: robot.s.x, actual_y: robot.s.y, actual_theta: robot.s.theta.rad(),
-            target_vx: setpoint.vdes, target_vy: 0.0, target_vz: 0.0,
-            actual_vx: odom_now.v, actual_vy: 0.0, actual_vz: 0.0,
-            target_qw: setpoint.des.theta.cos(), target_qx: 0.0, target_qy: 0.0, target_qz: setpoint.des.theta.sin(),
-            actual_qw: robot.s.theta.cos(), actual_qx: 0.0, actual_qy: 0.0, actual_qz: robot.s.theta.sin(),
-            xerror: x_error, yerror: y_error, thetaerror: theta_error,
-            ul: ul, ur: ur, dutyl: 0.0, dutyr: 0.0,
-        };
-
-        let _ = with_sdlogger(|logger| {
-            logger.log_traj_control_as_csv(&log);
-            logger.flush();
-        }).await;
-
-        let w_deg = setpoint.wdes * 180.0 / PI;
-        defmt::info!(
-            "t3={}s, fused=({},{},{}), des=({},{},{}), v={}, w={}°/s, u=({},{}), err=({},{},{}), fresh={}",
-            t_sec, fused_x, fused_y, fused_yaw,
-            setpoint.des.x, setpoint.des.y, setpoint.des.theta.rad(),
-            setpoint.vdes, w_deg,
-            ul, ur, x_error, y_error, theta_error,
-            pose_is_fresh
-        );
-
-        if t_sec >= duration {
-            let _ = WHEEL_CMD_CH.try_send(WheelCmd { omega_l: 0.0, omega_r: 0.0, stamp: Instant::now() });
-            defmt::info!("Onboard trajectory 3 complete after {}s", t_sec);
-            return TrajectoryResult::Completed;
-        }
-    }
-
-    let _ = WHEEL_CMD_CH.try_send(WheelCmd { omega_l: 0.0, omega_r: 0.0, stamp: Instant::now() });
-    TrajectoryResult::Stopped
-}
-
-#[embassy_executor::task]
-pub async fn diffdrive_outer_loop_onboard_traj3(
-    _mode: ControlMode,
-    cfg: Option<RobotConfig>,
-) {
-    let robot_cfg: RobotConfig = cfg.unwrap_or_default();
-
-    defmt::info!("Initializing onboard trajectory 3 mode (EKF spin)");
-    defmt::info!(
-        "Wheel radius[m]: {}, Wheel base[m]: {}, Wheel rotate speed max[rad/s]: {}",
-        robot_cfg.wheel_radius, robot_cfg.wheel_base, robot_cfg.wheel_max,
-    );
-
-    let mut robot = DiffdriveCascade::new(
-        robot_cfg.wheel_radius, robot_cfg.wheel_base,
-        -robot_cfg.wheel_max, robot_cfg.wheel_max,
-        -robot_cfg.wheel_max, robot_cfg.wheel_max,
-    );
-
-    let mut controller = DiffdriveControllerCascade::new(
-        robot_cfg.kx_traj, robot_cfg.ky_traj, robot_cfg.ktheta_traj,
-    );
-
-    let _ = with_sdlogger(|logger| logger.write_traj_control_header()).await;
-
-    defmt::info!("Waiting for trajectory 3 control commands...");
-
-    TRAJ_PAUSE_SIG.reset();
-    TRAJ_RESUME_SIG.reset();
-
-    loop {
-        let start_fut = TRAJ_RESUME_SIG.wait();
-        let pause_fut = TRAJ_PAUSE_SIG.wait();
-        let stop_fut = STOP_TRAJ_OUTER_SIG.wait();
-
-        match select3(start_fut, stop_fut, pause_fut).await {
-            Either3::First(start) => {
-                if !start { continue; }
-                defmt::info!("Starting onboard trajectory 3 (EKF)!");
-                led_set(true).await;
-            }
-            Either3::Second(_) => {
-                defmt::warn!("STOP outer loop (traj3) -> exit");
-                led_set(false).await;
-                return;
-            }
-            Either3::Third(_) => {
-                defmt::warn!("PAUSE (idle traj3) -> wait RESUME/STOP");
-                led_set(false).await;
-                loop {
-                    match select(TRAJ_RESUME_SIG.wait(), STOP_TRAJ_OUTER_SIG.wait()).await {
-                        Either::First(_) => {
-                            defmt::info!("RESUME(idle traj3)");
-                            break;
-                        }
-                        Either::Second(_) => {
-                            defmt::warn!("STOP outer loop (idle traj3) -> exit");
-                            return;
-                        }
-                    }
-                }
-                continue;
-            }
-        }
-
-        let exec_fut = execute_trajectory_loop_onboard3(_mode, &mut robot, &mut controller, &robot_cfg);
-        let stop_fut = STOP_TRAJ_OUTER_SIG.wait();
-
-        match select(exec_fut, stop_fut).await {
-            Either::First(result) => {
-                match result {
-                    TrajectoryResult::Completed => { defmt::info!("Onboard trajectory 3 completed."); }
-                    TrajectoryResult::Stopped => { defmt::info!("Onboard trajectory 3 stopped internally."); }
-                }
-                led_set(false).await;
-                TRAJ_RESUME_SIG.reset();
-                TRAJ_PAUSE_SIG.reset();
-            }
-            Either::Second(_) => {
-                defmt::warn!("STOP outer during exec (traj3) -> exit");
-                led_set(false).await;
-                return;
-            }
-        }
-        defmt::info!("Waiting for next command (traj3)...");
     }
 }
 

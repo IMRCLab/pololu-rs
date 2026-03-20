@@ -27,7 +27,7 @@ use pololu3pi2040_rs::{
     sdlog::SDLOGGER_SHARED,
     trajectory_control::{
         ControlMode, diffdrive_outer_loop_command_controlled_traj_following_from_sdcard,
-        diffdrive_outer_loop_onboard_traj, diffdrive_outer_loop_onboard_traj3, mocap_update_task,
+        diffdrive_outer_loop_onboard_traj, diffdrive_outer_loop_onboard_traj2, mocap_update_task,
         wheel_speed_inner_loop,
     },
     trajectory_signal::{LAST_STATE, POSE_FRESH, PoseAbs, TRAJECTORY_CONTROL_EVENT},
@@ -471,7 +471,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             ))
                             .is_ok();
                         let outer_ok = spawner
-                            .spawn(diffdrive_outer_loop_onboard_traj3(
+                            .spawn(diffdrive_outer_loop_onboard_traj2(
                                 ControlMode::DirectDuty,
                                 devices.config,
                             ))
