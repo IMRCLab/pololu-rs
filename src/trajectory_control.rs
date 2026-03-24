@@ -501,13 +501,13 @@ pub async fn wheel_speed_inner_loop(
         robot_cfg = RobotConfig::default();
     }
 
-    let mut ticker = Ticker::every(Duration::from_millis(20));
+    let mut ticker = Ticker::every(Duration::from_millis(10));
     let (mut il, mut ir) = (0.0f32, 0.0f32);
     let (mut prev_el, mut prev_er) = (0.0f32, 0.0f32);
     let (kp, ki, kd) = (robot_cfg.kp_inner, robot_cfg.ki_inner, robot_cfg.kd_inner);
 
     // =========== Filter Parameters ==============
-    let dt: f32 = 0.02; // 20 ms
+    let dt: f32 = 0.01; // 10 ms
     let fc_hz: f32 = 3.0;
     let tau: f32 = 1.0 / (2.0 * core::f32::consts::PI * fc_hz);
     let alpha: f32 = dt / (tau + dt);

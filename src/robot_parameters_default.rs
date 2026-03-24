@@ -25,7 +25,7 @@ pub mod robot_constants {
 #[cfg(feature = "three-pi")]
 pub mod robot_constants {
     pub const JOYSTICK_CONTROL_DT: u64 = 20;
-    pub const TRAJ_FOLLOWING_DT_S: f32 = 0.1;
+    pub const TRAJ_FOLLOWING_DT_S: f32 = 0.05;
     pub const WHEEL_RADIUS: f32 = 0.016; // 16mm wheel radius 
     pub const WHEEL_BASE: f32 = 0.0842; // 84.2mm wheelbase
     pub const MOTOR_DIRECTION_LEFT: f32 = 1.0;

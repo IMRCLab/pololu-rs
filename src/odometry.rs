@@ -53,7 +53,7 @@ pub static ODOM_STATE: Mutex<ThreadModeRawMutex, OdomPose> = Mutex::new(OdomPose
     w: 0.0,
 });
 
-//Odometry task: integrates encoder counts into (x, y, theta) at 50 Hz.
+//Odometry task: integrates encoder counts into (x, y, theta) at 100 Hz.
 //Responds to `STOP_ODOM_SIG` to cleanly exit when switching modes.
 #[embassy_executor::task]
 pub async fn odometry_task(
@@ -63,8 +63,8 @@ pub async fn odometry_task(
 ) {
     let robot_cfg = cfg.unwrap_or_default();
 
-    let dt: f32 = 0.02; // 20 ms
-    let mut ticker = Ticker::every(Duration::from_millis(20));
+    let dt: f32 = 0.01; // 10 ms
+    let mut ticker = Ticker::every(Duration::from_millis(10));
     let mut prev_l: i32 = { *left_counter.try_lock().as_deref().unwrap_or(&0) };
     let mut prev_r: i32 = { *right_counter.try_lock().as_deref().unwrap_or(&0) };
     let mut odom = OdometryData::new();

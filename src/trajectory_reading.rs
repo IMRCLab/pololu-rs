@@ -3,8 +3,8 @@ use embedded_sdmmc::{Directory, Mode, ShortFileName};
 use heapless::Vec;
 use serde::Deserialize;
 
-// Could not be too large, should use static memory to support longer trajectory
-pub const MAX_POINTS: usize = 200;
+// Adjusted buffer for 20Hz trajectories
+pub const MAX_POINTS: usize = 500;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Pose {
