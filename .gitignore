@@ -9,3 +9,6 @@ __pycache__/
 test_results/
 
 .vscode/
+experiments/
+target/
+**/logs/

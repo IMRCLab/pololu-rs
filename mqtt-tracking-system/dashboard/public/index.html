@@ -1,0 +1,448 @@
+<!-- Full HTML code with integrated script -->
+<!-- Includes all requested dashboard, zone rendering, editing, export, MQTT -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tracking Dashboard</title>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(135deg, #6e7bff, #b5c6ff);
+      margin: 0;
+      padding: 20px 0;
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+      overflow-y: auto;
+    }
+
+    #dashboard {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background-color: #fff;
+      border-radius: 10px;
+      box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+      width: 80%;
+      max-width: 900px;
+    }
+
+    h1 {
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 20px;
+      text-align: center;
+      font-size: 2rem;
+      text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+    }
+
+    .controls {
+      margin-bottom: 10px;
+      text-align: center;
+    }
+
+    canvas {
+      border: 1px solid #aaa;
+      border-radius: 10px;
+      background-color: #f9f9f9;
+    }
+
+    .robot-info {
+      margin-top: 20px;
+      background-color: #f1f1f1;
+      padding: 15px;
+      border-radius: 10px;
+      width: 100%;
+      text-align: center;
+    }
+
+    .robot-list {
+      margin-top: 20px;
+      list-style: none;
+      padding: 0;
+      max-height: 200px;
+      overflow-y: auto;
+      width: 100%;
+    }
+
+    .robot-list li {
+      padding: 10px;
+      margin: 5px 0;
+      background-color: #f2f2f2;
+      border-radius: 5px;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+    }
+
+    .robot-list li.selected {
+      background-color: #d0eaff;
+      font-weight: bold;
+    }
+
+    .robot-circle {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: bold;
+      font-size: 1rem;
+      margin-right: 10px;
+      flex-shrink: 0;
+    }
+
+    .robot-name {
+      font-size: 1.1rem;
+      color: #333;
+      font-weight: 600;
+    }
+
+    input[type="color"] {
+      margin-left: 10px;
+      border: none;
+      cursor: pointer;
+    }
+
+    .editor-controls {
+      margin-top: 10px;
+      display: none;
+      gap: 10px;
+    }
+
+    .editor-controls button {
+      padding: 6px 12px;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <div id="dashboard">
+    <h1>Tracking Dashboard</h1>
+
+    <div class="controls">
+      <label><input type="checkbox" id="toggle-trails" checked> Show Trails</label>
+    </div>
+
+    <canvas id="tracker" width="800" height="600"></canvas>
+
+    <div class="robot-info">
+      <div class="info-header">Robot Info</div>
+      <div id="robot-details" class="info-detail">Select a robot to view details.</div>
+    </div>
+
+    <ul id="robot-list" class="robot-list"></ul>
+  </div>
+
+  <script>
+	async function loadConfig() {
+	  const res = await fetch('/config');
+	  const config = await res.json();
+
+	  arenaWidth = config.arena.width_m;
+	  arenaHeight = config.arena.height_m;
+
+	  scaleX = canvas.width / arenaWidth;
+	  scaleY = canvas.height / arenaHeight;
+
+	  const broker = config.mqtt.broker;
+	  const port = config.mqtt.port;
+
+	  client = mqtt.connect(`ws://${broker}:8080`);
+
+	  client.on('connect', () => {
+		console.log("Connected to MQTT broker:", broker);
+		client.subscribe('robot_pos/all');
+	  });
+
+	  client.on('message', handleMQTTMessage);
+
+	  draw();
+	}
+    const canvas = document.getElementById('tracker');
+    const ctx = canvas.getContext('2d');
+    
+    let arenaWidth = 1;
+    let arenaHeight = 1;
+    let scaleX = canvas.width / arenaWidth;
+    let scaleY = canvas.height / arenaHeight;
+    let client;
+
+
+    let robots = {};
+    let robotLastSeen = {};
+    const robotTimeout = 5000;
+    let lastRobotKeys = [];
+    const selectedRobots = new Set();
+    let currentSelectedId = null;
+    const trailData = {};
+    const maxTrailLength = 5000;
+    let showTrails = true;
+
+
+    const robotColors = {};
+    function getColorForRobot(id) {
+      if (!robotColors[id]) robotColors[id] = generateColorFromId(id);
+      return robotColors[id];
+    }
+
+    function generateColorFromId(id) {
+      let hash = 0;
+      for (let i = 0; i < id.length; i++) {
+        hash = id.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      const hue = Math.abs(hash) % 360;
+      return `hsl(${hue}, 70%, 50%)`;
+    }
+
+    document.getElementById('toggle-trails').addEventListener('change', e => {
+      showTrails = e.target.checked;
+      draw();
+    });
+
+    
+    function handleMQTTMessage(topic, message) {
+      const data = JSON.parse(message.toString());
+      console.log(data)
+      const now = Date.now();
+      for (let [id, { position }] of Object.entries(data)) {
+        robots[id] = data[id];
+        robotLastSeen[id] = now;
+        const x = position[0] * scaleX;
+        const y = canvas.height - (position[1] * scaleY);
+        if (!trailData[id]) trailData[id] = [];
+        trailData[id].push({ x, y });
+        if (trailData[id].length > maxTrailLength) trailData[id].shift();
+      }
+      draw();
+      updateRobotListIfNeeded(data);
+      const selectedRobot = robots[currentSelectedId];
+      if (currentSelectedId && selectedRobots.has(currentSelectedId) && selectedRobot) {
+        showRobotDetails(currentSelectedId, selectedRobot);
+      } else {
+        clearRobotDetails();
+      }
+    }
+
+    setInterval(() => {
+      const now = Date.now();
+      let updated = false;
+      for (let id in robots) {
+        if (now - robotLastSeen[id] > robotTimeout) {
+          delete robots[id];
+          updated = true;
+        }
+      }
+      if (updated) {
+        updateRobotListIfNeeded(robots);
+        draw();
+      }
+    }, 1000);
+
+    function updateRobotListIfNeeded(newData) {
+      const newKeys = Object.keys(newData).sort();
+      if (JSON.stringify(newKeys) !== JSON.stringify(lastRobotKeys)) {
+        lastRobotKeys = newKeys;
+        updateRobotList();
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawGrid();
+
+      for (let [id, { position, angle }] of Object.entries(robots)) {
+        if (!selectedRobots.has(id)) continue;
+
+        const x = position[0] * scaleX;
+        const y = canvas.height - (position[1] * scaleY);
+        const color = getColorForRobot(id);
+
+        if (showTrails && trailData[id] && trailData[id].length > 1) {
+          ctx.beginPath();
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 2;
+          ctx.moveTo(trailData[id][0].x, trailData[id][0].y);
+          for (let point of trailData[id]) ctx.lineTo(point.x, point.y);
+          ctx.stroke();
+        }
+
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate((angle * Math.PI) / 180);
+        ctx.beginPath();
+        ctx.arc(0, 0, 15, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.font = 'bold 12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = 'white';
+        ctx.fillText(id, 0, 0);
+        ctx.restore();
+      }
+
+    }
+
+    function drawGrid() {
+      ctx.strokeStyle = '#cccccc';
+      ctx.lineWidth = 1;
+      ctx.font = '10px sans-serif';
+      ctx.fillStyle = '#666';
+      for (let x = 0; x <= arenaWidth; x += 0.1) {
+        const px = x * scaleX;
+        ctx.beginPath();
+        ctx.moveTo(px, 0);
+        ctx.lineTo(px, canvas.height);
+        ctx.stroke();
+        ctx.fillText(x.toFixed(1) + 'm', px + 2, canvas.height - 2);
+      }
+      for (let y = 0; y <= arenaHeight; y += 0.1) {
+        const py = canvas.height - (y * scaleY);
+        ctx.beginPath();
+        ctx.moveTo(0, py);
+        ctx.lineTo(canvas.width, py);
+        ctx.stroke();
+        ctx.fillText(y.toFixed(1) + 'm', 2, py - 2);
+      }
+    }
+
+    function updateRobotList() {
+      const list = document.getElementById('robot-list');
+      list.innerHTML = '';
+      Object.entries(robots).forEach(([id, robot]) => {
+        const color = getColorForRobot(id);
+        const item = document.createElement('li');
+        if (selectedRobots.has(id)) item.classList.add('selected');
+
+        const circle = document.createElement('div');
+        circle.className = 'robot-circle';
+        circle.style.backgroundColor = color;
+        circle.textContent = id;
+
+        const name = document.createElement('div');
+        name.className = 'robot-name';
+        name.textContent = id;
+
+        const leftPart = document.createElement('div');
+        leftPart.style.display = 'flex';
+        leftPart.style.alignItems = 'center';
+        leftPart.appendChild(circle);
+        leftPart.appendChild(name);
+
+        item.appendChild(leftPart);
+
+        if (selectedRobots.has(id)) {
+          const colorInput = document.createElement('input');
+          colorInput.type = 'color';
+          colorInput.value = rgbToHex(color);
+          colorInput.addEventListener('change', (e) => {
+            robotColors[id] = e.target.value;
+            draw();
+          });
+          colorInput.addEventListener('click', (e) => e.stopPropagation());
+          item.appendChild(colorInput);
+        }
+
+        item.addEventListener('click', () => {
+          if (selectedRobots.has(id)) {
+            selectedRobots.delete(id);
+            if (currentSelectedId === id) {
+              currentSelectedId = null;
+              clearRobotDetails();
+            }
+          } else {
+            selectedRobots.add(id);
+            currentSelectedId = id;
+            showRobotDetails(id, robot);
+          }
+          draw();
+          updateRobotList();
+        });
+
+        list.appendChild(item);
+      });
+    }
+
+    function rgbToHex(rgb) {
+      const ctx = document.createElement("canvas").getContext("2d");
+      ctx.fillStyle = rgb;
+      return ctx.fillStyle;
+    }
+
+    function showRobotDetails(id, robot) {
+      const el = document.getElementById('robot-details');
+      el.innerHTML = `
+        <strong>Robot ID:</strong> ${id}<br>
+        <strong>Position:</strong> [${robot.position.map(p => p.toFixed(3)).join(', ')}]<br>
+        <strong>Angle:</strong> ${robot.angle.toFixed(1)}°<br>
+        <strong>Visible:</strong> ${selectedRobots.has(id) ? 'Yes' : 'No'}
+      `;
+    }
+
+    function clearRobotDetails() {
+      document.getElementById('robot-details').textContent = 'Select a robot to view details.';
+    }
+
+    canvas.addEventListener('click', (e) => {
+      if (!editing) return;
+      const rect = canvas.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / scaleX;
+      const y = (canvas.height - (e.clientY - rect.top)) / scaleY;
+
+      if (editorMode === 'polygon') {
+        polygonPoints.push({ x, y });
+        ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
+        ctx.strokeStyle = '#a00';
+        ctx.lineWidth = 2;
+        const pts = polygonPoints.map(p => ({
+            x: p.x * scaleX,
+            y: canvas.height - (p.y * scaleY)
+          }));
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+        for (let i = 1; i < pts.length; i++) {
+          ctx.lineTo(pts[i].x, pts[i].y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        console.log(polygonPoints)
+      } else if (editorMode === 'circle') {
+        if (!circleStart) {
+          circleStart = { x, y };
+        }
+      }
+      draw();
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (!editing || editorMode !== 'circle' || !circleStart) return;
+      const rect = canvas.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / scaleX;
+      const y = (canvas.height - (e.clientY - rect.top)) / scaleY;
+      const dx = x - circleStart.x;
+      const dy = y - circleStart.y;
+      circlePreviewRadius = Math.sqrt(dx * dx + dy * dy);
+      draw();
+      // preview
+      ctx.beginPath();
+      ctx.arc(circleStart.x * scaleX, canvas.height - (circleStart.y * scaleY), circlePreviewRadius * scaleX, 0, 2 * Math.PI);
+      ctx.fillStyle = 'rgba(255,165,0,0.2)';
+      ctx.fill();
+      ctx.stroke();
+    });
+      
+    loadConfig();
+  </script>
+</body>
+</html>
