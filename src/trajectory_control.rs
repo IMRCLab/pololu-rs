@@ -526,13 +526,33 @@ pub async fn wheel_speed_inner_loop(
     };
 
     loop {
-        match select(STOP_WHEEL_INNER_SIG.wait(), ticker.next()).await {
-            Either::First(_) => {
+        match select3(STOP_WHEEL_INNER_SIG.wait(), TRAJ_PAUSE_SIG.wait(), ticker.next()).await {
+            Either3::First(_) => {
                 motor.set_speed(0.0, 0.0).await;
                 defmt::warn!("STOP inner loop -> exit");
                 return;
             }
-            Either::Second(_) => {
+            Either3::Second(_) => {
+                motor.set_speed(0.0, 0.0).await;
+                loop {
+                    match select(TRAJ_RESUME_SIG.wait(), STOP_WHEEL_INNER_SIG.wait()).await {
+                        Either::First(_) => break,        // back to normal loop
+                        Either::Second(_) => {
+                            motor.set_speed(0.0, 0.0).await;
+                            return;
+                        }
+                    }
+                }
+                //reset the controller errors before resuming to avoid v spikes.
+                il = 0.0; ir = 0.0;
+                prev_el = 0.0; prev_er = 0.0;
+                omega_l_lp = 0.0; omega_r_lp = 0.0;
+                prev_l = *left_counter.lock().await;
+                prev_r = *right_counter.lock().await;
+                last_cmd = WheelCmd { omega_l: 0.0, omega_r: 0.0, stamp: Instant::now() };
+                continue;
+            }
+            Either3::Third(_) => {
                 // Normal loop - ticker fired
             }
         }
