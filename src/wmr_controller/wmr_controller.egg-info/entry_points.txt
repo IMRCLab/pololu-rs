@@ -1,0 +1,5 @@
+[console_scripts]
+cmcgs_ctrl = wmr_controller.cmcgs_ctrl:main
+reference_publisher_node = wmr_controller.reference_publisher_example:main
+timing_monitor = wmr_controller.timing_monitor:main
+wmr_controller_node = wmr_controller.wmr_controller_node:main

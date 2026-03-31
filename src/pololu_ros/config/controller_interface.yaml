@@ -2,10 +2,10 @@
   ros__parameters:
     frequency: 10  # set to 0, to disable manual flight modes
     #uri1: "radio://*/80/2M/00E6E6E6E6?safelink=0&autoping=0"
-    uri1: "radio://*/80/2M/E7C2C2C210?safelink=0&autoping=0"
+    uri1: "radio://*/80/2M/E7C2C2C208?safelink=0&autoping=0"
     #uri1: "radio://*/80/2M/00E6E6E6E7?safelink=0&autoping=0"
     uri2: "radio://*/80/2M/E7C2C2C209?safelink=0&autoping=0"
-    uri3: "radio://*/80/2M/E7C2C2C208?safelink=0&autoping=0"
+    uri3: "radio://*/80/2M/E7C2C2C210?safelink=0&autoping=0"
     uri4: "radio://*/80/2M/E7C2C2C207?safelink=0&autoping=0"
     joy1:
       yawrate:
