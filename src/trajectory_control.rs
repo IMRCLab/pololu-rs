@@ -534,13 +534,11 @@ pub async fn wheel_speed_inner_loop(
             }
             Either3::Second(_) => {
                 motor.set_speed(0.0, 0.0).await;
-                loop {
-                    match select(TRAJ_RESUME_SIG.wait(), STOP_WHEEL_INNER_SIG.wait()).await {
-                        Either::First(_) => break,        // back to normal loop
-                        Either::Second(_) => {
-                            motor.set_speed(0.0, 0.0).await;
-                            return;
-                        }
+                match select(TRAJ_RESUME_SIG.wait(), STOP_WHEEL_INNER_SIG.wait()).await {
+                    Either::First(_) => {},        // back to normal loop
+                    Either::Second(_) => {
+                        motor.set_speed(0.0, 0.0).await;
+                        return;
                     }
                 }
                 //reset the controller errors before resuming to avoid v spikes.
@@ -723,19 +721,16 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
                 });
                 let pause_start = Instant::now();
                 defmt::info!("Execute loop paused");
-                loop {
-                    match select(TRAJ_RESUME_SIG.wait(), TRAJECTORY_CONTROL_EVENT.wait()).await {
-                        Either::First(_) => {
-                            pause_offset += Instant::now() - pause_start;
-                            defmt::info!("Execute loop resumed");
-                            break;
-                        }
-                        Either::Second(_) => {
-                            let _ = WHEEL_CMD_CH.try_send(WheelCmd {
-                                omega_l: 0.0, omega_r: 0.0, stamp: Instant::now(),
-                            });
-                            return TrajectoryResult::Stopped;
-                        }
+                match select(TRAJ_RESUME_SIG.wait(), TRAJECTORY_CONTROL_EVENT.wait()).await {
+                    Either::First(_) => {
+                        pause_offset += Instant::now() - pause_start;
+                        defmt::info!("Execute loop resumed");
+                    }
+                    Either::Second(_) => {
+                        let _ = WHEEL_CMD_CH.try_send(WheelCmd {
+                            omega_l: 0.0, omega_r: 0.0, stamp: Instant::now(),
+                        });
+                        return TrajectoryResult::Stopped;
                     }
                 }
                 continue;
@@ -1155,19 +1150,16 @@ async fn execute_trajectory_loop_onboard(
                 });
                 let pause_start = Instant::now();
                 defmt::info!("Execute loop paused");
-                loop {
-                    match select(TRAJ_RESUME_SIG.wait(), TRAJECTORY_CONTROL_EVENT.wait()).await {
-                        Either::First(_) => {
-                            pause_offset += Instant::now() - pause_start;
-                            defmt::info!("Execute loop resumed");
-                            break;
-                        }
-                        Either::Second(_) => {
-                            let _ = WHEEL_CMD_CH.try_send(WheelCmd {
-                                omega_l: 0.0, omega_r: 0.0, stamp: Instant::now(),
-                            });
-                            return TrajectoryResult::Stopped;
-                        }
+                match select(TRAJ_RESUME_SIG.wait(), TRAJECTORY_CONTROL_EVENT.wait()).await {
+                    Either::First(_) => {
+                        pause_offset += Instant::now() - pause_start;
+                        defmt::info!("Execute loop resumed");
+                    }
+                    Either::Second(_) => {
+                        let _ = WHEEL_CMD_CH.try_send(WheelCmd {
+                            omega_l: 0.0, omega_r: 0.0, stamp: Instant::now(),
+                        });
+                        return TrajectoryResult::Stopped;
                     }
                 }
                 continue;
@@ -1358,16 +1350,13 @@ pub async fn diffdrive_outer_loop_onboard_traj(
             Either3::Third(_) => {
                 defmt::warn!("PAUSE (idle) -> wait RESUME/STOP");
                 led_set(false).await;
-                loop {
-                    match select(TRAJ_RESUME_SIG.wait(), STOP_TRAJ_OUTER_SIG.wait()).await {
-                        Either::First(_) => {
-                            defmt::info!("RESUME(idle)");
-                            break;
-                        }
-                        Either::Second(_) => {
-                            defmt::warn!("STOP outer loop (idle) -> exit");
-                            return;
-                        }
+                match select(TRAJ_RESUME_SIG.wait(), STOP_TRAJ_OUTER_SIG.wait()).await {
+                    Either::First(_) => {
+                        defmt::info!("RESUME(idle)");
+                    }
+                    Either::Second(_) => {
+                        defmt::warn!("STOP outer loop (idle) -> exit");
+                        return;
                     }
                 }
                 continue;
@@ -1482,19 +1471,16 @@ async fn execute_trajectory_loop_onboard2(
                 });
                 let pause_start = Instant::now();
                 defmt::info!("Execute loop paused (traj2)");
-                loop {
-                    match select(TRAJ_RESUME_SIG.wait(), TRAJECTORY_CONTROL_EVENT.wait()).await {
-                        Either::First(_) => {
-                            pause_offset += Instant::now() - pause_start;
-                            defmt::info!("Execute loop resumed (traj2)");
-                            break;
-                        }
-                        Either::Second(_) => {
-                            let _ = WHEEL_CMD_CH.try_send(WheelCmd {
-                                omega_l: 0.0, omega_r: 0.0, stamp: Instant::now(),
-                            });
-                            return TrajectoryResult::Stopped;
-                        }
+                match select(TRAJ_RESUME_SIG.wait(), TRAJECTORY_CONTROL_EVENT.wait()).await {
+                    Either::First(_) => {
+                        pause_offset += Instant::now() - pause_start;
+                        defmt::info!("Execute loop resumed (traj2)");
+                    }
+                    Either::Second(_) => {
+                        let _ = WHEEL_CMD_CH.try_send(WheelCmd {
+                            omega_l: 0.0, omega_r: 0.0, stamp: Instant::now(),
+                        });
+                        return TrajectoryResult::Stopped;
                     }
                 }
                 continue;
@@ -1671,16 +1657,13 @@ pub async fn diffdrive_outer_loop_onboard_traj2(
             Either3::Third(_) => {
                 defmt::warn!("PAUSE (idle traj2) -> wait RESUME/STOP");
                 led_set(false).await;
-                loop {
-                    match select(TRAJ_RESUME_SIG.wait(), STOP_TRAJ_OUTER_SIG.wait()).await {
-                        Either::First(_) => {
-                            defmt::info!("RESUME(idle traj2)");
-                            break;
-                        }
-                        Either::Second(_) => {
-                            defmt::warn!("STOP outer loop (idle traj2) -> exit");
-                            return;
-                        }
+                match select(TRAJ_RESUME_SIG.wait(), STOP_TRAJ_OUTER_SIG.wait()).await {
+                    Either::First(_) => {
+                        defmt::info!("RESUME(idle traj2)");
+                    }
+                    Either::Second(_) => {
+                        defmt::warn!("STOP outer loop (idle traj2) -> exit");
+                        return;
                     }
                 }
                 continue;
