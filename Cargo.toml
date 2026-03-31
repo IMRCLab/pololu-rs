@@ -23,11 +23,6 @@ path = "src/bin/programm_entrance.rs"
 test = false
 bench = false
 
-[[bin]]
-name = "ekf_test"
-path = "src/bin/ekf_test.rs"
-test = false
-bench = false
 
 [dependencies]
 cortex-m = { version = "0.7.6" }
