@@ -12,3 +12,5 @@ test_results/
 experiments/
 target/
 **/logs/
+compile_commands.json
+.venv/

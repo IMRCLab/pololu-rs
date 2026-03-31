@@ -14,6 +14,7 @@
 
 //includes for listening to the Motion Capture Tracking interface poses
 #include "motion_capture_tracking_interfaces/msg/named_pose_array.hpp"
+#include "std_msgs/msg/bool.hpp"
 
 
 using namespace bitcraze::crazyflieLinkCpp;
@@ -73,7 +74,11 @@ public:
         this->declare_parameter("frequency", 10);
         this->get_parameter<int>("frequency", frequency_);
 
-        this->declare_parameter("uri1", "radio://*/80/2M/E7C2C2C207?safelink=0&autoping=0");
+        // Publisher for control action active status
+        status_publisher_ = this->create_publisher<std_msgs::msg::Bool>("/experiment/ready", 10);
+
+        // NOTE: Pick the correct default URI ending for your setup (07 vs 10)
+        this->declare_parameter("uri1", "radio://*/80/2M/E7C2C2C210?safelink=0&autoping=0");
         std::string uri1;
         this->get_parameter<std::string>("uri1", uri1);
         connection_[0] = std::make_shared<Connection>(uri1);
@@ -180,6 +185,7 @@ private:
         std::string uri;
         if (this->get_parameter<std::string>("uri1", uri)) {
             robot_ids_[0] = getName(extractRadioIdFromUri(uri));
+            
         }
         if (this->get_parameter<std::string>("uri2", uri)) {
             robot_ids_[1] = getName(extractRadioIdFromUri(uri));
@@ -209,6 +215,15 @@ private:
     // Publish Function, sending tele operation command
     void publish() 
     {
+        // Publish status of selected robot (if it is in control action mode)
+        auto msg = std_msgs::msg::Bool();
+        // Check if ANY robot is in control action mode, or just the selected one?
+        // For simplicity, let's publish true if the *selected* robot has control action active.
+        // Or if the specific robot we care about is active.
+        // Assuming single robot workflow for now:
+        msg.data = control_action_active[selected_robot_];
+        status_publisher_->publish(msg);
+
         //handle communication tied to the frequency here. 
 
         // Only send to selected robot and only if teleop is active
@@ -348,17 +363,18 @@ private:
         //store the latest control action: x = linear velocity (v), y = angular velocity (w)
         latest_cmd_unicycle_ = *msg;
 
-        // Send to ONLY the selected robot if control_action_active
-        // This assumes single-robot control. For multi-robot, use namespaced topics like /robot1/cmd_unicycle
-        if (control_action_active[selected_robot_]) {
-            connection_[selected_robot_]->send(PacketUtils::cmdLegacy_Pololu_Teleop(
-                latest_cmd_unicycle_.x,  //linear velocity (v)
-                latest_cmd_unicycle_.y   //angular velocity (w)
-            ));
-            
-            // Reduced logging - only log occasionally or on startup
-            // RCLCPP_INFO_THROTTLE(logger_, *this->get_clock(), 5000, "Sending control actions to Robot %d: v=%.3f, w=%.3f", 
-            //     selected_robot_ + 1, latest_cmd_unicycle_.x, latest_cmd_unicycle_.y);
+        //immediately send to all robots with control_action_active ... frequency is controlled by the controller action publisher
+        for (int i = 0; i < 4; i++) {
+            if (control_action_active[i]) {
+                connection_[i]->send(PacketUtils::cmdLegacy_Pololu_Teleop(
+                    latest_cmd_unicycle_.x,  //linear velocity (v)
+                    latest_cmd_unicycle_.y   //angular velocity (w)
+                ));
+                
+               // Reduced logging - only log occasionally or on startup
+               // RCLCPP_INFO_THROTTLE(logger_, *this->get_clock(), 5000, "Sending control actions: v=%.3f, w=%.3f", 
+               //     latest_cmd_unicycle_.x, latest_cmd_unicycle_.y);
+            }
         }
     }
 
@@ -617,8 +633,9 @@ private:
     void sendIndividualStop(int robot_id){
         sendWithRetry(robot_id, PacketUtils::cmdTrajectoryControlStartStop(robot_ids_[robot_id], 0));
         RCLCPP_INFO(logger_, "Sent STOP command to robot %d", robot_id + 1);
-        teleop_activated[robot_id] = false;
-        control_action_active[robot_id] = false;
+        //robot_running[robot_id] = false;
+        teleop_activated[robot_id] = false; //deactivate teleop always when stopping the robot
+        control_action_active[robot_id] = false; //deactivate control action when stopping
     }
 
     void sendGlobalCommand(uint8_t command)
@@ -755,6 +772,7 @@ private:
     rclcpp::TimerBase::SharedPtr timer_;
     geometry_msgs::msg::Twist twist_[1];
     rclcpp::Logger logger_;
+    rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr status_publisher_;
     int frequency_;
     float dt_;
     std::shared_ptr<Connection> connection_[4];
