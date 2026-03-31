@@ -158,3 +158,183 @@ impl SO2 {
         v
     }
 }
+
+// ========================= 3×3 Linear Algebra =========================
+
+/// Wrap angle to [−π, π].
+pub fn wrap_angle(a: f32) -> f32 {
+    atan2f(sinf(a), cosf(a))
+}
+
+/// 3×3 matrix stored in row-major order.
+#[derive(Debug, Clone, Copy)]
+pub struct Mat3 {
+    pub data: [[f32; 3]; 3],
+}
+
+impl Mat3 {
+    pub const fn zero() -> Self {
+        Self {
+            data: [[0.0; 3]; 3],
+        }
+    }
+
+    pub const fn identity() -> Self {
+        Self {
+            data: [
+                [1.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [0.0, 0.0, 1.0],
+            ],
+        }
+    }
+
+    pub const fn diag(a: f32, b: f32, c: f32) -> Self {
+        Self {
+            data: [
+                [a, 0.0, 0.0],
+                [0.0, b, 0.0],
+                [0.0, 0.0, c],
+            ],
+        }
+    }
+
+    pub fn transpose(&self) -> Self {
+        let d = &self.data;
+        Self {
+            data: [
+                [d[0][0], d[1][0], d[2][0]],
+                [d[0][1], d[1][1], d[2][1]],
+                [d[0][2], d[1][2], d[2][2]],
+            ],
+        }
+    }
+
+    /// Matrix addition: self + other
+    pub fn add(&self, other: &Self) -> Self {
+        let mut out = Self::zero();
+        for i in 0..3 {
+            for j in 0..3 {
+                out.data[i][j] = self.data[i][j] + other.data[i][j];
+            }
+        }
+        out
+    }
+
+    /// Matrix subtraction: self - other
+    pub fn sub(&self, other: &Self) -> Self {
+        let mut out = Self::zero();
+        for i in 0..3 {
+            for j in 0..3 {
+                out.data[i][j] = self.data[i][j] - other.data[i][j];
+            }
+        }
+        out
+    }
+
+    /// Matrix multiplication: self * other
+    pub fn mul(&self, other: &Self) -> Self {
+        let mut out = Self::zero();
+        for i in 0..3 {
+            for j in 0..3 {
+                let mut sum = 0.0f32;
+                for k in 0..3 {
+                    sum += self.data[i][k] * other.data[k][j];
+                }
+                out.data[i][j] = sum;
+            }
+        }
+        out
+    }
+
+    /// Matrix × vector: self * v
+    pub fn mul_vec(&self, v: &Vec3) -> Vec3 {
+        Vec3 {
+            data: [
+                self.data[0][0] * v.data[0]
+                    + self.data[0][1] * v.data[1]
+                    + self.data[0][2] * v.data[2],
+                self.data[1][0] * v.data[0]
+                    + self.data[1][1] * v.data[1]
+                    + self.data[1][2] * v.data[2],
+                self.data[2][0] * v.data[0]
+                    + self.data[2][1] * v.data[1]
+                    + self.data[2][2] * v.data[2],
+            ],
+        }
+    }
+
+    /// Determinant (Sarrus' rule).
+    fn det(&self) -> f32 {
+        let d = &self.data;
+        d[0][0] * (d[1][1] * d[2][2] - d[1][2] * d[2][1])
+            - d[0][1] * (d[1][0] * d[2][2] - d[1][2] * d[2][0])
+            + d[0][2] * (d[1][0] * d[2][1] - d[1][1] * d[2][0])
+    }
+
+    /// 3×3 inverse via Cramer's rule.  Returns `None` if singular.
+    pub fn invert(&self) -> Option<Self> {
+        let det = self.det();
+        if det.abs() < 1e-12 {
+            return None;
+        }
+        let inv_det = 1.0 / det;
+        let d = &self.data;
+
+        Some(Self {
+            data: [
+                [
+                    (d[1][1] * d[2][2] - d[1][2] * d[2][1]) * inv_det,
+                    (d[0][2] * d[2][1] - d[0][1] * d[2][2]) * inv_det,
+                    (d[0][1] * d[1][2] - d[0][2] * d[1][1]) * inv_det,
+                ],
+                [
+                    (d[1][2] * d[2][0] - d[1][0] * d[2][2]) * inv_det,
+                    (d[0][0] * d[2][2] - d[0][2] * d[2][0]) * inv_det,
+                    (d[0][2] * d[1][0] - d[0][0] * d[1][2]) * inv_det,
+                ],
+                [
+                    (d[1][0] * d[2][1] - d[1][1] * d[2][0]) * inv_det,
+                    (d[0][1] * d[2][0] - d[0][0] * d[2][1]) * inv_det,
+                    (d[0][0] * d[1][1] - d[0][1] * d[1][0]) * inv_det,
+                ],
+            ],
+        })
+    }
+}
+
+/// 3-element vector.
+#[derive(Debug, Clone, Copy)]
+pub struct Vec3 {
+    pub data: [f32; 3],
+}
+
+impl Vec3 {
+    pub const fn zero() -> Self {
+        Self { data: [0.0; 3] }
+    }
+
+    pub const fn new(a: f32, b: f32, c: f32) -> Self {
+        Self { data: [a, b, c] }
+    }
+
+    pub fn sub(&self, other: &Self) -> Self {
+        Self {
+            data: [
+                self.data[0] - other.data[0],
+                self.data[1] - other.data[1],
+                self.data[2] - other.data[2],
+            ],
+        }
+    }
+
+    pub fn add(&self, other: &Self) -> Self {
+        Self {
+            data: [
+                self.data[0] + other.data[0],
+                self.data[1] + other.data[1],
+                self.data[2] + other.data[2],
+            ],
+        }
+    }
+}

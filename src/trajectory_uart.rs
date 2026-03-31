@@ -1,14 +1,15 @@
 use defmt::*;
 use embassy_futures::select::{Either3, select3};
-use embassy_time::{Duration, Timer};
+use embassy_time::{Duration, Instant, Timer};
 use heapless::Vec as HVec;
 
+use crate::buzzer::beep_signal;
 use crate::math::{quat_decompress, rpy_from_quaternion};
 use crate::orchestrator_signal::{
     LEN_FUNC_SELECT_CMD, LEN_STOP_RESUME_CMD, Mode, ORCH_CH, OrchestratorMsg, STOP_MOCAP_UART_SIG,
     TRAJ_PAUSE_SIG, TRAJ_RESUME_SIG, decode_functionality_select_command,
 };
-use crate::trajectory_signal::{FIRST_MESSAGE, LAST_STATE, PoseAbs, STATE_SIG};
+use crate::trajectory_signal::{FIRST_MESSAGE, LAST_STATE, POSE_FRESH, PoseAbs, STATE_SIG};
 use crate::uart::UART_RX_CHANNEL;
 
 #[derive(Clone, Copy)]
@@ -25,6 +26,9 @@ pub async fn uart_motioncap_receiving_task(cfg: UartCfg) {
     let mut seen_first = false;
     // let mut len_buf = [0u8; 1];
     let mut frame: HVec<u8, FRAME_MAX> = HVec::new();
+
+    // Drain any stale bytes from duplicate dongle sends
+    while UART_RX_CHANNEL.try_receive().is_ok() {}
 
     loop {
         // Read Length Buffer Byte First
@@ -53,6 +57,9 @@ pub async fn uart_motioncap_receiving_task(cfg: UartCfg) {
             || len == LEN_FUNC_SELECT_CMD
             || len == LEN_STOP_RESUME_CMD)
         {
+            defmt::warn!("mocap uart: unknown len={}, draining", len);
+            Timer::after(Duration::from_millis(5)).await;
+            while UART_RX_CHANNEL.try_receive().is_ok() {}
             continue; // illegal Length
         }
 
@@ -60,6 +67,7 @@ pub async fn uart_motioncap_receiving_task(cfg: UartCfg) {
         frame.clear();
         let need = len as usize;
         let mut got = 0usize;
+        defmt::info!("mocap uart: reading payload for len={}", len);
 
         while got < need {
             let read_byte_fut = UART_RX_CHANNEL.receive();
@@ -91,31 +99,37 @@ pub async fn uart_motioncap_receiving_task(cfg: UartCfg) {
 
         // -------- Decoding --------
         if len == LEN_FUNC_SELECT_CMD {
-            info!("here_mocap");
             if let Some(sel) = decode_functionality_select_command(&frame, cfg.robot_id) {
                 let target = match sel {
                     0 => Mode::Menu,
                     1 => Mode::TeleOp,
                     2 => Mode::TrajMocap,
                     3 => Mode::TrajDuty,
+                    4 => Mode::CtrlAction,
+                    5 => Mode::TrajOnboard,
+                    6 => Mode::TrajOnboard2,
                     _ => Mode::Menu,
                 };
                 let _ = ORCH_CH.try_send(OrchestratorMsg::SwitchTo(target));
-                return;
+                // Don't return here — let STOP_MOCAP_UART_SIG handle task exit.
+                // Returning immediately kills this UART task before the orchestrator
+                // can process the switch, making the robot deaf on retransmits
+                // or same-mode duplicates.
             }
             continue;
         }
 
         if len == LEN_STOP_RESUME_CMD {
             if let Some(start_trajectory) = decode_trajectory_command(&frame, cfg.robot_id) {
-                // TRAJECTORY_CONTROL_EVENT.signal(start_trajectory);
                 info!("Trajectory control command received: {}", start_trajectory);
 
                 if start_trajectory {
                     TRAJ_RESUME_SIG.signal(true);
+                    beep_signal(b'b');
                     info!("Trajectory following resume!!");
                 } else {
                     TRAJ_PAUSE_SIG.signal(true);
+                    beep_signal(b's');
                     info!("Trajectory following pause!!");
                 }
             }
@@ -124,11 +138,16 @@ pub async fn uart_motioncap_receiving_task(cfg: UartCfg) {
 
         if len == LEN_POSE {
             if let Some(pose) = decode_abs_pose(&frame, cfg.robot_id) {
+                let stamped = PoseAbs {
+                    stamp: Instant::now(),
+                    ..pose
+                };
                 {
                     let mut s = LAST_STATE.lock().await;
-                    *s = pose;
+                    *s = stamped;
                 }
-                STATE_SIG.signal(pose);
+                POSE_FRESH.store(true, portable_atomic::Ordering::Release);
+                STATE_SIG.signal(stamped);
 
                 if !seen_first {
                     FIRST_MESSAGE.signal(());
@@ -208,7 +227,12 @@ fn decode_abs_pose(payload: &[u8], robot_id: u8) -> Option<PoseAbs> {
     //     "robot Id: {}, x:{}, y:{}, z:{}, roll:{}, pitch:{}, yaw:{}",
     //     payload[1], x, y, z, roll, pitch, yaw,
     // );
-
+    // Pose logging disabled for performance — enable only for debugging
+    // let timestamp = Instant::now().as_millis();
+    // defmt::info!(
+    //     "Pose Abs: robot_id={}, x={} y={} z={} roll={} pitch={} yaw={} timestamp={}",
+    //     payload[1], x, y, z, roll, pitch, yaw, timestamp
+    // );
     Some(PoseAbs {
         x,
         y,
@@ -216,5 +240,6 @@ fn decode_abs_pose(payload: &[u8], robot_id: u8) -> Option<PoseAbs> {
         roll,
         pitch,
         yaw,
+        stamp: Instant::from_ticks(0), // caller will overwrite with Instant::now()
     })
 }

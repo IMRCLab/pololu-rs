@@ -3,8 +3,8 @@ use embedded_sdmmc::{Directory, Mode, ShortFileName};
 use heapless::Vec;
 use serde::Deserialize;
 
-// Could not be too large, should use static memory to support longer trajectory
-pub const MAX_POINTS: usize = 200;
+// Adjusted buffer to 350 to try and maintain stack limits natively
+pub const MAX_POINTS: usize = 350;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Pose {
