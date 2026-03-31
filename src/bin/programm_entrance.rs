@@ -481,26 +481,6 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             beep_signal(b'G');
                         }
                     }
-                    Mode::CtrlAction => {
-                        defmt::info!("CONTROL-ACTION Mode is selected!!!!!");
-
-                        if let Err(_) = spawner.spawn(control_action_uart_task(cfg)) {
-                            defmt::warn!(
-                                "Control action UART task already running or failed to spawn"
-                            );
-                        }
-
-                        if let Err(_) = spawner.spawn(teleop_motor_control_task(
-                            devices.motor,
-                            encoder_count_left,
-                            encoder_count_right,
-                            devices.config,
-                        )) {
-                            defmt::warn!(
-                                "Teleop motor control task already running or failed to spawn"
-                            );
-                        }
-                    }
                 }
                 mode = target;
             }
