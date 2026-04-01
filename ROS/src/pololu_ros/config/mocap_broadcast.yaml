@@ -1,0 +1,9 @@
+/mocap_broadcast:
+  ros__parameters:
+    frequency: 10  # set to 0, to disable manual flight modes
+    uri1: "radio://*/80/2M/E7C2C2C208?safelink=0&autoping=0"
+    uri2: "radio://*/80/2M/E7C2C2C207?safelink=0&autoping=0"
+    uri3: "radio://*/80/2M/E7C2C2C20A?safelink=0&autoping=0"
+    uri4: "radio://*/80/2M/E7C2C2C2C2?safelink=0&autoping=0"
+
+

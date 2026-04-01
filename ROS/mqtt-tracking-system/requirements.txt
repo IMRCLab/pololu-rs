@@ -1,0 +1,4 @@
+numpy
+pyyaml
+paho-mqtt
+opencv-contrib-python

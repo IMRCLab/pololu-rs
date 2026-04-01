@@ -4,3 +4,21 @@
 [submodule "nRF52840_Pololu"]
 	path = firmware/nRF52840_Pololu
 	url = git@github.com:Olumat/pololu-nRF52840-dongle-firmware.git
+[submodule "src/crazyswarm2"]
+	path = ROS/src/crazyswarm2
+	url = https://github.com/IMRCLab/crazyswarm2
+[submodule "src/motion_capture_tracking"]
+	path = ROS/src/motion_capture_tracking
+	url = https://github.com/IMRCLab/motion_capture_tracking
+[submodule "src/pololu_ros/deps/crazyflie-link-cpp"]
+	path = ROS/src/pololu_ros/deps/crazyflie-link-cpp
+	url = git@github.com:Olumat/crazyflie-link-cpp.git
+	branch = keyboard-interface
+[submodule "src/wmr_controller/deps/wmr-simulator"]
+	path = ROS/src/wmr_controller/deps/wmr-simulator
+	url = git@github.com:IMRCLab/wmr-simulator.git
+
+[submodule "src/wmr_controller/external/ann-cmcgs"]
+	path = ROS/src/wmr_controller/external/ann-cmcgs
+	url = git@github.com:c-scherer/ann-cmcgs.git
+	branch = async
