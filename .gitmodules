@@ -1,6 +1,6 @@
 [submodule "libs/micro_qp"]
-	path = libs/micro_qp
+	path = firmware/libs/micro_qp
 	url = git@github.com:Vincentive1232/micro_qp.git
 [submodule "nRF52840_Pololu"]
-	path = nRF52840_Pololu
+	path = firmware/nRF52840_Pololu
 	url = git@github.com:Olumat/pololu-nRF52840-dongle-firmware.git
