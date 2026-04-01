@@ -1,0 +1,6 @@
+# Global ignores
+.vscode/
+.DS_Store
+*.swp
+experiments/
+target/
