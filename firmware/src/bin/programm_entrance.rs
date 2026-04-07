@@ -248,6 +248,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         // Signal tasks to stop
                         STOP_TELEOP_UART_SIG.signal(());
                         STOP_MOTOR_CTRL_SIG.signal(());
+                        STOP_LOG_SENDING_SIG.signal(());
                         defmt::warn!("Stop signals sent");
 
                         //wait for tasks to actually terminate (they run at 50Hz, so 40ms = 2 cycles)
@@ -260,6 +261,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         //drain signals to clear state
                         drain_signal(&STOP_TELEOP_UART_SIG, 2).await;
                         drain_signal(&STOP_MOTOR_CTRL_SIG, 2).await;
+                        drain_signal(&STOP_LOG_SENDING_SIG, 2).await;
                     }
                     Mode::TrajMocap | Mode::TrajDuty | Mode::TrajOnboard | Mode::TrajOnboard2 => {
                         STOP_MOCAP_UART_SIG.signal(());
@@ -333,6 +335,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         if uart_ok && motor_ok {
                             beep_signal(b'T');
                         }
+                        let _ = spawner.spawn(uart_log_sending_task(cfg.robot_id, 50));
                     }
                     Mode::TrajMocap => {
                         defmt::info!("TRAJ-FOLLOWING Mode (With Mocap) is selected!!!!!");
@@ -429,6 +432,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         if uart_ok && teleop_ok {
                             beep_signal(b'A');
                         }
+                        let _ = spawner.spawn(uart_log_sending_task(cfg.robot_id, 50));
                     }
                     Mode::TrajOnboard => {
                         defmt::info!("ONBOARD-TRAJ Mode (figure-8 etc.) is selected!!!!!");
