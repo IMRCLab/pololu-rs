@@ -1,7 +1,5 @@
 use crate::math::SO2;
 use crate::orchestrator_signal::{STOP_TRAJ_OUTER_SIG, STOP_WHEEL_INNER_SIG, TRAJ_PAUSE_SIG, TRAJ_RESUME_SIG, STOP_MOCAP_UPDATE_SIG};
-use crate::packet::StateLoopBackPacketF32;
-use crate::uart::update_robot_state;
 use core::cell::RefCell;
 use core::f32::consts::PI;
 use defmt::{info};
@@ -32,6 +30,7 @@ use crate::trajectory_signal::{
 };
 
 use crate::odometry::{ODOM_STATE, OdomPose};
+use crate::robotstate;
 
 use portable_atomic::{AtomicBool, Ordering};
 
@@ -608,6 +607,17 @@ pub async fn wheel_speed_inner_loop(
         // );
 
         motor.set_speed(duty_l, duty_r).await;
+
+        // Phase 2: dual-write motor duty and encoder readings to robotstate
+        robotstate::write_motor(robotstate::MotorDuty {
+            left: duty_l,
+            right: duty_r,
+        }).await;
+        robotstate::write_encoder(robotstate::EncoderReading {
+            omega_l: omega_l_lp,
+            omega_r: omega_r_lp,
+            stamp: Instant::now(),
+        }).await;
     }
 }
 
@@ -836,20 +846,26 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
             stamp: Instant::now(),
         });
 
-        update_robot_state(StateLoopBackPacketF32 {
-            header: 0xA1,
-            robot_id: 1,
-            pos_x: 1.0,
-            pos_y: 2.0,
-            pos_z: 3.0,
-            vel_x: 4.0,
-            vel_y: 5.0,
-            vel_z: 6.0,
-            qw: 1.0,
-            qx: 0.0,
-            qy: 0.0,
-            qz: 0.0,
-        });
+        // Phase 2: dual-write EKF state, setpoint, tracking error, wheel cmd to robotstate
+        robotstate::write_ekf_state(robotstate::Pose {
+            x: fused_x,
+            y: fused_y,
+            yaw: fused_yaw,
+            ..robotstate::Pose::DEFAULT
+        }).await;
+        robotstate::write_setpoint(robotstate::Setpoint {
+            x_des: x_d,
+            y_des: y_d,
+            yaw_des: theta_d,
+            v_ff: vd,
+            w_ff: wd,
+        }).await;
+        robotstate::write_tracking_error(robotstate::TrackingError {
+            x_err: x_error,
+            y_err: y_error,
+            yaw_err: theta_error,
+        }).await;
+        robotstate::write_wheel_cmd(robotstate::WheelCmd::new(ul, ur)).await;
 
         // Log trajectory control
         let log: TrajControlLog = TrajControlLog {

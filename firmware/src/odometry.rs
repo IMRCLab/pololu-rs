@@ -1,6 +1,7 @@
 use crate::math::SO2;
 use crate::orchestrator_signal::STOP_ODOM_SIG;
 use crate::read_robot_config_from_sd::RobotConfig;
+use crate::robotstate;
 use defmt::info;
 use embassy_futures::select::{Either, select};
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
@@ -130,5 +131,12 @@ pub async fn odometry_task(
                 w: odom.w,
             };
         }
+
+        // Phase 2: dual-write encoder-derived wheel speeds to robotstate
+        robotstate::write_encoder(robotstate::EncoderReading {
+            omega_l: omega_l,
+            omega_r: omega_r,
+            stamp: Instant::now(),
+        }).await;
     }
 }
