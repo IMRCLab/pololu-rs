@@ -17,7 +17,7 @@ use pololu3pi2040_rs::{
     joystick_control::{CONTROL_CMD_UNICYCLE, ControlCommandUnicycle, teleop_motor_control_task},
     packet::StateLoopBackPacketF32,
     sdlog::*,
-    uart::{uart_hw_task, uart_receive_task, uart_send_state_loopback},
+    uart::{uart_hw_task, uart_receive_task},
 };
 
 #[embassy_executor::main]
@@ -122,16 +122,7 @@ async fn main(spawner: Spawner) {
     let sendback = StateLoopBackPacketF32 {
         header: 0xA1,
         robot_id: 10,
-        pos_x: 1.2,
-        pos_y: 2.3,
-        pos_z: 3.4,
-        vel_x: 0.1,
-        vel_y: 0.2,
-        vel_z: 0.3,
-        qw: 1.0,
-        qx: 0.0,
-        qy: 0.0,
-        qz: 0.0,
+        log_snapshot: Default::default(),
     };
 
     loop {
@@ -150,7 +141,7 @@ async fn main(spawner: Spawner) {
         set_wheel_speed(-0.0, 0.0).await;
         Timer::after_millis(1000).await;
 
-        uart_send_state_loopback(&sendback);
+        // uart_send_state_loopback removed
 
         // Step 3: Set back to zero for 4 seconds
         defmt::info!("=== Step 3: Back to zero for 4 seconds ===");

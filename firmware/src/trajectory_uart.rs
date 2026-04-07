@@ -53,10 +53,12 @@ pub async fn uart_motioncap_receiving_task(cfg: UartCfg) {
         };
 
         // let len = len_buf[0];
+        // 8 is the length payload for parameter write request (0x3C param packet)
         if !(len == LEN_POSE
             || len == LEN_START
             || len == LEN_FUNC_SELECT_CMD
-            || len == LEN_STOP_RESUME_CMD)
+            || len == LEN_STOP_RESUME_CMD
+            || len == 8)
         {
             defmt::warn!("mocap uart: unknown len={}, draining", len);
             Timer::after(Duration::from_millis(5)).await;
@@ -166,6 +168,13 @@ pub async fn uart_motioncap_receiving_task(cfg: UartCfg) {
                     seen_first = true;
                     info!("first message set");
                 }
+            }
+            continue;
+        }
+
+        if len == 8 {
+            if let Some(req) = crate::parameter_sync::ParameterWriteRequest::from_bytes(&frame) {
+                crate::parameter_sync::handle_parameter_write(req.param_id, req.value).await;
             }
             continue;
         }

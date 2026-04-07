@@ -118,11 +118,11 @@ pub async fn functionality_mode_selection_uart_task(cfg: UartCfg) {
             continue;
         };
 
-        // Only handle mode-select packets; for anything else,
+        // Only handle mode-select packets and parameter updates (len 8); for anything else,
         // wait briefly for the remaining payload bytes to arrive
         // from the HW UART task, then drain them so they don't
         // corrupt framing of the next packet.
-        if len != LEN_FUNC_SELECT_CMD {
+        if len != LEN_FUNC_SELECT_CMD && len != 8 {
             Timer::after(Duration::from_millis(5)).await;
             drain_uart_rx_channel();
             continue;
@@ -175,6 +175,14 @@ pub async fn functionality_mode_selection_uart_task(cfg: UartCfg) {
                 };
                 let _ = ORCH_CH.try_send(OrchestratorMsg::SwitchTo(target));
             }
+            continue;
+        }
+
+        if len == 8 {
+            if let Some(req) = pololu3pi2040_rs::parameter_sync::ParameterWriteRequest::from_bytes(&frame) {
+                pololu3pi2040_rs::parameter_sync::handle_parameter_write(req.param_id, req.value).await;
+            }
+            continue;
         }
     }
     defmt::info!("UART functionality_mode_selection task stopped.");
@@ -217,9 +225,15 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
     spawner
         .spawn(functionality_mode_selection_uart_task(cfg))
         .unwrap();
-    let mut mode = Mode::Menu;
+    // ============== Initialize Global Parameter Config ============
+    let global_config = devices.config.unwrap_or_default();
+    pololu3pi2040_rs::parameter_sync::init_robot_config(global_config.clone());
 
     defmt::info!("Orchestrator Task Launched! Initial Mode = Menu");
+    // Optionally spawn a task to sync all parameters once on boot
+    let _ = spawner.spawn(pololu3pi2040_rs::robotstate::uart_log_sending_task(cfg.robot_id, 100));
+
+    let mut mode = Mode::Menu;
 
     loop {
         // Wait for switching command sent by any task
@@ -300,6 +314,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                 match target {
                     Mode::Menu => {
                         defmt::info!("Menu");
+                        pololu3pi2040_rs::parameter_sync::send_mode(0).await;
                         match spawner.spawn(functionality_mode_selection_uart_task(cfg)) {
                             Ok(_) => {
                                 beep_signal(b'q'); // Quit to Menu
@@ -312,7 +327,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                     }
                     Mode::TeleOp => {
                         defmt::info!("TELE-OPERATION Mode is selected!!!!!");
-
+                        pololu3pi2040_rs::parameter_sync::send_mode(1).await;
                         let uart_ok = spawner.spawn(teleop_uart_task(cfg)).is_ok();
                         if !uart_ok {
                             defmt::warn!("Teleop UART task already running or failed to spawn");
@@ -339,7 +354,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                     }
                     Mode::TrajMocap => {
                         defmt::info!("TRAJ-FOLLOWING Mode (With Mocap) is selected!!!!!");
-
+                        pololu3pi2040_rs::parameter_sync::send_mode(2).await;
                         let uart_ok = spawner.spawn(uart_motioncap_receiving_task(cfg)).is_ok();
                         let mocap_ok = spawner.spawn(mocap_update_task()).is_ok();
                         let odo_ok = spawner
@@ -373,7 +388,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                     }
                     Mode::TrajDuty => {
                         defmt::info!("TRAJ-FOLLOWING Mode (Directduty) is selected!!!!!");
-
+                        pololu3pi2040_rs::parameter_sync::send_mode(3).await;
                         let uart_ok = spawner.spawn(uart_motioncap_receiving_task(cfg)).is_ok();
                         let mocap_ok = spawner.spawn(mocap_update_task()).is_ok();
                         let odo_ok = spawner
@@ -407,7 +422,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                     }
                     Mode::CtrlAction => {
                         defmt::info!("CONTROL-ACTION Mode is selected!!!!!");
-
+                        pololu3pi2040_rs::parameter_sync::send_mode(4).await;
                         let uart_ok = spawner.spawn(control_action_uart_task(cfg)).is_ok();
                         if !uart_ok {
                             defmt::warn!(
@@ -436,7 +451,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                     }
                     Mode::TrajOnboard => {
                         defmt::info!("ONBOARD-TRAJ Mode (figure-8 etc.) is selected!!!!!");
-
+                        pololu3pi2040_rs::parameter_sync::send_mode(5).await;
                         let uart_ok = spawner.spawn(uart_motioncap_receiving_task(cfg)).is_ok();
                         let mocap_ok = spawner.spawn(mocap_update_task()).is_ok();
                         let odo_ok = spawner
@@ -467,7 +482,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                     }
                     Mode::TrajOnboard2 => {
                         defmt::info!("ONBOARD-TRAJ-2 Mode (demo) is selected!!!!!");
-
+                        pololu3pi2040_rs::parameter_sync::send_mode(6).await;
                         let uart_ok = spawner.spawn(uart_motioncap_receiving_task(cfg)).is_ok();
                         let mocap_ok = spawner.spawn(mocap_update_task()).is_ok();
                         let odo_ok = spawner
