@@ -1,6 +1,33 @@
 # Global ignores
 .vscode/
+.venv/
 .DS_Store
 *.swp
 experiments/
 target/
+
+
+# ROS2/Colcon build artifacts
+ROS/build/
+ROS/install/
+ROS/log/
+ROS/.ros/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+*.egg
+.pytest_cache/
+
+# Editor
+*.swp
+*.swo
+*~
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
