@@ -10,7 +10,8 @@ use libm::{atan2f, cosf, sinf, sqrtf};
 use crate::led::{self};
 use crate::motor::MotorController;
 use crate::robot_parameters_default::robot_constants::*;
-use crate::trajectory_signal::{LAST_STATE, PoseAbs, STATE_SIG};
+use crate::robotstate;
+use crate::trajectory_signal::STATE_SIG;
 
 // pub static DIFFDRIVE_TRAJECTORY_READY: Signal<ThreadModeRawMutex, ()> = Signal::new();
 
@@ -321,13 +322,10 @@ pub async fn diffdrive_control_task(
     let mut mocap = false;
     Timer::after(Duration::from_millis(1000)).await;
     defmt::info!("waiting briefly for poses, start trajectory following with or without mocap");
-    let mut pose: PoseAbs = {
-        let s = LAST_STATE.lock().await;
-        //set mocap to true, if a pose is available here:
-        if s.x != 0.0 || s.y != 0.0 || s.yaw != 0.0 {
-            mocap = true;
-        };
-        *s
+    let mut pose: robotstate::MocapPose = robotstate::read_pose().await;
+    //set mocap to true, if a pose is available here:
+    if pose.x != 0.0 || pose.y != 0.0 || pose.yaw != 0.0 {
+        mocap = true;
     };
 
     // initialise robot state from mocap if available. if not it is (0,0,0)
@@ -618,10 +616,7 @@ pub async fn diffdrive_control_task_new(
     Timer::after(Duration::from_millis(1000)).await;
     defmt::info!("waiting briefly for poses, start trajectory following with or without mocap");
 
-    let mut pose: PoseAbs = {
-        let s = LAST_STATE.lock().await;
-        *s
-    };
+    let mut pose: robotstate::MocapPose = robotstate::read_pose().await;
     let mut mocap = !(pose.x == 0.0 && pose.y == 0.0 && pose.yaw == 0.0);
 
     if mocap {
@@ -677,10 +672,7 @@ pub async fn diffdrive_control_task_new(
     loop {
         ticker.next().await;
 
-        pose = {
-            let s = LAST_STATE.lock().await;
-            *s
-        };
+        pose = robotstate::read_pose().await;
         mocap = !(pose.x == 0.0 && pose.y == 0.0 && pose.yaw == 0.0);
 
         if mocap {

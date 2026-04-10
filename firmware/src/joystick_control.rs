@@ -27,14 +27,7 @@ pub fn get_gear_ratio() -> f32 {
     GEAR_RATIO
 }
 
-#[derive(Copy, Clone, Debug)]
-pub struct ControlCommandUnicycle {
-    pub v: f32,
-    pub omega: f32,
-}
-
-pub static CONTROL_CMD_UNICYCLE: Mutex<ThreadModeRawMutex, ControlCommandUnicycle> =
-    Mutex::new(ControlCommandUnicycle { v: 0.0, omega: 0.0 });
+use crate::robotstate::{self, UnicycleCmd};
 
 /* ========================== Joy Stick Speed Control Task =============================== */
 #[embassy_executor::task]
@@ -78,15 +71,14 @@ pub async fn teleop_motor_control_task(
         match select(STOP_MOTOR_CTRL_SIG.wait(), ticker.next()).await {
             Either::First(_) => {
                 // Stop signal received - zero commands and motors, then exit
-                let mut lock = CONTROL_CMD_UNICYCLE.lock().await;
-                *lock = ControlCommandUnicycle { v: 0.0, omega: 0.0 };
+                robotstate::write_unicycle_cmd(UnicycleCmd { v: 0.0, omega: 0.0, stamp: embassy_time::Instant::now() }).await;
                 motor.set_speed(0.0, 0.0).await;
                 return;
             }
             Either::Second(_) => {}
         }
 
-        let cmd = CONTROL_CMD_UNICYCLE.lock().await.clone();
+        let cmd = robotstate::read_unicycle_cmd().await;
         let v = cmd.v; // m/s
         let omega = cmd.omega; //rad/s
 
@@ -226,7 +218,7 @@ pub async fn teleop_uart_task(cfg: UartCfg) {
                     sign * speed
                 };
 
-                let cmd = ControlCommandUnicycle {
+                let cmd = UnicycleCmd {
                     v: v,
                     omega: {
                         let raw_omega = pkt.steering_angle * PI / (180.0 * 0.1);
@@ -237,13 +229,11 @@ pub async fn teleop_uart_task(cfg: UartCfg) {
                             / (libm::expf(1.0) - 1.0);
                         sign * scaled_omega
                     },
+                    stamp: embassy_time::Instant::now(),
                 };
 
-                {
-                    let mut lock = CONTROL_CMD_UNICYCLE.lock().await;
-                    *lock = cmd;
-                    defmt::info!("teleop: v={}, omega={}", cmd.v, cmd.omega);
-                }
+                robotstate::write_unicycle_cmd(cmd).await;
+                defmt::info!("teleop: v={}, omega={}", cmd.v, cmd.omega);
             }
         }
 
@@ -295,8 +285,7 @@ pub async fn control_action_uart_task(cfg: UartCfg) {
             Either3::First(v) => Some(v),
             Either3::Second(_) => {
                 // MPC timeout - zero commands for safety
-                let mut lock = CONTROL_CMD_UNICYCLE.lock().await;
-                *lock = ControlCommandUnicycle { v: 0.0, omega: 0.0 };
+                robotstate::write_unicycle_cmd(UnicycleCmd { v: 0.0, omega: 0.0, stamp: embassy_time::Instant::now() }).await;
                 Timer::after(Duration::from_micros(400)).await;
                 None
             }
@@ -348,15 +337,13 @@ pub async fn control_action_uart_task(cfg: UartCfg) {
         if len == TELEOP_PACK_LEN {
             //Receive Unicycle Commands here directly
             if let Some(pkt) = CmdTeleopPacketMix::from_bytes(&frame) {
-                let cmd = ControlCommandUnicycle {
+                let cmd = UnicycleCmd {
                     v: pkt.linear_velocity,    // m/s
                     omega: pkt.steering_angle, // rad/s
+                    stamp: embassy_time::Instant::now(),
                 };
 
-                {
-                    let mut lock = CONTROL_CMD_UNICYCLE.lock().await;
-                    *lock = cmd;
-                }
+                robotstate::write_unicycle_cmd(cmd).await;
             }
         }
 

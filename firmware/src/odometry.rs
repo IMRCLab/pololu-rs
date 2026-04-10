@@ -5,7 +5,6 @@ use crate::robotstate;
 use defmt::info;
 use embassy_futures::select::{Either, select};
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
-use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Instant, Ticker};
 
@@ -35,24 +34,6 @@ impl OdometryData {
     }
 }
 
-// Flat pose for inter-task sharin
-#[derive(Debug, Copy, Clone)]
-pub struct OdomPose {
-    pub x: f32,
-    pub y: f32,
-    pub theta: f32, // rad
-    pub v: f32,
-    pub w: f32,
-}
-
-// Latest odometry estimate, readable by any task.
-pub static ODOM_STATE: Mutex<ThreadModeRawMutex, OdomPose> = Mutex::new(OdomPose {
-    x: 0.0,
-    y: 0.0,
-    theta: 0.0,
-    v: 0.0,
-    w: 0.0,
-});
 
 //Odometry task: integrates encoder counts into (x, y, theta) at 100 Hz.
 //Responds to `STOP_ODOM_SIG` to cleanly exit when switching modes.
@@ -121,18 +102,16 @@ pub async fn odometry_task(
         // odom.theta = odom.theta.add(dtheta_fused - dtheta + dtheta); // replace encoder heading
 
         // Publish to shared state
-        {
-            let mut s = ODOM_STATE.lock().await;
-            *s = OdomPose {
-                x: odom.x,
-                y: odom.y,
-                theta: odom.theta.rad(),
-                v: odom.v,
-                w: odom.w,
-            };
-        }
+        robotstate::write_odom(robotstate::OdomPose {
+            x: odom.x,
+            y: odom.y,
+            theta: odom.theta.rad(),
+            v: odom.v,
+            w: odom.w,
+            stamp: Instant::now(),
+        }).await;
 
-        // Phase 2: dual-write encoder-derived wheel speeds to robotstate
+        // Write encoder-derived wheel speeds to robotstate
         robotstate::write_encoder(robotstate::EncoderReading {
             omega_l: omega_l,
             omega_r: omega_r,
