@@ -14,7 +14,7 @@ pub type SharedUart<'a> = &'a Mutex<ThreadModeRawMutex, Uart<'a, Async>>;
 
 // ===================== Channels =====================
 // TX: Other Task -> Low level UART HW Task
-pub static UART_TX_CHANNEL: Channel<ThreadModeRawMutex, Vec<u8, 64>, 4> = Channel::new();
+pub static UART_TX_CHANNEL: Channel<ThreadModeRawMutex, Vec<u8, 64>, 128> = Channel::new();
 // RX: Low level UART HW Task -> decode Task
 pub static UART_RX_CHANNEL: Channel<ThreadModeRawMutex, u8, 512> = Channel::new();
 
@@ -158,61 +158,3 @@ pub fn uart_send(data: &[u8]) {
     UART_TX_CHANNEL.try_send(v).ok();
 }
 
-pub fn pack_state_loopback(pkt: &StateLoopBackPacketF32) -> Vec<u8, 64> {
-    let mut v: Vec<u8, 64> = Vec::new();
-
-    // total length = header(1) + robot_id(1) + 10 floats * 4 = 1 + 1 + 40 = 42
-    v.push(1 + 1 + 4 * 10).ok();
-    v.push(pkt.header).ok();
-    v.push(pkt.robot_id).ok();
-
-    for f in [
-        pkt.pos_x, pkt.pos_y, pkt.pos_z, pkt.vel_x, pkt.vel_y, pkt.vel_z, pkt.qw, pkt.qx, pkt.qy,
-        pkt.qz,
-    ] {
-        v.extend_from_slice(&f.to_le_bytes()).ok();
-    }
-
-    v
-}
-
-pub fn uart_send_state_loopback(pkt: &StateLoopBackPacketF32) {
-    let data = pack_state_loopback(pkt);
-    UART_TX_CHANNEL.try_send(data).expect("UART TX queue full");
-}
-
-// ==================== Robot State Sending Task ====================
-pub static ROBOT_STATE_CH: Channel<ThreadModeRawMutex, StateLoopBackPacketF32, 4> = Channel::new();
-
-pub fn update_robot_state(state: StateLoopBackPacketF32) {
-    while ROBOT_STATE_CH.try_receive().is_ok() {}
-
-    let _ = ROBOT_STATE_CH.try_send(state);
-}
-
-#[embassy_executor::task]
-pub async fn state_loopback_task() {
-    defmt::info!("state_loopback_task started");
-
-    loop {
-        let state: StateLoopBackPacketF32 = ROBOT_STATE_CH.receive().await;
-
-        let pkt = StateLoopBackPacketF32 {
-            header: state.header,
-            robot_id: state.robot_id,
-            pos_x: state.pos_x,
-            pos_y: state.pos_y,
-            pos_z: state.pos_z,
-            vel_x: state.vel_x,
-            vel_y: state.vel_y,
-            vel_z: state.vel_z,
-            qw: state.qw,
-            qx: state.qx,
-            qy: state.qy,
-            qz: state.qz,
-        };
-
-        // 3. Send via UART
-        uart_send_state_loopback(&pkt);
-    }
-}

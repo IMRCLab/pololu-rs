@@ -9,6 +9,7 @@ use crate::orchestrator_signal::{
     LEN_FUNC_SELECT_CMD, LEN_STOP_RESUME_CMD, Mode, ORCH_CH, OrchestratorMsg, STOP_MOCAP_UART_SIG,
     TRAJ_PAUSE_SIG, TRAJ_RESUME_SIG, decode_functionality_select_command,
 };
+use crate::robotstate;
 use crate::trajectory_signal::{FIRST_MESSAGE, LAST_STATE, POSE_FRESH, PoseAbs, STATE_SIG};
 use crate::uart::UART_RX_CHANNEL;
 
@@ -52,10 +53,12 @@ pub async fn uart_motioncap_receiving_task(cfg: UartCfg) {
         };
 
         // let len = len_buf[0];
+        // 8 is the length payload for parameter write request (0x3C param packet)
         if !(len == LEN_POSE
             || len == LEN_START
             || len == LEN_FUNC_SELECT_CMD
-            || len == LEN_STOP_RESUME_CMD)
+            || len == LEN_STOP_RESUME_CMD
+            || len == 8)
         {
             defmt::warn!("mocap uart: unknown len={}, draining", len);
             Timer::after(Duration::from_millis(5)).await;
@@ -149,11 +152,29 @@ pub async fn uart_motioncap_receiving_task(cfg: UartCfg) {
                 POSE_FRESH.store(true, portable_atomic::Ordering::Release);
                 STATE_SIG.signal(stamped);
 
+                // Phase 2: dual-write into centralized robotstate
+                robotstate::write_pose(robotstate::Pose {
+                    x: stamped.x,
+                    y: stamped.y,
+                    z: stamped.z,
+                    roll: stamped.roll,
+                    pitch: stamped.pitch,
+                    yaw: stamped.yaw,
+                    stamp: stamped.stamp,
+                }).await;
+
                 if !seen_first {
                     FIRST_MESSAGE.signal(());
                     seen_first = true;
                     info!("first message set");
                 }
+            }
+            continue;
+        }
+
+        if len == 8 {
+            if let Some(req) = crate::parameter_sync::ParameterWriteRequest::from_bytes(&frame) {
+                crate::parameter_sync::handle_parameter_write(req.param_id, req.value).await;
             }
             continue;
         }

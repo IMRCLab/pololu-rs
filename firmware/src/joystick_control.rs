@@ -172,7 +172,7 @@ pub async fn teleop_uart_task(cfg: UartCfg) {
 
         // let len = len_buf[0];
         defmt::debug!("teleop uart: len={}", len);
-        if !(len == TELEOP_PACK_LEN || len == LEN_FUNC_SELECT_CMD) {
+        if !(len == TELEOP_PACK_LEN || len == LEN_FUNC_SELECT_CMD || len == 8) {
             // Unknown length — wait for remaining payload bytes to arrive
             // then drain them so they don't corrupt framing of the next packet.
             defmt::warn!("teleop uart: unknown len={}, draining", len);
@@ -266,6 +266,13 @@ pub async fn teleop_uart_task(cfg: UartCfg) {
             }
             continue;
         }
+
+        if len == 8 {
+            if let Some(req) = crate::parameter_sync::ParameterWriteRequest::from_bytes(&frame) {
+                crate::parameter_sync::handle_parameter_write(req.param_id, req.value).await;
+            }
+            continue;
+        }
     }
 }
 /* ============== uart teleop command receiving task with nonlinear mapping ============== */
@@ -300,7 +307,7 @@ pub async fn control_action_uart_task(cfg: UartCfg) {
             continue;
         };
 
-        if !(len == TELEOP_PACK_LEN || len == LEN_FUNC_SELECT_CMD) {
+        if !(len == TELEOP_PACK_LEN || len == LEN_FUNC_SELECT_CMD || len == 8) {
             // Unknown length — wait for remaining payload bytes to arrive
             // then drain them so they don't corrupt framing of the next packet.
             Timer::after(Duration::from_millis(5)).await;
@@ -367,6 +374,14 @@ pub async fn control_action_uart_task(cfg: UartCfg) {
                 };
                 let _ = ORCH_CH.try_send(OrchestratorMsg::SwitchTo(target));
             }
+            continue;
+        }
+
+        if len == 8 {
+            if let Some(req) = crate::parameter_sync::ParameterWriteRequest::from_bytes(&frame) {
+                crate::parameter_sync::handle_parameter_write(req.param_id, req.value).await;
+            }
+            continue;
         }
     }
 }
