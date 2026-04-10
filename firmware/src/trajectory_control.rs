@@ -26,10 +26,9 @@ use crate::led::LED_SHARED;
 use crate::sdlog::{SdLogger, TrajControlLog, SDLOGGER_SHARED};
 use crate::trajectory_reading::{Action, Pose, Trajectory};
 use crate::trajectory_signal::{
-    LAST_STATE, POSE_FRESH, PoseAbs, STATE_SIG, TRAJECTORY_CONTROL_EVENT, WHEEL_CMD_CH, WheelCmd,
+    STATE_SIG, TRAJECTORY_CONTROL_EVENT, WHEEL_CMD_CH, WheelCmd,
 };
 
-use crate::odometry::{ODOM_STATE, OdomPose};
 use crate::robotstate;
 
 use portable_atomic::{AtomicBool, Ordering};
@@ -608,7 +607,7 @@ pub async fn wheel_speed_inner_loop(
 
         motor.set_speed(duty_l, duty_r).await;
 
-        // Phase 2: dual-write motor duty and encoder readings to robotstate
+        // Write motor duty and encoder readings to robotstate
         robotstate::write_motor(robotstate::MotorDuty {
             left: duty_l,
             right: duty_r,
@@ -678,9 +677,9 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
     let mut fused_yaw: f32;
 
     // Seed fused pose from mocap if available, otherwise from trajectory start.
-    let init_fresh = POSE_FRESH.load(Ordering::Acquire);
+    let init_fresh = robotstate::get_and_clear_pose_fresh();
     let mut ekf = if init_fresh {
-        let mocap = *LAST_STATE.lock().await;
+        let mocap = robotstate::read_pose().await;
         fused_x = mocap.x;
         fused_y = mocap.y;
         fused_yaw = mocap.yaw;
@@ -760,13 +759,13 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
         /* ========================================================================= */
 
         /* ========================= Pose Fusion ===================================== */
-        let odom_now = *ODOM_STATE.lock().await;
+        let odom_now = robotstate::read_odom().await;
 
         ekf.predict(odom_now.v, odom_now.w, robot_cfg.traj_following_dt_s);
 
-        let pose_is_fresh = POSE_FRESH.swap(false, Ordering::Acquire);
+        let pose_is_fresh = robotstate::get_and_clear_pose_fresh();
         if pose_is_fresh {
-            let mocap_pose = *LAST_STATE.lock().await;
+            let mocap_pose = robotstate::read_pose().await;
             ekf.update(&crate::math::Vec3::new(mocap_pose.x, mocap_pose.y, mocap_pose.yaw));
         }
 
@@ -846,12 +845,12 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
             stamp: Instant::now(),
         });
 
-        // Phase 2: dual-write EKF state, setpoint, tracking error, wheel cmd to robotstate
-        robotstate::write_ekf_state(robotstate::Pose {
+        // Write EKF state, setpoint, tracking error, wheel cmd to robotstate
+        robotstate::write_ekf_state(robotstate::RobotPose {
             x: fused_x,
             y: fused_y,
             yaw: fused_yaw,
-            ..robotstate::Pose::DEFAULT
+            ..robotstate::RobotPose::DEFAULT
         }).await;
         robotstate::write_setpoint(robotstate::Setpoint {
             x_des: x_d,
@@ -867,34 +866,40 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
         }).await;
         robotstate::write_wheel_cmd(robotstate::WheelCmd::new(ul, ur)).await;
 
-        // Log trajectory control
+        // Log trajectory control — read from robotstate (single source of truth)
+        let rs_pose = robotstate::read_ekf_state().await;
+        let rs_sp = robotstate::read_setpoint().await;
+        let rs_err = robotstate::read_tracking_error().await;
+        let rs_odom = robotstate::read_odom().await;
+        let rs_wc = robotstate::read_wheel_cmd().await;
+
         let log: TrajControlLog = TrajControlLog {
             timestamp_ms: t_ms,
-            target_x: setpoint.des.x,
-            target_y: setpoint.des.y,
-            target_theta: setpoint.des.theta.rad(),
-            actual_x: robot.s.x,
-            actual_y: robot.s.y,
-            actual_theta: robot.s.theta.rad(),
-            target_vx: setpoint.vdes,
+            target_x: rs_sp.x_des,
+            target_y: rs_sp.y_des,
+            target_theta: rs_sp.yaw_des,
+            actual_x: rs_pose.x,
+            actual_y: rs_pose.y,
+            actual_theta: rs_pose.yaw,
+            target_vx: rs_sp.v_ff,
             target_vy: 0.0,
             target_vz: 0.0,
-            actual_vx: odom_now.v,
+            actual_vx: rs_odom.v,
             actual_vy: 0.0,
             actual_vz: 0.0,
-            target_qw: setpoint.des.theta.cos(),
+            target_qw: cosf(rs_sp.yaw_des),
             target_qx: 0.0,
             target_qy: 0.0,
-            target_qz: setpoint.des.theta.sin(),
-            actual_qw: robot.s.theta.cos(),
+            target_qz: sinf(rs_sp.yaw_des),
+            actual_qw: cosf(rs_pose.yaw),
             actual_qx: 0.0,
             actual_qy: 0.0,
-            actual_qz: robot.s.theta.sin(),
-            xerror: x_error,
-            yerror: y_error,
-            thetaerror: theta_error,
-            ul: ul,
-            ur: ur,
+            actual_qz: sinf(rs_pose.yaw),
+            xerror: rs_err.x_err,
+            yerror: rs_err.y_err,
+            thetaerror: rs_err.yaw_err,
+            ul: rs_wc.omega_l,
+            ur: rs_wc.omega_r,
             dutyl: 0.0,
             dutyr: 0.0,
         };
@@ -1075,9 +1080,12 @@ pub async fn mocap_update_task() {
         
         match select(STATE_SIG.wait(), STOP_MOCAP_UPDATE_SIG.wait()).await {
             Either::First(new_pose) => {
-                let mut s = LAST_STATE.lock().await;
-                *s = PoseAbs { stamp: Instant::now(), ..new_pose };
-                crate::trajectory_signal::POSE_FRESH.store(true, Ordering::Release);
+                let stamped = robotstate::MocapPose {
+                    stamp: Instant::now(),
+                    ..new_pose
+                };
+                robotstate::write_pose(stamped).await;
+                robotstate::set_pose_fresh(true);
             }
 
             Either::Second(_) => {
@@ -1117,9 +1125,9 @@ async fn execute_trajectory_loop_onboard(
     Timer::after_millis(100).await;
 
     // Try to get initial mocap pose; fall back to pure odometry if unavailable.
-    let pose_is_fresh = POSE_FRESH.load(Ordering::Acquire);
+    let pose_is_fresh = robotstate::get_and_clear_pose_fresh();
     let mut ekf = if pose_is_fresh {
-        let mocap_pose = *LAST_STATE.lock().await;
+        let mocap_pose = robotstate::read_pose().await;
         fused_x = mocap_pose.x;
         fused_y = mocap_pose.y;
         fused_yaw = mocap_pose.yaw;
@@ -1193,13 +1201,13 @@ async fn execute_trajectory_loop_onboard(
         }
 
         /* =================== Pose Fusion =================== */
-        let odom_now = *ODOM_STATE.lock().await;
+        let odom_now = robotstate::read_odom().await;
 
         ekf.predict(odom_now.v, odom_now.w, robot_cfg.traj_following_dt_s);
 
-        let pose_is_fresh = POSE_FRESH.swap(false, Ordering::Acquire);
+        let pose_is_fresh = robotstate::get_and_clear_pose_fresh();
         if pose_is_fresh {
-            let mocap_pose = *LAST_STATE.lock().await;
+            let mocap_pose = robotstate::read_pose().await;
             ekf.update(&crate::math::Vec3::new(mocap_pose.x, mocap_pose.y, mocap_pose.yaw));
         }
 
@@ -1239,33 +1247,61 @@ async fn execute_trajectory_loop_onboard(
             stamp: Instant::now(),
         });
 
+        // Write EKF state, setpoint, tracking error, wheel cmd to robotstate
+        robotstate::write_ekf_state(robotstate::RobotPose {
+            x: fused_x,
+            y: fused_y,
+            yaw: fused_yaw,
+            ..robotstate::RobotPose::DEFAULT
+        }).await;
+        robotstate::write_setpoint(robotstate::Setpoint {
+            x_des: setpoint.des.x,
+            y_des: setpoint.des.y,
+            yaw_des: setpoint.des.theta.rad(),
+            v_ff: setpoint.vdes,
+            w_ff: setpoint.wdes,
+        }).await;
+        robotstate::write_tracking_error(robotstate::TrackingError {
+            x_err: x_error,
+            y_err: y_error,
+            yaw_err: theta_error,
+        }).await;
+        robotstate::write_wheel_cmd(robotstate::WheelCmd::new(ul, ur)).await;
+
+        // Log trajectory control — read from robotstate (single source of truth)
+        let rs_pose = robotstate::read_ekf_state().await;
+        let rs_sp = robotstate::read_setpoint().await;
+        let rs_err = robotstate::read_tracking_error().await;
+        let rs_odom = robotstate::read_odom().await;
+        let rs_wc = robotstate::read_wheel_cmd().await;
+
         let log = TrajControlLog {
             timestamp_ms: t_ms,
-            target_x: setpoint.des.x,
-            target_y: setpoint.des.y,
-            target_theta: setpoint.des.theta.rad(),
-            actual_x: robot.s.x,
-            actual_y: robot.s.y,
-            actual_theta: robot.s.theta.rad(),
-            target_vx: setpoint.vdes,
+            target_x: rs_sp.x_des,
+            target_y: rs_sp.y_des,
+            target_theta: rs_sp.yaw_des,
+            actual_x: rs_pose.x,
+            actual_y: rs_pose.y,
+            actual_theta: rs_pose.yaw,
+            target_vx: rs_sp.v_ff,
             target_vy: 0.0,
             target_vz: 0.0,
-            actual_vx: odom_now.v,
+            actual_vx: rs_odom.v,
             actual_vy: 0.0,
             actual_vz: 0.0,
-            target_qw: setpoint.des.theta.cos(),
+            target_qw: cosf(rs_sp.yaw_des),
             target_qx: 0.0,
             target_qy: 0.0,
-            target_qz: setpoint.des.theta.sin(),
-            actual_qw: robot.s.theta.cos(),
+            target_qz: sinf(rs_sp.yaw_des),
+            actual_qw: cosf(rs_pose.yaw),
             actual_qx: 0.0,
             actual_qy: 0.0,
-            actual_qz: robot.s.theta.sin(),
-            xerror: x_error,
-            yerror: y_error,
-            thetaerror: theta_error,
-            ul: ul,
-            ur: ur,
+            actual_qz: sinf(rs_pose.yaw),
+            xerror: rs_err.x_err,
+            yerror: rs_err.y_err,
+            thetaerror: rs_err.yaw_err,
+            ul: rs_wc.omega_l,
+            ur: rs_wc.omega_r,
             dutyl: 0.0,
             dutyr: 0.0,
         };
@@ -1441,9 +1477,9 @@ async fn execute_trajectory_loop_onboard2(
 
     Timer::after_millis(100).await;
 
-    let pose_is_fresh = POSE_FRESH.load(Ordering::Acquire);
+    let pose_is_fresh = robotstate::get_and_clear_pose_fresh();
     let mut ekf = if pose_is_fresh {
-        let mocap_pose = *LAST_STATE.lock().await;
+        let mocap_pose = robotstate::read_pose().await;
         fused_x = mocap_pose.x;
         fused_y = mocap_pose.y;
         fused_yaw = mocap_pose.yaw;
@@ -1512,13 +1548,13 @@ async fn execute_trajectory_loop_onboard2(
         }
 
         /* =================== Pose Fusion =================== */
-        let odom_now = *ODOM_STATE.lock().await;
+        let odom_now = robotstate::read_odom().await;
 
         ekf.predict(odom_now.v, odom_now.w, robot_cfg.traj_following_dt_s);
 
-        let pose_is_fresh = POSE_FRESH.swap(false, Ordering::Acquire);
+        let pose_is_fresh = robotstate::get_and_clear_pose_fresh();
         if pose_is_fresh {
-            let mocap_pose = *LAST_STATE.lock().await;
+            let mocap_pose = robotstate::read_pose().await;
             ekf.update(&crate::math::Vec3::new(mocap_pose.x, mocap_pose.y, mocap_pose.yaw));
         }
 
@@ -1556,33 +1592,61 @@ async fn execute_trajectory_loop_onboard2(
             omega_l: ul, omega_r: ur, stamp: Instant::now(),
         });
 
+        // Write EKF state, setpoint, tracking error, wheel cmd to robotstate
+        robotstate::write_ekf_state(robotstate::RobotPose {
+            x: fused_x,
+            y: fused_y,
+            yaw: fused_yaw,
+            ..robotstate::RobotPose::DEFAULT
+        }).await;
+        robotstate::write_setpoint(robotstate::Setpoint {
+            x_des: setpoint.des.x,
+            y_des: setpoint.des.y,
+            yaw_des: setpoint.des.theta.rad(),
+            v_ff: setpoint.vdes,
+            w_ff: setpoint.wdes,
+        }).await;
+        robotstate::write_tracking_error(robotstate::TrackingError {
+            x_err: x_error,
+            y_err: y_error,
+            yaw_err: theta_error,
+        }).await;
+        robotstate::write_wheel_cmd(robotstate::WheelCmd::new(ul, ur)).await;
+
+        // Log trajectory control — read from robotstate (single source of truth)
+        let rs_pose = robotstate::read_ekf_state().await;
+        let rs_sp = robotstate::read_setpoint().await;
+        let rs_err = robotstate::read_tracking_error().await;
+        let rs_odom = robotstate::read_odom().await;
+        let rs_wc = robotstate::read_wheel_cmd().await;
+
         let log = TrajControlLog {
             timestamp_ms: t_ms,
-            target_x: setpoint.des.x,
-            target_y: setpoint.des.y,
-            target_theta: setpoint.des.theta.rad(),
-            actual_x: robot.s.x,
-            actual_y: robot.s.y,
-            actual_theta: robot.s.theta.rad(),
-            target_vx: setpoint.vdes,
+            target_x: rs_sp.x_des,
+            target_y: rs_sp.y_des,
+            target_theta: rs_sp.yaw_des,
+            actual_x: rs_pose.x,
+            actual_y: rs_pose.y,
+            actual_theta: rs_pose.yaw,
+            target_vx: rs_sp.v_ff,
             target_vy: 0.0,
             target_vz: 0.0,
-            actual_vx: odom_now.v,
+            actual_vx: rs_odom.v,
             actual_vy: 0.0,
             actual_vz: 0.0,
-            target_qw: setpoint.des.theta.cos(),
+            target_qw: cosf(rs_sp.yaw_des),
             target_qx: 0.0,
             target_qy: 0.0,
-            target_qz: setpoint.des.theta.sin(),
-            actual_qw: robot.s.theta.cos(),
+            target_qz: sinf(rs_sp.yaw_des),
+            actual_qw: cosf(rs_pose.yaw),
             actual_qx: 0.0,
             actual_qy: 0.0,
-            actual_qz: robot.s.theta.sin(),
-            xerror: x_error,
-            yerror: y_error,
-            thetaerror: theta_error,
-            ul: ul,
-            ur: ur,
+            actual_qz: sinf(rs_pose.yaw),
+            xerror: rs_err.x_err,
+            yerror: rs_err.y_err,
+            thetaerror: rs_err.yaw_err,
+            ul: rs_wc.omega_l,
+            ur: rs_wc.omega_r,
             dutyl: 0.0,
             dutyr: 0.0,
         };
@@ -1775,16 +1839,13 @@ pub async fn diffdrive_outer_loop(
     defmt::info!("csv header written");
 
     /* ================ Record First Pose w.r.t the selected mode ================== */
-    let mut first_pose: PoseAbs = PoseAbs::default();
+    let mut first_pose: robotstate::MocapPose = robotstate::MocapPose::default();
 
     Timer::after_millis(100).await; // has to wait until the first poses comes
     match mode {
         ControlMode::WithMocapController => {
             // initialise first pose from mocap:
-            first_pose = {
-                let s = LAST_STATE.lock().await;
-                *s
-            };
+            first_pose = robotstate::read_pose().await;
         }
         ControlMode::DirectDuty => {
             info!("Using direct duty control, initial pose (0, 0, 0)");
@@ -1799,10 +1860,7 @@ pub async fn diffdrive_outer_loop(
         ticker.next().await;
 
         // get robot pose
-        let pose = {
-            let s = LAST_STATE.lock().await;
-            *s
-        };
+        let pose = robotstate::read_pose().await;
 
         // current elapsed time
         let t = Instant::now() - start;

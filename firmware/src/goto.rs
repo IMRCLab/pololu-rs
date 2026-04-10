@@ -5,7 +5,8 @@ use crate::trajectory_control::{ControlMode, STOP_ALL, with_sdlogger};
 use crate::trajectory_control::{
     DiffdriveCascade, DiffdriveControllerCascade, PointCascade, TrajectoryResult,
 };
-use crate::trajectory_signal::{LAST_STATE, POSE_FRESH, PoseAbs, WHEEL_CMD_CH, WheelCmd};
+use crate::robotstate;
+use crate::trajectory_signal::{WHEEL_CMD_CH, WheelCmd};
 
 use embassy_time::{Duration, Instant, Ticker};
 use libm::{cosf, sinf, sqrtf};
@@ -27,7 +28,7 @@ pub struct GoToPose {
 //these are p0 and p3.
 //to get p2 and p3 we use the condition that they must be aligned to the yaw angle, meaning that p2 must be tangential to theta_start and p3 must be tangential to theta_goal
 // to find the distance,
-fn build_bezier_points(start: &PoseAbs, goal: &GoToPose) -> PointCascade {
+fn build_bezier_points(start: &robotstate::MocapPose, goal: &GoToPose) -> PointCascade {
     let dx = goal.x - start.x;
     let dy = goal.y - start.y;
     let dist = sqrtf(dx * dx + dy * dy);
@@ -61,10 +62,10 @@ fn build_bezier_points(start: &PoseAbs, goal: &GoToPose) -> PointCascade {
 
 //Execute a go-to-pose trajectory using bezier curve with mocap feedback
 //
-// Reads the current pose from `LAST_STATE`
+// Reads the current pose from `robotstate::read_pose()`
 // Generates a cubic Bezier from current -> goal
 // 10Hz default
-/// - Uses `POSE_FRESH` for mocap/feedforward fallback
+/// - Uses `robotstate::get_and_clear_pose_fresh()` for mocap/feedforward fallback
 pub async fn goto_pose(
     goal: GoToPose,
     mode: ControlMode,
@@ -73,10 +74,7 @@ pub async fn goto_pose(
     robot_cfg: &RobotConfig,
 ) -> TrajectoryResult {
     // ==================== Get current pose ====================
-    let start_pose = {
-        let s = LAST_STATE.lock().await;
-        *s
-    };
+    let start_pose = robotstate::read_pose().await;
 
     defmt::info!(
         "goto: start=({},{},{}) -> goal=({},{},{})",
@@ -127,11 +125,8 @@ pub async fn goto_pose(
         }
 
         // ============ Get pose + freshness ============
-        let pose = {
-            let s = LAST_STATE.lock().await;
-            *s
-        };
-        let pose_is_fresh = POSE_FRESH.swap(false, Ordering::Acquire);
+        let pose = robotstate::read_pose().await;
+        let pose_is_fresh = robotstate::get_and_clear_pose_fresh();
 
         // ============ Bézier setpoint at time t ============
         let setpoint = robot.beziercurve(bezier.clone(), t_sec, GOTO_DURATION_S);

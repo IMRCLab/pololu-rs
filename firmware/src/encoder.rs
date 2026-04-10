@@ -82,6 +82,7 @@ pub async fn encoder_left_task(
             let mut g = counter.lock().await;
             *g = g.wrapping_add(delta);
 
+            crate::robotstate::add_encoder_count_left(delta).await;
             // defmt::info!("Left encoder count = {}", *g);
         }
     }
@@ -109,6 +110,7 @@ pub async fn encoder_right_task(
             let mut g = counter.lock().await;
             *g = g.wrapping_add(delta);
 
+            crate::robotstate::add_encoder_count_right(delta).await;
             // defmt::info!("Right encoder count = {}", *g);
         }
     }

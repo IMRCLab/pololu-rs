@@ -31,11 +31,11 @@ use pololu3pi2040_rs::{
         wheel_speed_inner_loop,
     },
     robotstate::uart_log_sending_task,
-    trajectory_signal::{LAST_STATE, POSE_FRESH, PoseAbs, TRAJECTORY_CONTROL_EVENT},
+    trajectory_signal::TRAJECTORY_CONTROL_EVENT,
     trajectory_uart::{UartCfg, uart_motioncap_receiving_task},
     uart::{UART_RX_CHANNEL, uart_hw_task},
 };
-use portable_atomic::Ordering;
+use pololu3pi2040_rs::robotstate;
 
 /// Drain any stale bytes from the UART RX channel.
 /// Called between stopping old tasks and spawning new ones so that
@@ -45,12 +45,10 @@ fn drain_uart_rx_channel() {
     while UART_RX_CHANNEL.try_receive().is_ok() {}
 }
 
-/// Reset shared mocap/pose state so that a new trajectory session
+/// Reset all shared robotstate so that a new session
 /// does not inherit stale data from a previous mode.
 async fn reset_pose_state() {
-    POSE_FRESH.store(false, Ordering::Release);
-    let mut s = LAST_STATE.lock().await;
-    *s = PoseAbs::default();
+    robotstate::reset_all().await;
 }
 
 /// Clear any stale trajectory signals left from a previous session.

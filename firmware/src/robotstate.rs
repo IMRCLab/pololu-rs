@@ -15,6 +15,7 @@ use embassy_sync::channel::Channel;
 use embassy_sync::mutex::Mutex;
 use embassy_time::Instant;
 use heapless::Vec;
+use portable_atomic::{AtomicBool, Ordering};
 
 // =============================================================================
 //                            CHANNEL CAPACITIES
@@ -26,15 +27,23 @@ const SENSOR_CHANNEL_SIZE: usize = 4;
 //                          SHARED STATE (Mutex)
 // =============================================================================
 
+/// Indicates a new Mocap pose has arrived
+pub static POSE_FRESH: AtomicBool = AtomicBool::new(false);
+
 /// Current robot pose (raw from mocap)
-/// Writer: UART task (mocap data) / trajectory_uart
-/// Readers: Position Controller, Logger, EKF update step
-pub static POSE: Mutex<ThreadModeRawMutex, Pose> = Mutex::new(Pose::DEFAULT);
+pub static POSE: Mutex<ThreadModeRawMutex, MocapPose> = Mutex::new(MocapPose::DEFAULT);
 
 /// EKF-fused pose (encoder-predicted + mocap-corrected)
-/// Writer: EKF update (trajectory_control.rs)
-/// Readers: Logger, telemetry task
-pub static EKF_STATE: Mutex<ThreadModeRawMutex, Pose> = Mutex::new(Pose::DEFAULT);
+pub static EKF_STATE: Mutex<ThreadModeRawMutex, RobotPose> = Mutex::new(RobotPose::DEFAULT);
+
+/// Odometry state (pure dead-reckoning from wheel encoders)
+pub static ODOM_STATE: Mutex<ThreadModeRawMutex, OdomPose> = Mutex::new(OdomPose::DEFAULT);
+
+/// Target unicycle velocity command
+pub static UNICYCLE_CMD: Mutex<ThreadModeRawMutex, UnicycleCmd> = Mutex::new(UnicycleCmd::DEFAULT);
+
+/// Raw accumulated encoder counts
+pub static ENCODER_COUNTS: Mutex<ThreadModeRawMutex, EncoderCounts> = Mutex::new(EncoderCounts::DEFAULT);
 
 /// Current trajectory setpoint
 /// Writer: Trajectory reader (from SD card) / outer loop
@@ -86,9 +95,9 @@ pub static ENCODER_CH: Channel<ThreadModeRawMutex, EncoderReading, SENSOR_CHANNE
 //                          DATA STRUCTURES
 // =============================================================================
 
-/// Robot pose in world frame
+/// Robot pose in world frame representing raw Mocap data
 #[derive(Clone, Copy, Debug)]
-pub struct Pose {
+pub struct MocapPose {
     pub x: f32,     // meters
     pub y: f32,     // meters
     pub z: f32,     // meters
@@ -98,23 +107,75 @@ pub struct Pose {
     pub stamp: Instant,
 }
 
-impl Pose {
+impl MocapPose {
     pub const DEFAULT: Self = Self {
-        x: 0.0,
-        y: 0.0,
-        z: 0.0,
-        roll: 0.0,
-        pitch: 0.0,
-        yaw: 0.0,
-        stamp: Instant::MIN,
+        x: 0.0, y: 0.0, z: 0.0, roll: 0.0, pitch: 0.0, yaw: 0.0, stamp: Instant::MIN,
     };
 }
+impl Default for MocapPose { fn default() -> Self { Self::DEFAULT } }
 
-impl Default for Pose {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
+/// EKF-fused Robot pose in world frame
+#[derive(Clone, Copy, Debug)]
+pub struct RobotPose {
+    pub x: f32,     // meters
+    pub y: f32,     // meters
+    pub z: f32,     // meters
+    pub roll: f32,  // rad
+    pub pitch: f32, // rad
+    pub yaw: f32,   // rad
+    pub stamp: Instant,
 }
+
+impl RobotPose {
+    pub const DEFAULT: Self = Self {
+        x: 0.0, y: 0.0, z: 0.0, roll: 0.0, pitch: 0.0, yaw: 0.0, stamp: Instant::MIN,
+    };
+}
+impl Default for RobotPose { fn default() -> Self { Self::DEFAULT } }
+
+/// Dead-reckoning odometry state
+#[derive(Debug, Copy, Clone)]
+pub struct OdomPose {
+    pub x: f32,
+    pub y: f32,
+    pub theta: f32, // rad
+    pub v: f32,     // m/s
+    pub w: f32,     // rad/s
+    pub stamp: Instant,
+}
+
+impl OdomPose {
+    pub const DEFAULT: Self = Self {
+        x: 0.0, y: 0.0, theta: 0.0, v: 0.0, w: 0.0, stamp: Instant::MIN,
+    };
+}
+impl Default for OdomPose { fn default() -> Self { Self::DEFAULT } }
+
+/// Unicycle control command
+#[derive(Debug, Copy, Clone)]
+pub struct UnicycleCmd {
+    pub v: f32,
+    pub omega: f32,
+    pub stamp: Instant,
+}
+
+impl UnicycleCmd {
+    pub const DEFAULT: Self = Self { v: 0.0, omega: 0.0, stamp: Instant::MIN };
+}
+impl Default for UnicycleCmd { fn default() -> Self { Self::DEFAULT } }
+
+/// Raw encoder counts
+#[derive(Debug, Clone, Copy)]
+pub struct EncoderCounts {
+    pub left: i32,
+    pub right: i32,
+    pub stamp: Instant,
+}
+
+impl EncoderCounts {
+    pub const DEFAULT: Self = Self { left: 0, right: 0, stamp: Instant::MIN };
+}
+impl Default for EncoderCounts { fn default() -> Self { Self::DEFAULT } }
 /// TODO: EKF
 /// 
 
@@ -437,20 +498,48 @@ fn to_i16_duty(val: f32) -> i16 {
 }
 
 // =============================================================================
+//                         FULL STATE RESET
+// =============================================================================
+
+/// Reset all shared state to defaults.
+/// Called by the orchestrator when switching modes to prevent stale data
+/// from a previous session leaking into the next one.
+pub async fn reset_all() {
+    POSE_FRESH.store(false, Ordering::Release);
+    *POSE.lock().await = MocapPose::DEFAULT;
+    *EKF_STATE.lock().await = RobotPose::DEFAULT;
+    *ODOM_STATE.lock().await = OdomPose::DEFAULT;
+    *UNICYCLE_CMD.lock().await = UnicycleCmd::DEFAULT;
+    *ENCODER_COUNTS.lock().await = EncoderCounts::DEFAULT;
+    *SETPOINT.lock().await = Setpoint::DEFAULT;
+    *ENCODER.lock().await = EncoderReading::DEFAULT;
+    *MOTOR.lock().await = MotorDuty::DEFAULT;
+    *TRACKING_ERROR.lock().await = TrackingError::DEFAULT;
+    *WHEEL_CMD.lock().await = WheelCmd::DEFAULT;
+    *IMU.lock().await = ImuReading::DEFAULT;
+}
+
+// =============================================================================
 //                         POSE READ/WRITE
 // =============================================================================
 
 /// Write raw mocap pose to mutex
-/// Called in: trajectory_uart (mocap data)
-pub async fn write_pose(pose: Pose) {
+pub async fn write_pose(pose: MocapPose) {
     let mut guard = POSE.lock().await;
     *guard = pose;
 }
 
 /// Read latest raw mocap pose
-/// Called in: position controller, logger
-pub async fn read_pose() -> Pose {
+pub async fn read_pose() -> MocapPose {
     *POSE.lock().await
+}
+
+pub fn set_pose_fresh(fresh: bool) {
+    POSE_FRESH.store(fresh, Ordering::Release);
+}
+
+pub fn get_and_clear_pose_fresh() -> bool {
+    POSE_FRESH.swap(false, Ordering::Acquire)
 }
 
 // =============================================================================
@@ -458,16 +547,56 @@ pub async fn read_pose() -> Pose {
 // =============================================================================
 
 /// Write EKF-fused pose to mutex
-/// Called in: trajectory_control after EKF predict/update
-pub async fn write_ekf_state(pose: Pose) {
+pub async fn write_ekf_state(pose: RobotPose) {
     let mut guard = EKF_STATE.lock().await;
     *guard = pose;
 }
 
 /// Read latest EKF-fused pose
-/// Called in: logger, telemetry task
-pub async fn read_ekf_state() -> Pose {
+pub async fn read_ekf_state() -> RobotPose {
     *EKF_STATE.lock().await
+}
+
+// =============================================================================
+//                       ODOM STATE READ/WRITE
+// =============================================================================
+
+pub async fn write_odom(odom: OdomPose) {
+    let mut guard = ODOM_STATE.lock().await;
+    *guard = odom;
+}
+pub async fn read_odom() -> OdomPose { *ODOM_STATE.lock().await }
+
+// =============================================================================
+//                    UNICYCLE CMD READ/WRITE
+// =============================================================================
+
+pub async fn write_unicycle_cmd(cmd: UnicycleCmd) {
+    let mut guard = UNICYCLE_CMD.lock().await;
+    *guard = cmd;
+}
+pub async fn read_unicycle_cmd() -> UnicycleCmd { *UNICYCLE_CMD.lock().await }
+
+// =============================================================================
+//                  ENCODER COUNTS READ/WRITE
+// =============================================================================
+
+pub async fn write_encoder_counts(counts: EncoderCounts) {
+    let mut guard = ENCODER_COUNTS.lock().await;
+    *guard = counts;
+}
+pub async fn read_encoder_counts() -> EncoderCounts { *ENCODER_COUNTS.lock().await }
+
+pub async fn add_encoder_count_left(delta: i32) {
+    let mut guard = ENCODER_COUNTS.lock().await;
+    guard.left = guard.left.wrapping_add(delta);
+    guard.stamp = Instant::now();
+}
+
+pub async fn add_encoder_count_right(delta: i32) {
+    let mut guard = ENCODER_COUNTS.lock().await;
+    guard.right = guard.right.wrapping_add(delta);
+    guard.stamp = Instant::now();
 }
 
 // =============================================================================
@@ -621,7 +750,7 @@ pub async fn build_log_snapshot(
     y_err: f32,
     yaw_err: f32,
 ) -> LogSnapshot {
-    let pose = read_pose().await;
+    let pose = read_ekf_state().await;
     let setpoint = read_setpoint().await;
     let encoder = read_encoder().await;
     let motor = read_motor().await;
@@ -651,7 +780,7 @@ pub async fn build_log_snapshot(
 /// Builds a complete log snapshot reading ALL values from mutexes
 /// including tracking errors. Use this in periodic UART logging tasks.
 pub async fn build_log_snapshot_from_state() -> LogSnapshot {
-    let pose = read_pose().await;
+    let pose = read_ekf_state().await;
     let setpoint = read_setpoint().await;
     let encoder = read_encoder().await;
     let motor = read_motor().await;

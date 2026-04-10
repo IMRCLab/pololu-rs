@@ -14,8 +14,9 @@ use pololu3pi2040_rs::{
     encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     imu::read_imu_task,
     init::init_all,
-    joystick_control::{CONTROL_CMD_UNICYCLE, ControlCommandUnicycle, teleop_motor_control_task},
+    joystick_control::teleop_motor_control_task,
     packet::StateLoopBackPacketF32,
+    robotstate,
     sdlog::*,
     uart::{uart_hw_task, uart_receive_task},
 };
@@ -114,8 +115,11 @@ async fn main(spawner: Spawner) {
 
     // Helper function to set wheel speed commands
     let set_wheel_speed = |v: f32, omega: f32| async move {
-        let mut lock = CONTROL_CMD_UNICYCLE.lock().await;
-        *lock = ControlCommandUnicycle { v, omega };
+        robotstate::write_unicycle_cmd(robotstate::UnicycleCmd {
+            v,
+            omega,
+            stamp: embassy_time::Instant::now(),
+        }).await;
         defmt::info!("Set command: v={} m/s, omega={} rad/s", v, omega);
     };
 
