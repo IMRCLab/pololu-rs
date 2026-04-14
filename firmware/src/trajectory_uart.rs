@@ -10,7 +10,7 @@ use crate::orchestrator_signal::{
     TRAJ_PAUSE_SIG, TRAJ_RESUME_SIG, decode_functionality_select_command,
 };
 use crate::robotstate::MocapPose;
-use crate::trajectory_signal::{FIRST_MESSAGE, STATE_SIG};
+use crate::robotstate::MOCAP_SIG as STATE_SIG;
 use crate::uart::UART_RX_CHANNEL;
 
 #[derive(Clone, Copy)]
@@ -152,7 +152,6 @@ pub async fn uart_motioncap_receiving_task(cfg: UartCfg) {
                 STATE_SIG.signal(stamped);
 
                 if !seen_first {
-                    FIRST_MESSAGE.signal(());
                     seen_first = true;
                     info!("first message set");
                 }

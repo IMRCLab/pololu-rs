@@ -12,6 +12,7 @@
 
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::Channel;
+use embassy_sync::signal::Signal;
 use embassy_sync::mutex::Mutex;
 use embassy_time::Instant;
 use heapless::Vec;
@@ -90,6 +91,12 @@ pub static WHEEL_CMD_CH: Channel<ThreadModeRawMutex, WheelCmd, CMD_CHANNEL_SIZE>
 /// This channel is for streaming raw/filtered readings to external tasks if needed.
 pub static ENCODER_CH: Channel<ThreadModeRawMutex, EncoderReading, SENSOR_CHANNEL_SIZE> =
     Channel::new();
+
+/// Signal for trajectory control events (true = start, false = stop)
+pub static TRAJECTORY_CONTROL_EVENT: Signal<ThreadModeRawMutex, bool> = Signal::new();
+
+/// Signal containing the latest mocap pose frame
+pub static MOCAP_SIG: Signal<ThreadModeRawMutex, MocapPose> = Signal::new();
 
 // =============================================================================
 //                          DATA STRUCTURES
@@ -517,6 +524,9 @@ pub async fn reset_all() {
     *TRACKING_ERROR.lock().await = TrackingError::DEFAULT;
     *WHEEL_CMD.lock().await = WheelCmd::DEFAULT;
     *IMU.lock().await = ImuReading::DEFAULT;
+    
+    drain_wheel_cmd_ch();
+    drain_encoder_ch();
 }
 
 // =============================================================================
@@ -718,6 +728,14 @@ pub async fn read_imu() -> ImuReading {
 // =============================================================================
 //                      WHEEL COMMAND CHANNEL HELPERS
 // =============================================================================
+
+pub fn drain_wheel_cmd_ch() {
+    while WHEEL_CMD_CH.try_receive().is_ok() {}
+}
+
+pub fn drain_encoder_ch() {
+    while ENCODER_CH.try_receive().is_ok() {}
+}
 
 /// Send wheel command via channel (non-blocking, drains old)
 /// DEPRECATED: prefer write_wheel_cmd() which updates both mutex and channel

@@ -31,7 +31,7 @@ use pololu3pi2040_rs::{
         wheel_speed_inner_loop,
     },
     robotstate::uart_log_sending_task,
-    trajectory_signal::TRAJECTORY_CONTROL_EVENT,
+    robotstate::TRAJECTORY_CONTROL_EVENT,
     trajectory_uart::{UartCfg, uart_motioncap_receiving_task},
     uart::{UART_RX_CHANNEL, uart_hw_task},
 };

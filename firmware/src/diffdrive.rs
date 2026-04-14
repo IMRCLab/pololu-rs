@@ -11,7 +11,7 @@ use crate::led::{self};
 use crate::motor::MotorController;
 use crate::robot_parameters_default::robot_constants::*;
 use crate::robotstate;
-use crate::trajectory_signal::STATE_SIG;
+use crate::robotstate::MOCAP_SIG as STATE_SIG;
 
 // pub static DIFFDRIVE_TRAJECTORY_READY: Signal<ThreadModeRawMutex, ()> = Signal::new();
 

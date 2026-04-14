@@ -25,8 +25,8 @@ use crate::robot_parameters_default::robot_constants::*;
 use crate::led::LED_SHARED;
 use crate::sdlog::{SdLogger, TrajControlLog, SDLOGGER_SHARED};
 use crate::trajectory_reading::{Action, Pose, Trajectory};
-use crate::trajectory_signal::{
-    STATE_SIG, TRAJECTORY_CONTROL_EVENT, WHEEL_CMD_CH, WheelCmd,
+use crate::robotstate::{
+    MOCAP_SIG as STATE_SIG, TRAJECTORY_CONTROL_EVENT, WHEEL_CMD_CH, WheelCmd,
 };
 
 use crate::robotstate;

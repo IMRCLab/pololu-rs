@@ -6,7 +6,7 @@ use crate::trajectory_control::{
     DiffdriveCascade, DiffdriveControllerCascade, PointCascade, TrajectoryResult,
 };
 use crate::robotstate;
-use crate::trajectory_signal::{WHEEL_CMD_CH, WheelCmd};
+use crate::robotstate::{WHEEL_CMD_CH, WheelCmd};
 
 use embassy_time::{Duration, Instant, Ticker};
 use libm::{cosf, sinf, sqrtf};

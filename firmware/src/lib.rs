@@ -63,6 +63,5 @@ pub mod robotstate;
 pub mod sdlog;
 pub mod trajectory_control;
 pub mod trajectory_reading;
-pub mod trajectory_signal;
 pub mod trajectory_uart;
 pub mod uart;
