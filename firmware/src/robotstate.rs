@@ -194,6 +194,7 @@ pub struct Setpoint {
     pub yaw_des: f32, // rad
     pub v_ff: f32,    // feedforward linear velocity [m/s]
     pub w_ff: f32,    // feedforward angular velocity [rad/s]
+    pub stamp: Instant, // wall-clock time of last provider write
 }
 
 impl Setpoint {
@@ -203,7 +204,13 @@ impl Setpoint {
         yaw_des: 0.0,
         v_ff: 0.0,
         w_ff: 0.0,
+        stamp: Instant::MIN,
     };
+
+    /// True if the setpoint was written within `max_age_ms` milliseconds.
+    pub fn is_fresh(&self, max_age_ms: u64) -> bool {
+        Instant::now().duration_since(self.stamp).as_millis() < max_age_ms
+    }
 }
 
 impl Default for Setpoint {

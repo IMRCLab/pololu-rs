@@ -858,6 +858,7 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
             yaw_des: theta_d,
             v_ff: vd,
             w_ff: wd,
+            stamp: Instant::now(),
         }).await;
         robotstate::write_tracking_error(robotstate::TrackingError {
             x_err: x_error,
@@ -1260,6 +1261,7 @@ async fn execute_trajectory_loop_onboard(
             yaw_des: setpoint.des.theta.rad(),
             v_ff: setpoint.vdes,
             w_ff: setpoint.wdes,
+            stamp: Instant::now(),
         }).await;
         robotstate::write_tracking_error(robotstate::TrackingError {
             x_err: x_error,
@@ -1605,6 +1607,7 @@ async fn execute_trajectory_loop_onboard2(
             yaw_des: setpoint.des.theta.rad(),
             v_ff: setpoint.vdes,
             w_ff: setpoint.wdes,
+            stamp: Instant::now(),
         }).await;
         robotstate::write_tracking_error(robotstate::TrackingError {
             x_err: x_error,

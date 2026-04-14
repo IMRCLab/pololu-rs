@@ -82,9 +82,7 @@ async fn main(spawner: Spawner) {
         defmt::warn!("No SD card / SdLogger disabled, skip logging");
     }
 
-    spawner
-        .spawn(uart_log_sending_task(10, 100))
-        .unwrap();
+
 
     spawner
         .spawn(orchestrator(spawner, devices, UartCfg { robot_id: 10 }))
@@ -229,7 +227,6 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
 
     defmt::info!("Orchestrator Task Launched! Initial Mode = Menu");
     // Optionally spawn a task to sync all parameters once on boot
-    let _ = spawner.spawn(pololu3pi2040_rs::robotstate::uart_log_sending_task(cfg.robot_id, 100));
 
     let mut mode = Mode::Menu;
 
@@ -250,11 +247,12 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                 match mode {
                     Mode::Menu => {
                         STOP_MENU_UART_SIG.signal(());
-                        // TASK_SELECT_UART_STOP_SIG.signal(());
+                        STOP_LOG_SENDING_SIG.signal(());
 
                         Timer::after(Duration::from_millis(2)).await;
 
                         drain_signal(&STOP_MENU_UART_SIG, 2).await;
+                        drain_signal(&STOP_LOG_SENDING_SIG, 2).await;
                     }
                     Mode::TeleOp | Mode::CtrlAction => {
                         // Signal tasks to stop
@@ -321,7 +319,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                                 defmt::warn!("Menu task already running or failed to spawn");
                             }
                         }
-                        let _ = spawner.spawn(uart_log_sending_task(cfg.robot_id, 100));
+                        spawner.spawn(uart_log_sending_task(cfg.robot_id, 100)).unwrap();
                     }
                     Mode::TeleOp => {
                         defmt::info!("TELE-OPERATION Mode is selected!!!!!");
@@ -348,7 +346,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         if uart_ok && motor_ok {
                             beep_signal(b'T');
                         }
-                        let _ = spawner.spawn(uart_log_sending_task(cfg.robot_id, 50));
+                        spawner.spawn(uart_log_sending_task(cfg.robot_id, 50)).unwrap();
                     }
                     Mode::TrajMocap => {
                         defmt::info!("TRAJ-FOLLOWING Mode (With Mocap) is selected!!!!!");
@@ -382,7 +380,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         if uart_ok && mocap_ok && odo_ok && inner_ok && outer_ok {
                             beep_signal(b'M');
                         }
-                        let _ = spawner.spawn(uart_log_sending_task(cfg.robot_id, 50));
+                        spawner.spawn(uart_log_sending_task(cfg.robot_id, 50)).unwrap();
                     }
                     Mode::TrajDuty => {
                         defmt::info!("TRAJ-FOLLOWING Mode (Directduty) is selected!!!!!");
@@ -416,7 +414,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         if uart_ok && mocap_ok && odo_ok && inner_ok && outer_ok {
                             beep_signal(b'D');
                         }
-                        let _ = spawner.spawn(uart_log_sending_task(cfg.robot_id, 50));
+                        spawner.spawn(uart_log_sending_task(cfg.robot_id, 50)).unwrap();
                     }
                     Mode::CtrlAction => {
                         defmt::info!("CONTROL-ACTION Mode is selected!!!!!");
@@ -445,7 +443,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         if uart_ok && teleop_ok {
                             beep_signal(b'A');
                         }
-                        let _ = spawner.spawn(uart_log_sending_task(cfg.robot_id, 50));
+                        spawner.spawn(uart_log_sending_task(cfg.robot_id, 50)).unwrap();
                     }
                     Mode::TrajOnboard => {
                         defmt::info!("ONBOARD-TRAJ Mode (figure-8 etc.) is selected!!!!!");
@@ -476,7 +474,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         if uart_ok && mocap_ok && odo_ok && inner_ok && outer_ok {
                             beep_signal(b'F');
                         }
-                        let _ = spawner.spawn(uart_log_sending_task(cfg.robot_id, 50));
+                        spawner.spawn(uart_log_sending_task(cfg.robot_id, 50)).unwrap();
                     }
                     Mode::TrajOnboard2 => {
                         defmt::info!("ONBOARD-TRAJ-2 Mode (demo) is selected!!!!!");
@@ -508,7 +506,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         if uart_ok && mocap_ok && odo_ok && inner_ok && outer_ok {
                             beep_signal(b'G');
                         }
-                        let _ = spawner.spawn(uart_log_sending_task(cfg.robot_id, 50));
+                        spawner.spawn(uart_log_sending_task(cfg.robot_id, 50)).unwrap();
                     }
                 }
                 mode = target;
