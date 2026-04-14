@@ -10,7 +10,7 @@ use embassy_rp::init;
 use pololu3pi2040_rs::encoder::{EncoderPair, encoder_left_task, encoder_right_task};
 use pololu3pi2040_rs::init::init_all;
 use pololu3pi2040_rs::trajectory_control::{
-    ControlMode, diffdrive_outer_loop_command_controlled_traj_following_from_sdcard,
+    diffdrive_outer_loop_command_controlled_traj_following_from_sdcard,
     mocap_update_task, wheel_speed_inner_loop,
 };
 use pololu3pi2040_rs::trajectory_uart::{UartCfg, uart_motioncap_receiving_task};
@@ -82,8 +82,6 @@ async fn main(spawner: Spawner) {
     // =============== Semi - Automatically tests different gains with straight line trajectory ============================
     // spawner
     //     .spawn(diffdrive_outer_loop_command_controlled_tuning(
-    //         // ControlMode::DirectDuty,
-    //         ControlMode::WithMocapController,
     //         devices.sdlogger,
     //         devices.led,
     //         devices.config,
@@ -93,8 +91,6 @@ async fn main(spawner: Spawner) {
     spawner
         .spawn(
             diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
-                // ControlMode::DirectDuty,
-                ControlMode::WithMocapController,
                 devices.config,
             ),
         )

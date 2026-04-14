@@ -269,7 +269,7 @@ pub async fn send_command_ack(command_id: u8, success: bool) {
 //                      STATUS PARAMETER IDs
 // =============================================================================
 
-/// Parameter ID for robot mode (Menu=0, TeleOp=1, TrajMocap=2, TrajDuty=3)
+/// Parameter ID for robot mode (Menu=0, TeleOp=1, TrajMocap=2, CtrlAction=4, OnboardTraj=5, OnboardTraj2=6)
 pub const PARAM_MODE: u8 = 21;
 
 /// Parameter ID for running state (0=idle, 1=running)

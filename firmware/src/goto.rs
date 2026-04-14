@@ -1,7 +1,7 @@
 use crate::math::SO2;
 use crate::read_robot_config_from_sd::RobotConfig;
 use crate::sdlog::TrajControlLog;
-use crate::trajectory_control::{ControlMode, STOP_ALL, with_sdlogger};
+use crate::trajectory_control::{STOP_ALL, with_sdlogger};
 use crate::trajectory_control::{
     DiffdriveCascade, DiffdriveControllerCascade, PointCascade, TrajectoryResult,
 };
@@ -68,7 +68,6 @@ fn build_bezier_points(start: &robotstate::MocapPose, goal: &GoToPose) -> PointC
 /// - Uses `robotstate::get_and_clear_pose_fresh()` for mocap/feedforward fallback
 pub async fn goto_pose(
     goal: GoToPose,
-    mode: ControlMode,
     robot: &mut DiffdriveCascade,
     controller: &mut DiffdriveControllerCascade,
     robot_cfg: &RobotConfig,
@@ -90,7 +89,15 @@ pub async fn goto_pose(
     let bezier = build_bezier_points(&start_pose, &goal);
 
     // ==================== Setup ticker ====================
-    let mut ticker = Ticker::every(Duration::from_millis((GOTO_DT_S * 1000.0) as u64));
+    let mut ticker = Ticker::every(Duration::from_millis(
+        (robot_cfg.traj_following_dt_s * 1000.0) as u64,
+    ));
+
+    // ==================== Initialize EKF ==================
+    let mut fused_x: f32 = start_pose.x;
+    let mut fused_y: f32 = start_pose.y;
+    let mut fused_yaw: f32 = start_pose.yaw;
+    let mut ekf = crate::ekf::Ekf::default_at(fused_x, fused_y, fused_yaw);
 
     let start = Instant::now();
 
@@ -124,50 +131,33 @@ pub async fn goto_pose(
             return TrajectoryResult::Completed;
         }
 
-        // ============ Get pose + freshness ============
-        let pose = robotstate::read_pose().await;
+        /* =================== Pose Fusion =================== */
+        let odom_now = robotstate::read_odom().await;
+        ekf.predict(odom_now.v, odom_now.w, GOTO_DT_S);
+
         let pose_is_fresh = robotstate::get_and_clear_pose_fresh();
+        if pose_is_fresh {
+            let mocap_pose = robotstate::read_pose().await;
+            ekf.update(&crate::math::Vec3::new(mocap_pose.x, mocap_pose.y, mocap_pose.yaw));
+        }
+
+        let (fx, fy, fth) = ekf.state();
+        fused_x = fx;
+        fused_y = fy;
+        fused_yaw = fth;
 
         // ============ Bézier setpoint at time t ============
         let setpoint = robot.beziercurve(bezier.clone(), t_sec, GOTO_DURATION_S);
 
         // ============ Control ============
-        let (ul, ur, x_error, y_error, theta_error);
+        robot.s.x = fused_x;
+        robot.s.y = fused_y;
+        robot.s.theta = SO2::new(fused_yaw);
 
-        match mode {
-            ControlMode::WithMocapController => {
-                robot.s.x = pose.x;
-                robot.s.y = pose.y;
-                robot.s.theta = SO2::new(pose.yaw);
+        let (action, x_error, y_error, theta_error) = controller.control(robot, setpoint);
+        let ul = action.ul;
+        let ur = action.ur;
 
-                if pose_is_fresh {
-                    let (action, x_e, y_e, yaw_e) = controller.control(robot, setpoint);
-                    ul = action.ul;
-                    ur = action.ur;
-                    x_error = x_e;
-                    y_error = y_e;
-                    theta_error = yaw_e;
-                } else {
-                    defmt::warn!("goto: mocap stale -> feedforward");
-                    ul = (2.0 * setpoint.vdes - robot_cfg.wheel_base * setpoint.wdes)
-                        / (2.0 * robot_cfg.wheel_radius);
-                    ur = (2.0 * setpoint.vdes + robot_cfg.wheel_base * setpoint.wdes)
-                        / (2.0 * robot_cfg.wheel_radius);
-                    x_error = 0.0;
-                    y_error = 0.0;
-                    theta_error = 0.0;
-                }
-            }
-            ControlMode::DirectDuty => {
-                ul = (2.0 * setpoint.vdes - robot_cfg.wheel_base * setpoint.wdes)
-                    / (2.0 * robot_cfg.wheel_radius);
-                ur = (2.0 * setpoint.vdes + robot_cfg.wheel_base * setpoint.wdes)
-                    / (2.0 * robot_cfg.wheel_radius);
-                x_error = 0.0;
-                y_error = 0.0;
-                theta_error = 0.0;
-            }
-        }
 
         // ============ Send wheel command ============
         while WHEEL_CMD_CH.try_receive().is_ok() {} // drain
@@ -184,9 +174,9 @@ pub async fn goto_pose(
             target_x: setpoint.des.x,
             target_y: setpoint.des.y,
             target_theta: setpoint.des.theta.rad(),
-            actual_x: pose.x,
-            actual_y: pose.y,
-            actual_theta: pose.yaw,
+            actual_x: fused_x,
+            actual_y: fused_y,
+            actual_theta: fused_yaw,
             target_vx: setpoint.vdes,
             target_vy: 0.0,
             target_vz: 0.0,
@@ -197,10 +187,10 @@ pub async fn goto_pose(
             target_qx: 0.0,
             target_qy: 0.0,
             target_qz: setpoint.des.theta.sin(),
-            actual_qw: cosf(pose.yaw),
+            actual_qw: cosf(fused_yaw),
             actual_qx: 0.0,
             actual_qy: 0.0,
-            actual_qz: sinf(pose.yaw),
+            actual_qz: sinf(fused_yaw),
             xerror: x_error,
             yerror: y_error,
             thetaerror: theta_error,
@@ -219,9 +209,9 @@ pub async fn goto_pose(
         defmt::info!(
             "goto: t={}s pos=({},{},{}) des=({},{},{}) v={} w={} u=({},{}) err=({},{},{})",
             t_sec,
-            pose.x,
-            pose.y,
-            pose.yaw,
+            fused_x,
+            fused_y,
+            fused_yaw,
             setpoint.des.x,
             setpoint.des.y,
             setpoint.des.theta.rad(),

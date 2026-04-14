@@ -145,7 +145,7 @@ private:
 
     // Demo mode: assign a program to each robot, then start all with one button
     // Robots 1,2 (Pololu07,08) -> mode 5 (spin), Robots 3,4 (Pololu09,10) -> mode 4 (onboard traj)
-    int demo_programs_[4] = {5, 5, 4, 4};
+    int demo_programs_[4] = {4, 4, 3, 3};
     bool demo_running_ = false;
 
     //define available programs
@@ -157,11 +157,10 @@ private:
 
     std::vector<Program> available_programs_ = {
         {"teleop", 0, "Manual TELEOPeration mode"},
-        {"trajectory following w/ direct duty", 1, "TRAJ FOLLOWING with DIRECT DUTY"},
-        {"traj following w/ mocap", 2, "TRAJ FOLLOWING with MOCAP"},
-        {"control action execution", 3, "CONTROL ACTION EXECUTION mode"},
-        {"onboard trajectory exec", 4, "ONBOARD TRAJECTORY EXECUTION mode"},
-        {"onboard trajectory exec spin", 5, "ONBOARD TRAJECTORY EXECUTION 2 mode"}
+        {"traj following w/ mocap", 1, "TRAJ FOLLOWING with MOCAP"},
+        {"control action execution", 2, "CONTROL ACTION EXECUTION mode"},
+        {"onboard trajectory exec", 3, "ONBOARD TRAJECTORY EXECUTION mode"},
+        {"onboard trajectory exec spin", 4, "ONBOARD TRAJECTORY EXECUTION 2 mode"}
         //add missing functionality here later
     };
 
@@ -717,28 +716,23 @@ private:
                 sendIndividualCommand(robot_id, 84); //go into teleop mode on the robot "T" = ASCII 84
                 teleop_activated[robot_id] = true; //activate teleop for this robot
                 break;
-            case 1: //trajectory following: direct duty
-                RCLCPP_INFO(logger_, "Letting robot  %d go into TRAJECTORY FOLLOWING mode: DIRECT DUTY", robot_id + 1);
-                sendIndividualCommand(robot_id, 68); //go into traj following mode selection on the robot "D" = ASCII 68
-                //waiting for start command now
-                break;
-            case 2: //trajectory following: mocap
+            case 1: //trajectory following: mocap
                 RCLCPP_INFO(logger_, "Letting robot  %d go into TRAJECTORY FOLLOWING mode: MOCAP", robot_id + 1);
                 sendIndividualCommand(robot_id, 77); //go into traj following mode selection on the robot "M" = ASCII 77
                 //waiting for start command now
                 break;
-            case 3: //Control Action execution mode (for Omar's NPC control demo)
+            case 2: //Control Action execution mode (for Omar's NPC control demo)
                 // add here to expand functionality
                 RCLCPP_INFO(logger_, "Letting robot  %d go into CONTROL ACTION EXECUTION mode", robot_id + 1);
                 sendIndividualCommand(robot_id, 65); //go into control action execution mode on the robot "A" = ASCII 65
                 control_action_active[robot_id] = true; // Activate control action broadcasting
                 break;
-            case 4: //onboard trajectory execution mode
+            case 3: //onboard trajectory execution mode
                 RCLCPP_INFO(logger_, "Letting robot %d go into ONBOARD TRAJECTORY EXECUTION mode", robot_id + 1);
                 sendIndividualCommand(robot_id, 70); //go into onboard traj exec mode on the robot "F" = ASCII 70
                 //waiting for start command now
                 break;
-            case 5: //offboard trajectory execution mode
+            case 4: //offboard trajectory execution mode
                 RCLCPP_INFO(logger_, "Letting robot %d go into OFFBOARD TRAJECTORY EXECUTION 2 mode", robot_id + 1);
                 sendIndividualCommand(robot_id, 71); //Go into spinning mode with "G"
                 //waiting for start command now

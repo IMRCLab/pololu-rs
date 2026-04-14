@@ -26,7 +26,7 @@ use pololu3pi2040_rs::{
     odometry::odometry_task,
     sdlog::SDLOGGER_SHARED,
     trajectory_control::{
-        ControlMode, diffdrive_outer_loop_command_controlled_traj_following_from_sdcard,
+        diffdrive_outer_loop_command_controlled_traj_following_from_sdcard,
         diffdrive_outer_loop_onboard_traj, diffdrive_outer_loop_onboard_traj2, mocap_update_task,
         wheel_speed_inner_loop,
     },
@@ -163,7 +163,6 @@ pub async fn functionality_mode_selection_uart_task(cfg: UartCfg) {
                     0 => Mode::Menu,
                     1 => Mode::TeleOp,
                     2 => Mode::TrajMocap,
-                    3 => Mode::TrajDuty,
                     4 => Mode::CtrlAction,
                     5 => Mode::TrajOnboard,
                     6 => Mode::TrajOnboard2,
@@ -273,7 +272,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         drain_signal(&STOP_MOTOR_CTRL_SIG, 2).await;
                         drain_signal(&STOP_LOG_SENDING_SIG, 2).await;
                     }
-                    Mode::TrajMocap | Mode::TrajDuty | Mode::TrajOnboard | Mode::TrajOnboard2 => {
+                    Mode::TrajMocap | Mode::TrajOnboard | Mode::TrajOnboard2 => {
                         STOP_MOCAP_UART_SIG.signal(());
                         STOP_MOCAP_UPDATE_SIG.signal(());
                         STOP_WHEEL_INNER_SIG.signal(());
@@ -371,7 +370,6 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         let outer_ok = spawner
                             .spawn(
                                 diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
-                                    ControlMode::WithMocapController,
                                     devices.config,
                                 ),
                             )
@@ -379,40 +377,6 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
 
                         if uart_ok && mocap_ok && odo_ok && inner_ok && outer_ok {
                             beep_signal(b'M');
-                        }
-                        spawner.spawn(uart_log_sending_task(cfg.robot_id, 50)).unwrap();
-                    }
-                    Mode::TrajDuty => {
-                        defmt::info!("TRAJ-FOLLOWING Mode (Directduty) is selected!!!!!");
-                        pololu3pi2040_rs::parameter_sync::send_mode(3).await;
-                        let uart_ok = spawner.spawn(uart_motioncap_receiving_task(cfg)).is_ok();
-                        let mocap_ok = spawner.spawn(mocap_update_task()).is_ok();
-                        let odo_ok = spawner
-                            .spawn(odometry_task(
-                                encoder_count_left,
-                                encoder_count_right,
-                                devices.config,
-                            ))
-                            .is_ok();
-                        let inner_ok = spawner
-                            .spawn(wheel_speed_inner_loop(
-                                devices.motor,
-                                encoder_count_left,
-                                encoder_count_right,
-                                devices.config,
-                            ))
-                            .is_ok();
-                        let outer_ok = spawner
-                            .spawn(
-                                diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
-                                    ControlMode::DirectDuty,
-                                    devices.config,
-                                ),
-                            )
-                            .is_ok();
-
-                        if uart_ok && mocap_ok && odo_ok && inner_ok && outer_ok {
-                            beep_signal(b'D');
                         }
                         spawner.spawn(uart_log_sending_task(cfg.robot_id, 50)).unwrap();
                     }
@@ -467,7 +431,6 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             .is_ok();
                         let outer_ok = spawner
                             .spawn(diffdrive_outer_loop_onboard_traj(
-                                ControlMode::DirectDuty,
                                 devices.config,
                             ))
                             .is_ok();
@@ -498,7 +461,6 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             .is_ok();
                         let outer_ok = spawner
                             .spawn(diffdrive_outer_loop_onboard_traj2(
-                                ControlMode::DirectDuty,
                                 devices.config,
                             ))
                             .is_ok();

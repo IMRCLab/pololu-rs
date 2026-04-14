@@ -12,7 +12,6 @@ pub enum Mode {
     Menu,
     TeleOp,
     TrajMocap,
-    TrajDuty,
     CtrlAction,
     TrajOnboard,
     TrajOnboard2,
@@ -65,8 +64,7 @@ pub fn decode_functionality_select_command(payload: &[u8], robot_id: u8) -> Opti
     match payload[2] {
         b'q' => Some(0), // Menu
         b'T' => Some(1), // Tele operation
-        b'M' => Some(2), // Traj following (Mocap)
-        b'D' => Some(3), // Traj following (Direct duty)
+        b'M' => Some(2), // Traj following
         b'A' => Some(4), // Control Action
         b'F' => Some(5), // Onboard trajectory (figure-8 etc.)
         b'G' => Some(6), // Onboard trajectory 2 (demo)

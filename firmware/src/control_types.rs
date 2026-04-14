@@ -399,12 +399,6 @@ impl DiffdriveCascade {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub enum ControlMode {
-    WithMocapController,
-    DirectDuty,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum TrajectoryResult {
     Completed,
     Stopped,

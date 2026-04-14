@@ -4,10 +4,10 @@ use core::cell::RefCell;
 use core::f32::consts::PI;
 use defmt::{info};
 use embassy_futures::block_on;
-use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_futures::select::{Either, select, select3, Either3};
+use embassy_sync::blocking_mutex::raw::{NoopRawMutex, ThreadModeRawMutex};
 use embassy_sync::mutex::Mutex;
-use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, signal::Signal};
+use embassy_sync::signal::Signal;
 use embassy_time::Timer;
 use embassy_time::{Duration, Instant, Ticker};
 use libm::{cosf, sinf};
@@ -218,7 +218,6 @@ pub async fn wheel_speed_inner_loop(
 
 // Command-controlled trajectory following for gain tunning
 async fn execute_trajectory_loop_with_control_from_sdcard(
-    mode: ControlMode,
     robot: &mut DiffdriveCascade,
     controller: &mut DiffdriveControllerCascade,
     // sdlogger: &mut Option<SdLogger>,
@@ -242,30 +241,9 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
     ));
     /* ============================================================================= */
 
-    /* ================ Record First Pose w.r.t the selected mode ================== */
-    // let mut first_pose: PoseAbs = PoseAbs {
-    //     x: 0.0,
-    //     y: 0.0,
-    //     z: 0.0,
-    //     roll: 0.0,
-    //     pitch: 0.0,
-    //     yaw: 0.0,
-    // };
-
-    // Timer::after_millis(100).await; // Wait until the first pose comes
-    // match mode {
-    //     ControlMode::WithMocapController => {
-    //         // Initialize first pose from mocap
-    //         first_pose = {
-    //             let s = LAST_STATE.lock().await;
-    //             *s
-    //         };
-    //     }
-    //     ControlMode::DirectDuty => {
-    //         info!("Using direct duty control, initial pose (0, 0, 0)");
-    //     }
-    // }
     /* ============================================================================= */
+    
+
 
     /* =============== Fusion state: EKF ================= */
     let mut fused_x: f32;
@@ -404,34 +382,16 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
         /* ==================== Control ============================================ */
         let (ul, ur, x_error, y_error, theta_error);
 
-        match mode {
-            ControlMode::WithMocapController => {
-                robot.s.x = fused_x;
-                robot.s.y = fused_y;
-                robot.s.theta = SO2::new(fused_yaw);
+        robot.s.x = fused_x;
+        robot.s.y = fused_y;
+        robot.s.theta = SO2::new(fused_yaw);
 
-                let (action, x_e, y_e, yaw_e) = controller.control(&robot, setpoint);
-                ul = action.ul;
-                ur = action.ur;
-                x_error = x_e;
-                y_error = y_e;
-                theta_error = yaw_e;
-            }
-            ControlMode::DirectDuty => {
-                let w_rad = setpoint.wdes;
-                let vd = setpoint.vdes;
-
-                ur = (2.0 * vd + robot_cfg.k_clip * robot_cfg.wheel_base * w_rad)
-                    / (2.0 * robot_cfg.wheel_radius);
-                ul = (2.0 * vd - robot_cfg.k_clip * robot_cfg.wheel_base * w_rad)
-                    / (2.0 * robot_cfg.wheel_radius);
-                x_error = setpoint.des.x - fused_x;
-                y_error = setpoint.des.y - fused_y;
-                let mut dtheta = setpoint.des.theta.rad() - fused_yaw;
-                dtheta = libm::atan2f(libm::sinf(dtheta), libm::cosf(dtheta));
-                theta_error = dtheta;
-            }
-        }
+        let (action, x_e, y_e, yaw_e) = controller.control(&robot, setpoint);
+        ul = action.ul;
+        ur = action.ur;
+        x_error = x_e;
+        y_error = y_e;
+        theta_error = yaw_e;
         /* ========================================================================= */
 
         while WHEEL_CMD_CH.try_receive().is_ok() {} // drain old commands
@@ -543,7 +503,6 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
 // Command-controlled trajectory following from SDCard
 #[embassy_executor::task]
 pub async fn diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
-    _mode: ControlMode,
     // mut sdlogger: Option<SdLogger>,
     // led_device: Option<led::Led>,
     cfg: Option<RobotConfig>,
@@ -637,7 +596,6 @@ pub async fn diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
         
 
         let exec_fut = execute_trajectory_loop_with_control_from_sdcard(
-            _mode,
             &mut robot,
             &mut controller,
             &robot_cfg,
@@ -698,7 +656,6 @@ pub async fn mocap_update_task() {
 /* ========================== Onboard Trajectory Mode ================================= */
 
 async fn execute_trajectory_loop_onboard(
-    _mode: ControlMode,
     robot: &mut DiffdriveCascade,
     controller: &mut DiffdriveControllerCascade,
     robot_cfg: &RobotConfig,
@@ -944,7 +901,6 @@ async fn execute_trajectory_loop_onboard(
 
 #[embassy_executor::task]
 pub async fn diffdrive_outer_loop_onboard_traj(
-    _mode: ControlMode,
     cfg: Option<RobotConfig>,
 ) {
     let robot_cfg: RobotConfig = cfg.unwrap_or_default();
@@ -1014,7 +970,6 @@ pub async fn diffdrive_outer_loop_onboard_traj(
         }
 
         let exec_fut = execute_trajectory_loop_onboard(
-            _mode,
             &mut robot,
             &mut controller,
             &robot_cfg,
@@ -1052,7 +1007,6 @@ pub async fn diffdrive_outer_loop_onboard_traj(
 /* ======================== Onboard Trajectory 2 (Demo) ================================ */
 
 async fn execute_trajectory_loop_onboard2(
-    _mode: ControlMode,
     robot: &mut DiffdriveCascade,
     _controller: &mut DiffdriveControllerCascade,
     robot_cfg: &RobotConfig,
@@ -1284,7 +1238,6 @@ async fn execute_trajectory_loop_onboard2(
 
 #[embassy_executor::task]
 pub async fn diffdrive_outer_loop_onboard_traj2(
-    _mode: ControlMode,
     cfg: Option<RobotConfig>,
 ) {
     let robot_cfg: RobotConfig = cfg.unwrap_or_default();
@@ -1350,7 +1303,6 @@ pub async fn diffdrive_outer_loop_onboard_traj2(
         }
 
         let exec_fut = execute_trajectory_loop_onboard2(
-            _mode,
             &mut robot,
             &mut controller,
             &robot_cfg,
@@ -1387,7 +1339,6 @@ pub async fn diffdrive_outer_loop_onboard_traj2(
 // Outer Loop
 #[embassy_executor::task]
 pub async fn diffdrive_outer_loop(
-    mode: ControlMode,
     mut sdlogger: Option<SdLogger>,
     mut led: led::Led,
     cfg: Option<RobotConfig>,
@@ -1438,18 +1389,9 @@ pub async fn diffdrive_outer_loop(
     defmt::info!("csv header written");
 
     /* ================ Record First Pose w.r.t the selected mode ================== */
-    let mut first_pose: robotstate::MocapPose = robotstate::MocapPose::default();
-
     Timer::after_millis(100).await; // has to wait until the first poses comes
-    match mode {
-        ControlMode::WithMocapController => {
-            // initialise first pose from mocap:
-            first_pose = robotstate::read_pose().await;
-        }
-        ControlMode::DirectDuty => {
-            info!("Using direct duty control, initial pose (0, 0, 0)");
-        }
-    }
+    // Direct MoCap feedback for this legacy task
+    let first_pose = robotstate::read_pose().await;
     /* ============================================================================= */
 
     // Get percise start time

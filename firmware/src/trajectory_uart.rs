@@ -107,7 +107,6 @@ pub async fn uart_motioncap_receiving_task(cfg: UartCfg) {
                     0 => Mode::Menu,
                     1 => Mode::TeleOp,
                     2 => Mode::TrajMocap,
-                    3 => Mode::TrajDuty,
                     4 => Mode::CtrlAction,
                     5 => Mode::TrajOnboard,
                     6 => Mode::TrajOnboard2,
