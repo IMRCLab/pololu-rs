@@ -42,6 +42,7 @@ macro_rules! debug_warn {
 
 pub mod button;
 pub mod buzzer;
+pub mod control_types;
 pub mod diffdrive;
 pub mod ekf;
 pub mod encoder;
