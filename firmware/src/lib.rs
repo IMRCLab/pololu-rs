@@ -48,6 +48,7 @@ pub mod ekf;
 pub mod encoder;
 pub mod encoder_lib;
 pub mod goto;
+pub mod inner_controller;
 pub mod imu;
 pub mod init;
 pub mod joystick_control;

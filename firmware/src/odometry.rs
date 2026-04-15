@@ -111,11 +111,6 @@ pub async fn odometry_task(
             stamp: Instant::now(),
         }).await;
 
-        // Write encoder-derived wheel speeds to robotstate
-        robotstate::write_encoder(robotstate::EncoderReading {
-            omega_l: omega_l,
-            omega_r: omega_r,
-            stamp: Instant::now(),
-        }).await;
+
     }
 }

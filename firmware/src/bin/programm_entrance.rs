@@ -28,8 +28,8 @@ use pololu3pi2040_rs::{
     trajectory_control::{
         diffdrive_outer_loop_command_controlled_traj_following_from_sdcard,
         diffdrive_outer_loop_onboard_traj, diffdrive_outer_loop_onboard_traj2, mocap_update_task,
-        wheel_speed_inner_loop,
     },
+    inner_controller::wheel_speed_inner_loop,
     robotstate::uart_log_sending_task,
     robotstate::TRAJECTORY_CONTROL_EVENT,
     trajectory_uart::{UartCfg, uart_motioncap_receiving_task},
