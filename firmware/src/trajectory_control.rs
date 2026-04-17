@@ -49,6 +49,16 @@ pub fn register_trajectory(traj: &'static Trajectory) {
     })
 }
 
+/// Read the first state from the loaded trajectory (for EKF init fallback).
+/// Returns `None` if no trajectory has been registered yet.
+pub async fn trajectory_start_pose() -> Option<(f32, f32, f32)> {
+    let g = TRAJ_REF.lock().await;
+    let t = g.borrow();
+    t.as_ref().and_then(|tr| {
+        tr.states.first().map(|s| (s.x, s.y, s.yaw))
+    })
+}
+
 pub async fn led_set(on: bool) {
     let mut g = LED_SHARED.lock().await;
     if let Some(led) = g.as_mut() {
@@ -103,34 +113,6 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
     let mut ticker = Ticker::every(Duration::from_millis(
         (robot_cfg.traj_following_dt_s * 1000.0) as u64,
     ));
-    /* ============================================================================= */
-
-    /* ============================================================================= */
-    
-
-
-    /* =============== Fusion state: EKF ================= */
-    let mut fused_x: f32;
-    let mut fused_y: f32;
-    let mut fused_yaw: f32;
-
-    // Seed fused pose from mocap if available, otherwise from trajectory start.
-    let init_fresh = robotstate::get_and_clear_pose_fresh();
-    let mut ekf = if init_fresh {
-        let mocap = robotstate::read_pose().await;
-        fused_x = mocap.x;
-        fused_y = mocap.y;
-        fused_yaw = mocap.yaw;
-        info!("SD traj: initial pose from mocap ({},{},{})", fused_x, fused_y, fused_yaw);
-        crate::ekf::Ekf::default_at(fused_x, fused_y, fused_yaw)
-    } else {
-        // No mocap — use the first state from the trajectory file as initial pose.
-        fused_x = states[0].x;
-        fused_y = states[0].y;
-        fused_yaw = states[0].yaw;
-        info!("SD traj: initial pose from trajectory start ({},{},{}) (no mocap)", fused_x, fused_y, fused_yaw);
-        crate::ekf::Ekf::default_at(fused_x, fused_y, fused_yaw)
-    };
     /* ============================================================================= */
 
     /* ======================== Get precise start time ============================= */
@@ -196,21 +178,12 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
         }
         /* ========================================================================= */
 
-        /* ========================= Pose Fusion ===================================== */
-        let odom_now = robotstate::read_odom().await;
-
-        ekf.predict(odom_now.v, odom_now.w, robot_cfg.traj_following_dt_s);
-
-        let pose_is_fresh = robotstate::get_and_clear_pose_fresh();
-        if pose_is_fresh {
-            let mocap_pose = robotstate::read_pose().await;
-            ekf.update(&crate::math::Vec3::new(mocap_pose.x, mocap_pose.y, mocap_pose.yaw));
-        }
-
-        let (fx, fy, fth) = ekf.state();
-        fused_x = fx;
-        fused_y = fy;
-        fused_yaw = fth;
+        /* ========================= Read fused pose from EKF task =================== */
+        let fused = robotstate::read_ekf_state().await;
+        let fused_x = fused.x;
+        let fused_y = fused.y;
+        let fused_yaw = fused.yaw;
+        let pose_is_fresh = false; // freshness is managed by pose_estimator
         /* ========================================================================= */
 
         /* ====================== Current elapsed time ============================= */
@@ -265,13 +238,8 @@ async fn execute_trajectory_loop_with_control_from_sdcard(
             stamp: Instant::now(),
         });
 
-        // Write EKF state, setpoint, tracking error, wheel cmd to robotstate
-        robotstate::write_ekf_state(robotstate::RobotPose {
-            x: fused_x,
-            y: fused_y,
-            yaw: fused_yaw,
-            ..robotstate::RobotPose::DEFAULT
-        }).await;
+        // Write setpoint, tracking error, wheel cmd to robotstate
+        // (EKF state is written by pose_estimator task)
         robotstate::write_setpoint(robotstate::Setpoint {
             x_des: x_d,
             y_des: y_d,
@@ -533,37 +501,15 @@ async fn execute_trajectory_loop_onboard(
         (robot_cfg.traj_following_dt_s * 1000.0) as u64,
     ));
 
-    // --- Unified pose fusion state ---
-    // "Anchor" = the odometry snapshot at the moment we last received a fresh mocap pose.
-    // Between mocap updates we compute: pose = last_mocap + (odom_now - odom_anchor).
-    let mut fused_x: f32;
-    let mut fused_y: f32;
-    let mut fused_yaw: f32;
-
     // Wait a moment for first mocap/odom data to arrive
     Timer::after_millis(100).await;
 
-    // Try to get initial mocap pose; fall back to pure odometry if unavailable.
-    let pose_is_fresh = robotstate::get_and_clear_pose_fresh();
-    let mut ekf = if pose_is_fresh {
-        let mocap_pose = robotstate::read_pose().await;
-        fused_x = mocap_pose.x;
-        fused_y = mocap_pose.y;
-        fused_yaw = mocap_pose.yaw;
-        info!("Onboard traj: initial pose from mocap ({},{},{})",
-            fused_x, fused_y, fused_yaw);
-        crate::ekf::Ekf::default_at(fused_x, fused_y, fused_yaw)
-    } else {
-        fused_x = 0.0;
-        fused_y = 0.0;
-        fused_yaw = 0.0;
-        info!("Onboard traj: initial pose set to origin (no mocap)");
-        crate::ekf::Ekf::default_at_origin()
-    };
-
-    let first_pose_x = fused_x;
-    let first_pose_y = fused_y;
-    let first_pose_yaw = fused_yaw;
+    // Anchor: origin point of the trajectory.
+    // The EKF is now running independently at 200 Hz.
+    let initial_pose = robotstate::read_ekf_state().await;
+    let first_pose_x = initial_pose.x;
+    let first_pose_y = initial_pose.y;
+    let first_pose_yaw = initial_pose.yaw;
 
     let start = Instant::now();
     let mut pause_offset = Duration::from_millis(0);
@@ -619,21 +565,12 @@ async fn execute_trajectory_loop_onboard(
             break;
         }
 
-        /* =================== Pose Fusion =================== */
-        let odom_now = robotstate::read_odom().await;
-
-        ekf.predict(odom_now.v, odom_now.w, robot_cfg.traj_following_dt_s);
-
-        let pose_is_fresh = robotstate::get_and_clear_pose_fresh();
-        if pose_is_fresh {
-            let mocap_pose = robotstate::read_pose().await;
-            ekf.update(&crate::math::Vec3::new(mocap_pose.x, mocap_pose.y, mocap_pose.yaw));
-        }
-
-        let (fx, fy, fth) = ekf.state();
-        fused_x = fx;
-        fused_y = fy;
-        fused_yaw = fth;
+        /* ========================= Read fused pose from EKF task =================== */
+        let fused = robotstate::read_ekf_state().await;
+        let fused_x = fused.x;
+        let fused_y = fused.y;
+        let fused_yaw = fused.yaw;
+        let pose_is_fresh = false; // freshness is managed by pose_estimator
         /* =================================================== */
 
         let t = (Instant::now() - start) - pause_offset;
@@ -666,13 +603,8 @@ async fn execute_trajectory_loop_onboard(
             stamp: Instant::now(),
         });
 
-        // Write EKF state, setpoint, tracking error, wheel cmd to robotstate
-        robotstate::write_ekf_state(robotstate::RobotPose {
-            x: fused_x,
-            y: fused_y,
-            yaw: fused_yaw,
-            ..robotstate::RobotPose::DEFAULT
-        }).await;
+        // Write setpoint, tracking error, wheel cmd to robotstate
+        // (EKF state is written by pose_estimator task)
         robotstate::write_setpoint(robotstate::Setpoint {
             x_des: setpoint.des.x,
             y_des: setpoint.des.y,
@@ -888,32 +820,14 @@ async fn execute_trajectory_loop_onboard2(
         (robot_cfg.traj_following_dt_s * 1000.0) as u64,
     ));
 
-    let mut fused_x: f32;
-    let mut fused_y: f32;
-    let mut fused_yaw: f32;
-
     Timer::after_millis(100).await;
 
-    let pose_is_fresh = robotstate::get_and_clear_pose_fresh();
-    let mut ekf = if pose_is_fresh {
-        let mocap_pose = robotstate::read_pose().await;
-        fused_x = mocap_pose.x;
-        fused_y = mocap_pose.y;
-        fused_yaw = mocap_pose.yaw;
-        info!("Onboard traj2: initial pose from mocap ({},{},{})",
-            fused_x, fused_y, fused_yaw);
-        crate::ekf::Ekf::default_at(fused_x, fused_y, fused_yaw)
-    } else {
-        fused_x = 0.0;
-        fused_y = 0.0;
-        fused_yaw = 0.0;
-        info!("Onboard traj2: initial pose set to origin (no mocap)");
-        crate::ekf::Ekf::default_at_origin()
-    };
-
-    let first_pose_x = fused_x;
-    let first_pose_y = fused_y;
-    let first_pose_yaw = fused_yaw;
+    // Anchor: origin point of the trajectory.
+    // The EKF is now running independently at 200 Hz.
+    let initial_pose = robotstate::read_ekf_state().await;
+    let first_pose_x = initial_pose.x;
+    let first_pose_y = initial_pose.y;
+    let first_pose_yaw = initial_pose.yaw;
 
     let start = Instant::now();
     let mut pause_offset = Duration::from_millis(0);
@@ -964,21 +878,12 @@ async fn execute_trajectory_loop_onboard2(
             break;
         }
 
-        /* =================== Pose Fusion =================== */
-        let odom_now = robotstate::read_odom().await;
-
-        ekf.predict(odom_now.v, odom_now.w, robot_cfg.traj_following_dt_s);
-
-        let pose_is_fresh = robotstate::get_and_clear_pose_fresh();
-        if pose_is_fresh {
-            let mocap_pose = robotstate::read_pose().await;
-            ekf.update(&crate::math::Vec3::new(mocap_pose.x, mocap_pose.y, mocap_pose.yaw));
-        }
-
-        let (fx, fy, fth) = ekf.state();
-        fused_x = fx;
-        fused_y = fy;
-        fused_yaw = fth;
+        /* ========================= Read fused pose from EKF task =================== */
+        let fused = robotstate::read_ekf_state().await;
+        let fused_x = fused.x;
+        let fused_y = fused.y;
+        let fused_yaw = fused.yaw;
+        let pose_is_fresh = false; // freshness is managed by pose_estimator
         /* =================================================== */
 
         let t = (Instant::now() - start) - pause_offset;
@@ -1009,13 +914,8 @@ async fn execute_trajectory_loop_onboard2(
             omega_l: ul, omega_r: ur, stamp: Instant::now(),
         });
 
-        // Write EKF state, setpoint, tracking error, wheel cmd to robotstate
-        robotstate::write_ekf_state(robotstate::RobotPose {
-            x: fused_x,
-            y: fused_y,
-            yaw: fused_yaw,
-            ..robotstate::RobotPose::DEFAULT
-        }).await;
+        // Write setpoint, tracking error, wheel cmd to robotstate
+        // (EKF state is written by pose_estimator task)
         robotstate::write_setpoint(robotstate::Setpoint {
             x_des: setpoint.des.x,
             y_des: setpoint.des.y,

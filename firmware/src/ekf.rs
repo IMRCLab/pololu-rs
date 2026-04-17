@@ -130,3 +130,56 @@ impl Ekf {
         (self.x.data[0], self.x.data[1], self.x.data[2])
     }
 }
+
+// ================================== EKF TASK =================================
+
+use embassy_futures::select::{Either, select};
+use embassy_time::{Duration, Ticker};
+
+use crate::orchestrator_signal::STOP_POSE_EST_SIG;
+use crate::robotstate;
+
+/// EKF prediction dt matching the 200 Hz tick rate.
+const EKF_DT_S: f32 = 0.005;
+
+#[embassy_executor::task]
+pub async fn ekf_estimator_task() {
+    // ---- Block until orchestrator sends a valid initial pose ----
+    // The orchestrator guarantees this message is already queued before
+    // spawning this task, so we unblock immediately.
+    let init = robotstate::EKF_INIT_CH.receive().await;
+    let mut ekf = Ekf::default_at(init.x, init.y, init.yaw);
+    defmt::info!("EKF initialized at ({}, {}, {})", init.x, init.y, init.yaw);
+
+    // ---- 200 Hz tick ----
+    let mut ticker = Ticker::every(Duration::from_millis(5));
+
+    loop {
+        match select(ticker.next(), STOP_POSE_EST_SIG.wait()).await {
+            Either::Second(_) => {
+                defmt::info!("ekf_estimator_task stopped");
+                return;
+            }
+            Either::First(_) => {}
+        }
+
+        // Predict from latest odometry (v, w already filtered by inner loop)
+        let odom = robotstate::read_odom().await;
+        ekf.predict(odom.v, odom.w, EKF_DT_S);
+
+        // Correct with mocap if a fresh frame arrived
+        if robotstate::get_and_clear_pose_fresh() {
+            let mocap = robotstate::read_pose().await;
+            ekf.update(&crate::math::Vec3::new(mocap.x, mocap.y, mocap.yaw));
+        }
+
+        // Publish fused estimate to blackboard
+        let (fx, fy, fth) = ekf.state();
+        robotstate::write_ekf_state(robotstate::RobotPose {
+            x: fx,
+            y: fy,
+            yaw: fth,
+            ..robotstate::RobotPose::DEFAULT
+        }).await;
+    }
+}

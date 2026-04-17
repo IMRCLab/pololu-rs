@@ -17,6 +17,7 @@ use pololu3pi2040_rs::orchestrator_signal::{
     STOP_MOCAP_UART_SIG, STOP_MOCAP_UPDATE_SIG, STOP_MOTOR_CTRL_SIG, STOP_ODOM_SIG,
     STOP_TELEOP_UART_SIG, STOP_TRAJ_OUTER_SIG, STOP_WHEEL_INNER_SIG, TRAJ_PAUSE_SIG,
     TRAJ_RESUME_SIG, decode_functionality_select_command, STOP_LOG_SENDING_SIG,
+    STOP_POSE_EST_SIG,
 };
 use pololu3pi2040_rs::{
     buzzer::{beep_signal, buzzer_beep_task},
@@ -34,6 +35,7 @@ use pololu3pi2040_rs::{
     robotstate::TRAJECTORY_CONTROL_EVENT,
     trajectory_uart::{UartCfg, uart_motioncap_receiving_task},
     uart::{UART_RX_CHANNEL, uart_hw_task},
+    ekf::ekf_estimator_task,
 };
 use pololu3pi2040_rs::robotstate;
 
@@ -59,6 +61,27 @@ fn drain_trajectory_signals() {
     TRAJ_PAUSE_SIG.reset();
     TRAJ_RESUME_SIG.reset();
     TRAJECTORY_CONTROL_EVENT.reset();
+}
+
+async fn wait_for_ekf_init() -> robotstate::EkfInitMsg {
+    match select(
+        robotstate::MOCAP_SIG.wait(),
+        Timer::after_millis(300),
+    ).await {
+        Either::First(pose) => {
+            defmt::info!("EKF init from mocap: ({}, {}, {})", pose.x, pose.y, pose.yaw);
+            robotstate::EkfInitMsg { x: pose.x, y: pose.y, yaw: pose.yaw }
+        }
+        Either::Second(_) => {
+            if let Some((x, y, yaw)) = pololu3pi2040_rs::trajectory_control::trajectory_start_pose().await {
+                defmt::info!("EKF init from trajectory start: ({}, {}, {}) (no mocap)", x, y, yaw);
+                robotstate::EkfInitMsg { x, y, yaw }
+            } else {
+                defmt::warn!("EKF init fallback to origin (0,0,0)");
+                robotstate::EkfInitMsg { x: 0.0, y: 0.0, yaw: 0.0 }
+            }
+        }
+    }
 }
 
 #[embassy_executor::main]
@@ -279,6 +302,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         STOP_TRAJ_OUTER_SIG.signal(());
                         STOP_ODOM_SIG.signal(());
                         STOP_LOG_SENDING_SIG.signal(());
+                        STOP_POSE_EST_SIG.signal(());
 
                         Timer::after(Duration::from_millis(40)).await;
 
@@ -290,6 +314,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         drain_signal(&STOP_TRAJ_OUTER_SIG, 2).await;
                         drain_signal(&STOP_ODOM_SIG, 2).await;
                         drain_signal(&STOP_LOG_SENDING_SIG, 2).await;
+                        drain_signal(&STOP_POSE_EST_SIG, 2).await;
                     }
                 }
 
@@ -368,6 +393,13 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                                 devices.config,
                             ))
                             .is_ok();
+
+                        // EKF Init Wait Block
+                        let init_msg = wait_for_ekf_init().await;
+                        while robotstate::EKF_INIT_CH.try_receive().is_ok() {} // drain stale
+                        let _ = robotstate::EKF_INIT_CH.try_send(init_msg);
+                        let ekf_ok = spawner.spawn(ekf_estimator_task()).is_ok();
+
                         let outer_ok = spawner
                             .spawn(
                                 diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
@@ -376,9 +408,9 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             )
                             .is_ok();
 
-                        if uart_ok && mocap_ok && odo_ok && inner_ok && outer_ok {
+                        if uart_ok && mocap_ok && odo_ok && inner_ok && ekf_ok && outer_ok {
                             beep_signal(b'M');
-                            defmt::info!("TrajMocap: All tasks active (Uart, Mocap, Odo, Inner, Outer)");
+                            defmt::info!("TrajMocap: All tasks active (Uart, Mocap, Odo, Inner, Ekf, Outer)");
                         }
                         spawner.spawn(uart_log_sending_task(cfg.robot_id, 50)).unwrap();
                     }
@@ -432,14 +464,21 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                                 devices.config,
                             ))
                             .is_ok();
+
+                        // EKF Init Wait Block
+                        let init_msg = wait_for_ekf_init().await;
+                        while robotstate::EKF_INIT_CH.try_receive().is_ok() {} // drain stale
+                        let _ = robotstate::EKF_INIT_CH.try_send(init_msg);
+                        let ekf_ok = spawner.spawn(ekf_estimator_task()).is_ok();
+
                         let outer_ok = spawner
                             .spawn(diffdrive_outer_loop_onboard_traj(
                                 devices.config,
                             ))
                             .is_ok();
-                        if uart_ok && mocap_ok && odo_ok && inner_ok && outer_ok {
+                        if uart_ok && mocap_ok && odo_ok && inner_ok && ekf_ok && outer_ok {
                             beep_signal(b'F');
-                            defmt::info!("TrajOnboard: All tasks active (Uart, Mocap, Odo, Inner, Outer)");
+                            defmt::info!("TrajOnboard: All tasks active (Uart, Mocap, Odo, Inner, Ekf, Outer)");
                         }
                         spawner.spawn(uart_log_sending_task(cfg.robot_id, 50)).unwrap();
                     }
@@ -463,15 +502,22 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                                 devices.config,
                             ))
                             .is_ok();
+
+                        // EKF Init Wait Block
+                        let init_msg = wait_for_ekf_init().await;
+                        while robotstate::EKF_INIT_CH.try_receive().is_ok() {} // drain stale
+                        let _ = robotstate::EKF_INIT_CH.try_send(init_msg);
+                        let ekf_ok = spawner.spawn(ekf_estimator_task()).is_ok();
+
                         let outer_ok = spawner
                             .spawn(diffdrive_outer_loop_onboard_traj2(
                                 devices.config,
                             ))
                             .is_ok();
 
-                        if uart_ok && mocap_ok && odo_ok && inner_ok && outer_ok {
+                        if uart_ok && mocap_ok && odo_ok && inner_ok && ekf_ok && outer_ok {
                             beep_signal(b'G');
-                            defmt::info!("TrajOnboard2: All tasks active (Uart, Mocap, Odo, Inner, Outer)");
+                            defmt::info!("TrajOnboard2: All tasks active (Uart, Mocap, Odo, Inner, Ekf, Outer)");
                         }
                         spawner.spawn(uart_log_sending_task(cfg.robot_id, 50)).unwrap();
                     }
