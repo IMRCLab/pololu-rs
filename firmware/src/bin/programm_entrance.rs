@@ -13,31 +13,30 @@ use heapless::Vec as HVec;
 
 use pololu3pi2040_rs::init::{self, init_all};
 use pololu3pi2040_rs::orchestrator_signal::{
-    FRAME_MAX, LEN_FUNC_SELECT_CMD, Mode, ORCH_CH, OrchestratorMsg, STOP_MENU_UART_SIG,
-    STOP_MOCAP_UART_SIG, STOP_MOCAP_UPDATE_SIG, STOP_MOTOR_CTRL_SIG, STOP_ODOM_SIG,
-    STOP_TELEOP_UART_SIG, STOP_TRAJ_OUTER_SIG, STOP_WHEEL_INNER_SIG, TRAJ_PAUSE_SIG,
-    TRAJ_RESUME_SIG, decode_functionality_select_command, STOP_LOG_SENDING_SIG,
-    STOP_POSE_EST_SIG,
+    FRAME_MAX, LEN_FUNC_SELECT_CMD, Mode, ORCH_CH, OrchestratorMsg, STOP_LOG_SENDING_SIG,
+    STOP_MENU_UART_SIG, STOP_MOCAP_UART_SIG, STOP_MOCAP_UPDATE_SIG, STOP_MOTOR_CTRL_SIG,
+    STOP_ODOM_SIG, STOP_POSE_EST_SIG, STOP_TELEOP_UART_SIG, STOP_TRAJ_OUTER_SIG,
+    STOP_WHEEL_INNER_SIG, TRAJ_PAUSE_SIG, TRAJ_RESUME_SIG, decode_functionality_select_command,
 };
+use pololu3pi2040_rs::robotstate;
 use pololu3pi2040_rs::{
     buzzer::{beep_signal, buzzer_beep_task},
+    ekf::ekf_estimator_task,
     encoder::{EncoderPair, encoder_left_task, encoder_right_task},
+    inner_controller::wheel_speed_inner_loop,
     joystick_control::{control_action_uart_task, teleop_motor_control_task, teleop_uart_task},
     led::LED_SHARED,
     odometry::odometry_task,
+    robotstate::TRAJECTORY_CONTROL_EVENT,
+    robotstate::uart_log_sending_task,
     sdlog::SDLOGGER_SHARED,
     trajectory_control::{
         diffdrive_outer_loop_command_controlled_traj_following_from_sdcard,
         diffdrive_outer_loop_onboard_traj, diffdrive_outer_loop_onboard_traj2, mocap_update_task,
     },
-    inner_controller::wheel_speed_inner_loop,
-    robotstate::uart_log_sending_task,
-    robotstate::TRAJECTORY_CONTROL_EVENT,
     trajectory_uart::{UartCfg, uart_motioncap_receiving_task},
     uart::{UART_RX_CHANNEL, uart_hw_task},
-    ekf::ekf_estimator_task,
 };
-use pololu3pi2040_rs::robotstate;
 
 /// Drain any stale bytes from the UART RX channel.
 /// Called between stopping old tasks and spawning new ones so that
@@ -64,21 +63,38 @@ fn drain_trajectory_signals() {
 }
 
 async fn wait_for_ekf_init() -> robotstate::EkfInitMsg {
-    match select(
-        robotstate::MOCAP_SIG.wait(),
-        Timer::after_millis(300),
-    ).await {
+    match select(robotstate::MOCAP_SIG.wait(), Timer::after_millis(300)).await {
         Either::First(pose) => {
-            defmt::info!("EKF init from mocap: ({}, {}, {})", pose.x, pose.y, pose.yaw);
-            robotstate::EkfInitMsg { x: pose.x, y: pose.y, yaw: pose.yaw }
+            defmt::info!(
+                "EKF init from mocap: ({}, {}, {})",
+                pose.x,
+                pose.y,
+                pose.yaw
+            );
+            robotstate::EkfInitMsg {
+                x: pose.x,
+                y: pose.y,
+                yaw: pose.yaw,
+            }
         }
         Either::Second(_) => {
-            if let Some((x, y, yaw)) = pololu3pi2040_rs::trajectory_control::trajectory_start_pose().await {
-                defmt::info!("EKF init from trajectory start: ({}, {}, {}) (no mocap)", x, y, yaw);
+            if let Some((x, y, yaw)) =
+                pololu3pi2040_rs::trajectory_control::trajectory_start_pose().await
+            {
+                defmt::info!(
+                    "EKF init from trajectory start: ({}, {}, {}) (no mocap)",
+                    x,
+                    y,
+                    yaw
+                );
                 robotstate::EkfInitMsg { x, y, yaw }
             } else {
                 defmt::warn!("EKF init fallback to origin (0,0,0)");
-                robotstate::EkfInitMsg { x: 0.0, y: 0.0, yaw: 0.0 }
+                robotstate::EkfInitMsg {
+                    x: 0.0,
+                    y: 0.0,
+                    yaw: 0.0,
+                }
             }
         }
     }
@@ -104,8 +120,6 @@ async fn main(spawner: Spawner) {
     } else {
         defmt::warn!("No SD card / SdLogger disabled, skip logging");
     }
-
-
 
     spawner
         .spawn(orchestrator(spawner, devices, UartCfg { robot_id: 10 }))
@@ -197,8 +211,11 @@ pub async fn functionality_mode_selection_uart_task(cfg: UartCfg) {
         }
 
         if len == 8 {
-            if let Some(req) = pololu3pi2040_rs::parameter_sync::ParameterWriteRequest::from_bytes(&frame) {
-                pololu3pi2040_rs::parameter_sync::handle_parameter_write(req.param_id, req.value).await;
+            if let Some(req) =
+                pololu3pi2040_rs::parameter_sync::ParameterWriteRequest::from_bytes(&frame)
+            {
+                pololu3pi2040_rs::parameter_sync::handle_parameter_write(req.param_id, req.value)
+                    .await;
             }
             continue;
         }
@@ -343,7 +360,9 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                                 defmt::warn!("Menu task already running or failed to spawn");
                             }
                         }
-                        spawner.spawn(uart_log_sending_task(cfg.robot_id, 100)).unwrap();
+                        spawner
+                            .spawn(uart_log_sending_task(cfg.robot_id, 100))
+                            .unwrap();
                     }
                     Mode::TeleOp => {
                         defmt::info!("TELE-OPERATION Mode is selected!!!!!");
@@ -371,7 +390,9 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             beep_signal(b'T');
                             defmt::info!("TeleOp: UART and Motor tasks active");
                         }
-                        spawner.spawn(uart_log_sending_task(cfg.robot_id, 50)).unwrap();
+                        spawner
+                            .spawn(uart_log_sending_task(cfg.robot_id, 50))
+                            .unwrap();
                     }
                     Mode::TrajMocap => {
                         defmt::info!("TRAJ-FOLLOWING Mode (With Mocap) is selected!!!!!");
@@ -410,9 +431,13 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
 
                         if uart_ok && mocap_ok && odo_ok && inner_ok && ekf_ok && outer_ok {
                             beep_signal(b'M');
-                            defmt::info!("TrajMocap: All tasks active (Uart, Mocap, Odo, Inner, Ekf, Outer)");
+                            defmt::info!(
+                                "TrajMocap: All tasks active (Uart, Mocap, Odo, Inner, Ekf, Outer)"
+                            );
                         }
-                        spawner.spawn(uart_log_sending_task(cfg.robot_id, 50)).unwrap();
+                        spawner
+                            .spawn(uart_log_sending_task(cfg.robot_id, 50))
+                            .unwrap();
                     }
                     Mode::CtrlAction => {
                         defmt::info!("CONTROL-ACTION Mode is selected!!!!!");
@@ -442,7 +467,9 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             beep_signal(b'A');
                             defmt::info!("CtrlAction: UART and Motor tasks active");
                         }
-                        spawner.spawn(uart_log_sending_task(cfg.robot_id, 50)).unwrap();
+                        spawner
+                            .spawn(uart_log_sending_task(cfg.robot_id, 50))
+                            .unwrap();
                     }
                     Mode::TrajOnboard => {
                         defmt::info!("ONBOARD-TRAJ Mode (figure-8 etc.) is selected!!!!!");
@@ -472,15 +499,17 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         let ekf_ok = spawner.spawn(ekf_estimator_task()).is_ok();
 
                         let outer_ok = spawner
-                            .spawn(diffdrive_outer_loop_onboard_traj(
-                                devices.config,
-                            ))
+                            .spawn(diffdrive_outer_loop_onboard_traj(devices.config))
                             .is_ok();
                         if uart_ok && mocap_ok && odo_ok && inner_ok && ekf_ok && outer_ok {
                             beep_signal(b'F');
-                            defmt::info!("TrajOnboard: All tasks active (Uart, Mocap, Odo, Inner, Ekf, Outer)");
+                            defmt::info!(
+                                "TrajOnboard: All tasks active (Uart, Mocap, Odo, Inner, Ekf, Outer)"
+                            );
                         }
-                        spawner.spawn(uart_log_sending_task(cfg.robot_id, 50)).unwrap();
+                        spawner
+                            .spawn(uart_log_sending_task(cfg.robot_id, 50))
+                            .unwrap();
                     }
                     Mode::TrajOnboard2 => {
                         defmt::info!("ONBOARD-TRAJ-2 Mode (demo) is selected!!!!!");
@@ -510,16 +539,18 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         let ekf_ok = spawner.spawn(ekf_estimator_task()).is_ok();
 
                         let outer_ok = spawner
-                            .spawn(diffdrive_outer_loop_onboard_traj2(
-                                devices.config,
-                            ))
+                            .spawn(diffdrive_outer_loop_onboard_traj2(devices.config))
                             .is_ok();
 
                         if uart_ok && mocap_ok && odo_ok && inner_ok && ekf_ok && outer_ok {
                             beep_signal(b'G');
-                            defmt::info!("TrajOnboard2: All tasks active (Uart, Mocap, Odo, Inner, Ekf, Outer)");
+                            defmt::info!(
+                                "TrajOnboard2: All tasks active (Uart, Mocap, Odo, Inner, Ekf, Outer)"
+                            );
                         }
-                        spawner.spawn(uart_log_sending_task(cfg.robot_id, 50)).unwrap();
+                        spawner
+                            .spawn(uart_log_sending_task(cfg.robot_id, 50))
+                            .unwrap();
                     }
                 }
                 mode = target;

@@ -4,7 +4,8 @@
 //! Prediction: unicycle kinematics using body-frame (v, ω)
 //! Update: absolute pose measurement (e.g. motion capture) with H = I₃
 
-use crate::math::{wrap_angle, Mat3, Vec3};
+use crate::math::{Mat3, Vec3, wrap_angle};
+use embassy_time::Instant;
 use libm::{cosf, sinf};
 
 // ================================== EKF ======================================
@@ -29,22 +30,17 @@ pub struct Ekf {
 impl Ekf {
     /// Create a new EKF with the given initial state and noise matrices.
     pub fn new(x0: Vec3, p0: Mat3, q: Mat3, r: Mat3) -> Self {
-        Self {
-            x: x0,
-            p: p0,
-            q,
-            r,
-        }
+        Self { x: x0, p: p0, q, r }
     }
 
-    /// Create a default EKF initialized at the origin 
-    
+    /// Create a default EKF initialized at the origin
+
     pub fn default_at_origin() -> Self {
         Self {
             x: Vec3::zero(),
-            p: Mat3::diag(1.0, 1.0, 1.0),           // large initial uncertainty
-            q: Mat3::diag(0.001, 0.001, 0.01),       // process noise (encoders), theta is worse
-            r: Mat3::diag(0.0001, 0.0001, 0.001),    // measurement noise (mocap)
+            p: Mat3::diag(1.0, 1.0, 1.0), // large initial uncertainty
+            q: Mat3::diag(0.001, 0.001, 0.01), // process noise (encoders), theta is worse
+            r: Mat3::diag(0.0001, 0.0001, 0.001), // measurement noise (mocap)
         }
     }
 
@@ -139,20 +135,28 @@ use embassy_time::{Duration, Ticker};
 use crate::orchestrator_signal::STOP_POSE_EST_SIG;
 use crate::robotstate;
 
-/// EKF prediction dt matching the 200 Hz tick rate.
-const EKF_DT_S: f32 = 0.005;
+/// EKF prediction dt matching the 100 Hz tick rate.
+const EKF_DT_S: f32 = 0.01;
 
 #[embassy_executor::task]
 pub async fn ekf_estimator_task() {
     // ---- Block until orchestrator sends a valid initial pose ----
-    // The orchestrator guarantees this message is already queued before
-    // spawning this task, so we unblock immediately.
     let init = robotstate::EKF_INIT_CH.receive().await;
     let mut ekf = Ekf::default_at(init.x, init.y, init.yaw);
-    defmt::info!("EKF initialized at ({}, {}, {})", init.x, init.y, init.yaw);
+    defmt::info!("EKF initialized at ({}, {}, {}) at 100 Hz", init.x, init.y, init.yaw);
 
-    // ---- 200 Hz tick ----
-    let mut ticker = Ticker::every(Duration::from_millis(5));
+    // Publish initial estimate immediately so outer loops don't snapshot (0,0,0)
+    robotstate::write_ekf_state(robotstate::RobotPose {
+        x: init.x,
+        y: init.y,
+        yaw: init.yaw,
+        stamp: Instant::now(),
+        ..robotstate::RobotPose::DEFAULT
+    })
+    .await;
+
+    // ---- 100 Hz tick ----
+    let mut ticker = Ticker::every(Duration::from_millis(10));
 
     loop {
         match select(ticker.next(), STOP_POSE_EST_SIG.wait()).await {
@@ -179,7 +183,9 @@ pub async fn ekf_estimator_task() {
             x: fx,
             y: fy,
             yaw: fth,
+            stamp: Instant::now(),
             ..robotstate::RobotPose::DEFAULT
-        }).await;
+        })
+        .await;
     }
 }

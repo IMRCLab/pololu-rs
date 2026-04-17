@@ -501,8 +501,8 @@ async fn execute_trajectory_loop_onboard(
         (robot_cfg.traj_following_dt_s * 1000.0) as u64,
     ));
 
-    // Wait a moment for first mocap/odom data to arrive
-    Timer::after_millis(100).await;
+    // Wait a moment for first mocap/odom data to arrive AND for EKF task to publish first state
+    Timer::after_millis(120).await;
 
     // Anchor: origin point of the trajectory.
     // The EKF is now running independently at 200 Hz.
@@ -820,7 +820,7 @@ async fn execute_trajectory_loop_onboard2(
         (robot_cfg.traj_following_dt_s * 1000.0) as u64,
     ));
 
-    Timer::after_millis(100).await;
+    Timer::after_millis(120).await;
 
     // Anchor: origin point of the trajectory.
     // The EKF is now running independently at 200 Hz.
@@ -1154,7 +1154,7 @@ pub async fn diffdrive_outer_loop(
     defmt::info!("csv header written");
 
     /* ================ Record First Pose w.r.t the selected mode ================== */
-    Timer::after_millis(100).await; // has to wait until the first poses comes
+    Timer::after_millis(120).await; // allow EKF to publish first state
     // Direct MoCap feedback for this legacy task
     let first_pose = robotstate::read_pose().await;
     /* ============================================================================= */
