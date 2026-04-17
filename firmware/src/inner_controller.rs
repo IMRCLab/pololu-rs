@@ -7,6 +7,9 @@ use embassy_futures::select::{select, select3, Either, Either3};
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Instant, Ticker};
+use portable_atomic::{AtomicU32, Ordering};
+
+static INNER_LOOP_TICK: AtomicU32 = AtomicU32::new(0);
 
 #[embassy_executor::task]
 pub async fn wheel_speed_inner_loop(
@@ -77,6 +80,7 @@ pub async fn wheel_speed_inner_loop(
         }
 
         while let Ok(cmd) = WHEEL_CMD_CH.try_receive() {
+            // defmt::info!("Inner Loop: New WheelCmd received (L:{}, R:{})", cmd.omega_l, cmd.omega_r);
             last_cmd = cmd; // drain the channel
         }
 
@@ -130,5 +134,11 @@ pub async fn wheel_speed_inner_loop(
             omega_r: omega_r_lp,
             stamp: Instant::now(),
         }).await;
+
+        let n = INNER_LOOP_TICK.fetch_add(1, Ordering::Relaxed);
+        if n % 100 == 0 {
+            defmt::info!("InnerLoop [{}]: Target=(L:{}, R:{}), Duty=(L:{}, R:{})", 
+                n, last_cmd.omega_l, last_cmd.omega_r, duty_l, duty_r);
+        }
     }
 }

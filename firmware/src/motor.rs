@@ -24,6 +24,11 @@ impl<'a> Motor<'a> {
             self.dir.set_low();
         }
         let duty = (clamped.abs() * self.top as f32) as u16;
+        /*
+        if duty > 0 {
+            defmt::info!("Hardware Motor: duty={}, dir={}", duty, clamped >= 0.0);
+        }
+        */
         self.pwm.set_duty_cycle(duty).unwrap();
     }
 }

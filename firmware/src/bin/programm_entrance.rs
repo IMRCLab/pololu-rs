@@ -234,7 +234,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
         let msg = ORCH_CH.receive().await;
         match msg {
             OrchestratorMsg::SwitchTo(target) => {
-                defmt::info!("Orchestrator received mode switch request");
+                defmt::info!("Orchestrator: {} -> {}", mode, target);
 
                 if target == mode {
                     info!("Already in target mode, ignoring");
@@ -344,6 +344,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
 
                         if uart_ok && motor_ok {
                             beep_signal(b'T');
+                            defmt::info!("TeleOp: UART and Motor tasks active");
                         }
                         spawner.spawn(uart_log_sending_task(cfg.robot_id, 50)).unwrap();
                     }
@@ -377,6 +378,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
 
                         if uart_ok && mocap_ok && odo_ok && inner_ok && outer_ok {
                             beep_signal(b'M');
+                            defmt::info!("TrajMocap: All tasks active (Uart, Mocap, Odo, Inner, Outer)");
                         }
                         spawner.spawn(uart_log_sending_task(cfg.robot_id, 50)).unwrap();
                     }
@@ -406,6 +408,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
 
                         if uart_ok && teleop_ok {
                             beep_signal(b'A');
+                            defmt::info!("CtrlAction: UART and Motor tasks active");
                         }
                         spawner.spawn(uart_log_sending_task(cfg.robot_id, 50)).unwrap();
                     }
@@ -436,6 +439,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             .is_ok();
                         if uart_ok && mocap_ok && odo_ok && inner_ok && outer_ok {
                             beep_signal(b'F');
+                            defmt::info!("TrajOnboard: All tasks active (Uart, Mocap, Odo, Inner, Outer)");
                         }
                         spawner.spawn(uart_log_sending_task(cfg.robot_id, 50)).unwrap();
                     }
@@ -467,6 +471,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
 
                         if uart_ok && mocap_ok && odo_ok && inner_ok && outer_ok {
                             beep_signal(b'G');
+                            defmt::info!("TrajOnboard2: All tasks active (Uart, Mocap, Odo, Inner, Outer)");
                         }
                         spawner.spawn(uart_log_sending_task(cfg.robot_id, 50)).unwrap();
                     }

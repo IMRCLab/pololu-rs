@@ -129,6 +129,13 @@ pub async fn teleop_motor_control_task(
         let duty_l = u_l * robot_cfg.motor_direction_left;
         let duty_r = u_r * robot_cfg.motor_direction_right;
 
+        /*
+        if v.abs() > 0.001 || omega.abs() > 0.001 {
+            defmt::info!("Teleop: Cmd=(v:{}, ω:{}) -> TargetWheel=(L:{}, R:{}) -> Duty=(L:{}, R:{})", 
+                v, omega, omega_l_target, omega_r_target, duty_l, duty_r);
+        }
+        */
+
         motor.set_speed(duty_l, duty_r).await;
 
         Timer::after(Duration::from_millis(robot_cfg.joystick_control_dt_ms)).await;
@@ -163,7 +170,7 @@ pub async fn teleop_uart_task(cfg: UartCfg) {
         };
 
         // let len = len_buf[0];
-        defmt::debug!("teleop uart: len={}", len);
+        // defmt::debug!("teleop uart: len={}", len);
         if !(len == TELEOP_PACK_LEN || len == LEN_FUNC_SELECT_CMD || len == 8) {
             // Unknown length — wait for remaining payload bytes to arrive
             // then drain them so they don't corrupt framing of the next packet.
@@ -233,12 +240,13 @@ pub async fn teleop_uart_task(cfg: UartCfg) {
                 };
 
                 robotstate::write_unicycle_cmd(cmd).await;
-                defmt::info!("teleop: v={}, omega={}", cmd.v, cmd.omega);
+                // defmt::info!("teleop: v={}, omega={}", cmd.v, cmd.omega);
             }
         }
 
         if len == LEN_FUNC_SELECT_CMD {
             if let Some(sel) = decode_functionality_select_command(&frame, cfg.robot_id) {
+                defmt::info!("teleop: mode switch decoded -> sel={}", sel);
                 let target = match sel {
                     0 => Mode::Menu,
                     1 => Mode::TeleOp,

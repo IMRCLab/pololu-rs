@@ -431,6 +431,7 @@ pub async fn diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
                 if !start {
                     continue;
                 }
+                defmt::info!("Outer loop: TRAJ_RESUME_SIG received!");
                 defmt::info!("Starting trajectory!");
                 led_set(true).await;
             }

@@ -70,7 +70,7 @@ pub async fn uart_motioncap_receiving_task(cfg: UartCfg) {
         frame.clear();
         let need = len as usize;
         let mut got = 0usize;
-        defmt::info!("mocap uart: reading payload for len={}", len);
+        // defmt::info!("mocap uart: reading payload for len={}", len);
 
         while got < need {
             let read_byte_fut = UART_RX_CHANNEL.receive();
