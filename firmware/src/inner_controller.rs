@@ -92,7 +92,7 @@ pub async fn wheel_speed_inner_loop(
             prev_l,
             prev_r,
             dt,
-        );
+        ).await;
         prev_l = ln;
         prev_r = rn;
 

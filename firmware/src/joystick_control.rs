@@ -98,7 +98,7 @@ pub async fn teleop_motor_control_task(
             prev_l,
             prev_r,
             dt,
-        );
+        ).await;
         prev_l = ln;
         prev_r = rn;
 

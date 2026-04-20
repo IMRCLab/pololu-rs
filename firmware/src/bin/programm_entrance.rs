@@ -419,7 +419,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         let init_msg = wait_for_ekf_init().await;
                         while robotstate::EKF_INIT_CH.try_receive().is_ok() {} // drain stale
                         let _ = robotstate::EKF_INIT_CH.try_send(init_msg);
-                        let ekf_ok = spawner.spawn(ekf_estimator_task()).is_ok();
+                        let ekf_ok = spawner.spawn(ekf_estimator_task(devices.config)).is_ok();
 
                         let outer_ok = spawner
                             .spawn(
@@ -496,7 +496,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         let init_msg = wait_for_ekf_init().await;
                         while robotstate::EKF_INIT_CH.try_receive().is_ok() {} // drain stale
                         let _ = robotstate::EKF_INIT_CH.try_send(init_msg);
-                        let ekf_ok = spawner.spawn(ekf_estimator_task()).is_ok();
+                        let ekf_ok = spawner.spawn(ekf_estimator_task(devices.config)).is_ok();
 
                         let outer_ok = spawner
                             .spawn(diffdrive_outer_loop_onboard_traj(devices.config))
@@ -536,7 +536,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         let init_msg = wait_for_ekf_init().await;
                         while robotstate::EKF_INIT_CH.try_receive().is_ok() {} // drain stale
                         let _ = robotstate::EKF_INIT_CH.try_send(init_msg);
-                        let ekf_ok = spawner.spawn(ekf_estimator_task()).is_ok();
+                        let ekf_ok = spawner.spawn(ekf_estimator_task(devices.config)).is_ok();
 
                         let outer_ok = spawner
                             .spawn(diffdrive_outer_loop_onboard_traj2(devices.config))

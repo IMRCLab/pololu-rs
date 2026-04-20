@@ -5,6 +5,7 @@
 //! Update: absolute pose measurement (e.g. motion capture) with H = I₃
 
 use crate::math::{Mat3, Vec3, wrap_angle};
+use crate::read_robot_config_from_sd::RobotConfig;
 use embassy_time::Instant;
 use libm::{cosf, sinf};
 
@@ -135,11 +136,10 @@ use embassy_time::{Duration, Ticker};
 use crate::orchestrator_signal::STOP_POSE_EST_SIG;
 use crate::robotstate;
 
-/// EKF prediction dt matching the 100 Hz tick rate.
-const EKF_DT_S: f32 = 0.01;
 
 #[embassy_executor::task]
-pub async fn ekf_estimator_task() {
+pub async fn ekf_estimator_task(cfg: Option<RobotConfig>) {
+    let robot_cfg = cfg.unwrap_or_default();
     // ---- Block until orchestrator sends a valid initial pose ----
     let init = robotstate::EKF_INIT_CH.receive().await;
     let mut ekf = Ekf::default_at(init.x, init.y, init.yaw);
@@ -157,6 +157,7 @@ pub async fn ekf_estimator_task() {
 
     // ---- 100 Hz tick ----
     let mut ticker = Ticker::every(Duration::from_millis(10));
+    let mut last_tick = Instant::now();
 
     loop {
         match select(ticker.next(), STOP_POSE_EST_SIG.wait()).await {
@@ -167,9 +168,21 @@ pub async fn ekf_estimator_task() {
             Either::First(_) => {}
         }
 
-        // Predict from latest odometry (v, w already filtered by inner loop)
-        let odom = robotstate::read_odom().await;
-        ekf.predict(odom.v, odom.w, EKF_DT_S);
+        // Measure actual elapsed time to account for scheduler jitter.
+        // Clamped to [5 ms, 50 ms] to guard against stale-data integration
+        // if the task is delayed by UART logging or SD writes.
+        let now = Instant::now();
+        let dt = (now.duration_since(last_tick).as_micros() as f32 / 1_000_000.0)
+            .clamp(0.005, 0.050);
+        last_tick = now;
+
+        // Read LPF-filtered wheel speeds from the inner loop (ENCODER mutex).
+        // These are smoothed by a 3 Hz low-pass filter — far less noisy than
+        // raw encoder deltas from ODOM_STATE, especially at low speeds.
+        let enc = robotstate::read_encoder().await;
+        let v = robot_cfg.wheel_radius * (enc.omega_r + enc.omega_l) / 2.0;
+        let w = robot_cfg.wheel_radius * (enc.omega_r - enc.omega_l) / robot_cfg.wheel_base;
+        ekf.predict(v, w, dt);
 
         // Correct with mocap if a fresh frame arrived
         if robotstate::get_and_clear_pose_fresh() {

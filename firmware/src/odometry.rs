@@ -47,8 +47,10 @@ pub async fn odometry_task(
 
     let dt: f32 = 0.01; // 10 ms
     let mut ticker = Ticker::every(Duration::from_millis(10));
-    let mut prev_l: i32 = { *left_counter.try_lock().as_deref().unwrap_or(&0) };
-    let mut prev_r: i32 = { *right_counter.try_lock().as_deref().unwrap_or(&0) };
+    // Use lock().await to guarantee a valid starting count (try_lock could return 0
+    // if the encoder task holds the mutex, causing a spurious spike on the first tick).
+    let mut prev_l: i32 = *left_counter.lock().await;
+    let mut prev_r: i32 = *right_counter.lock().await;
     let mut odom = OdometryData::new();
 
     info!(
@@ -73,7 +75,7 @@ pub async fn odometry_task(
             prev_l,
             prev_r,
             dt,
-        );
+        ).await;
         prev_l = ln;
         prev_r = rn;
 
