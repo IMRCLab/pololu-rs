@@ -31,6 +31,22 @@ const MAX_VOLUMES: usize = 1;
 
 pub static SDLOGGER_SHARED: Mutex<Raw, Option<SdLogger>> = Mutex::new(None);
 
+/// Convenience helper to run a closure with the shared SD logger.
+/// Returns `None` if no SD card / logger is available.
+/// Moved from trajectory_control.rs to consolidate logging logic.
+pub async fn with_sdlogger<F, R>(f: F) -> Option<R>
+where
+    F: FnOnce(&mut SdLogger) -> R,
+{
+    let mut g = SDLOGGER_SHARED.lock().await;
+    if let Some(l) = g.as_mut() {
+        Some(f(l))
+    } else {
+        defmt::warn!("SdLogger not available; skip.");
+        None
+    }
+}
+
 // === Time Resources ===
 pub struct DummyClock;
 impl TimeSource for DummyClock {

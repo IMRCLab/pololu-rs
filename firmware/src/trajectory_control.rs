@@ -18,8 +18,7 @@ use crate::led::{self};
 use crate::motor::MotorController;
 use crate::read_robot_config_from_sd::RobotConfig;
 use crate::robot_parameters_default::robot_constants::*;
-use crate::led::LED_SHARED;
-use crate::sdlog::{SdLogger, TrajControlLog, SDLOGGER_SHARED};
+use crate::sdlog::{SdLogger, TrajControlLog};
 use crate::trajectory_reading::{Action, Pose, Trajectory};
 use crate::robotstate::{
     MOCAP_SIG as STATE_SIG, TRAJECTORY_CONTROL_EVENT, WHEEL_CMD_CH, WheelCmd,
@@ -27,9 +26,10 @@ use crate::robotstate::{
 
 use crate::robotstate;
 
-use portable_atomic::{AtomicBool, Ordering};
+use portable_atomic::Ordering;
 
-pub static STOP_ALL: AtomicBool = AtomicBool::new(false);
+// Re-export from orchestrator_signal (moved in Step 0a)
+pub use crate::orchestrator_signal::STOP_ALL;
 
 // =============================== Save Trajectory ================================
 static TRAJ_REF: Mutex<ThreadModeRawMutex, RefCell<Option<&'static Trajectory>>> =
@@ -59,27 +59,11 @@ pub async fn trajectory_start_pose() -> Option<(f32, f32, f32)> {
     })
 }
 
-pub async fn led_set(on: bool) {
-    let mut g = LED_SHARED.lock().await;
-    if let Some(led) = g.as_mut() {
-        if on { led.on(); } else { led.off(); }
-    } else {
-        defmt::warn!("LED not available; skip.");
-    }
-}
+// Re-export from led.rs (moved in Step 0a)
+pub use crate::led::led_set;
 
-pub async fn with_sdlogger<F, R>(f: F) -> Option<R>
-where
-    F: FnOnce(&mut SdLogger) -> R
-{
-    let mut g = SDLOGGER_SHARED.lock().await;
-    if let Some(l) = g.as_mut() {
-        Some(f(l))
-    } else {
-        defmt::warn!("SdLogger not available; skip.");
-        None
-    }
-}
+// Re-export from sdlog.rs (moved in Step 0a)
+pub use crate::sdlog::with_sdlogger;
 
 
 // ====================== TODO: ===========================
@@ -419,7 +403,7 @@ pub async fn diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
                         }
                         Either::Second(_) => {
                             defmt::warn!("STOP outer loop (idle) -> exit");
-                            robostate::stop_motors().await;
+                            robotstate::stop_motors();
                             return;
                         }
                     }
