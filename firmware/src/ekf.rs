@@ -176,13 +176,11 @@ pub async fn ekf_estimator_task(cfg: Option<RobotConfig>) {
             .clamp(0.005, 0.050);
         last_tick = now;
 
-        // Read LPF-filtered wheel speeds from the inner loop (ENCODER mutex).
-        // These are smoothed by a 3 Hz low-pass filter — far less noisy than
-        // raw encoder deltas from ODOM_STATE, especially at low speeds.
-        let enc = robotstate::read_encoder().await;
-        let v = robot_cfg.wheel_radius * (enc.omega_r + enc.omega_l) / 2.0;
-        let w = robot_cfg.wheel_radius * (enc.omega_r - enc.omega_l) / robot_cfg.wheel_base;
-        ekf.predict(v, w, dt);
+        // Read fresh body-frame velocities from odometry_task (ODOM_STATE).
+        // v and w are computed from raw Δcount/dt every 10 ms — no LPF lag.
+        // This mirrors the compare/main branch which also uses odom.v/w.
+        let odom = robotstate::read_odom().await;
+        ekf.predict(odom.v, odom.w, dt);
 
         // Correct with mocap if a fresh frame arrived
         if robotstate::get_and_clear_pose_fresh() {

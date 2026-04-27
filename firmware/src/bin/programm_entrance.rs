@@ -60,6 +60,8 @@ fn drain_trajectory_signals() {
     TRAJ_PAUSE_SIG.reset();
     TRAJ_RESUME_SIG.reset();
     TRAJECTORY_CONTROL_EVENT.reset();
+    // Reset so a stale signal doesn't kill the next EKF task on its first select() poll.
+    STOP_POSE_EST_SIG.reset();
 }
 
 async fn wait_for_ekf_init() -> robotstate::EkfInitMsg {
@@ -321,7 +323,9 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         STOP_LOG_SENDING_SIG.signal(());
                         STOP_POSE_EST_SIG.signal(());
 
-                        Timer::after(Duration::from_millis(40)).await;
+                        // 100 ms gives >=10 EKF cycles (10 ms each) -- enough time
+                        // for the task to exit even if blocked inside a mutex.
+                        Timer::after(Duration::from_millis(100)).await;
 
                         devices.motor.set_speed(0.0, 0.0).await;
 
@@ -415,11 +419,16 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             ))
                             .is_ok();
 
-                        // EKF Init Wait Block
+                        // Spawn EKF task first -- it blocks on EKF_INIT_CH.receive(),
+                        // so it is safe to spawn before the init message is resolved.
+                        let ekf_ok = spawner.spawn(ekf_estimator_task(devices.config)).is_ok();
+
+                        // Resolve initial pose (<=300 ms wait). Outer loop spawned after
+                        // so it sees a valid EKF_STATE, but inner/odometry tasks are
+                        // no longer blocked during this window.
                         let init_msg = wait_for_ekf_init().await;
                         while robotstate::EKF_INIT_CH.try_receive().is_ok() {} // drain stale
                         let _ = robotstate::EKF_INIT_CH.try_send(init_msg);
-                        let ekf_ok = spawner.spawn(ekf_estimator_task(devices.config)).is_ok();
 
                         let outer_ok = spawner
                             .spawn(
@@ -492,11 +501,13 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             ))
                             .is_ok();
 
-                        // EKF Init Wait Block
+                        // Spawn EKF task first -- it blocks on EKF_INIT_CH.receive()
+                        let ekf_ok = spawner.spawn(ekf_estimator_task(devices.config)).is_ok();
+
+                        // Resolve initial pose (<=300 ms wait).
                         let init_msg = wait_for_ekf_init().await;
                         while robotstate::EKF_INIT_CH.try_receive().is_ok() {} // drain stale
                         let _ = robotstate::EKF_INIT_CH.try_send(init_msg);
-                        let ekf_ok = spawner.spawn(ekf_estimator_task(devices.config)).is_ok();
 
                         let outer_ok = spawner
                             .spawn(diffdrive_outer_loop_onboard_traj(devices.config))
@@ -532,11 +543,13 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             ))
                             .is_ok();
 
-                        // EKF Init Wait Block
+                        // Spawn EKF task first -- it blocks on EKF_INIT_CH.receive()
+                        let ekf_ok = spawner.spawn(ekf_estimator_task(devices.config)).is_ok();
+
+                        // Resolve initial pose (<=300 ms wait).
                         let init_msg = wait_for_ekf_init().await;
                         while robotstate::EKF_INIT_CH.try_receive().is_ok() {} // drain stale
                         let _ = robotstate::EKF_INIT_CH.try_send(init_msg);
-                        let ekf_ok = spawner.spawn(ekf_estimator_task(devices.config)).is_ok();
 
                         let outer_ok = spawner
                             .spawn(diffdrive_outer_loop_onboard_traj2(devices.config))
