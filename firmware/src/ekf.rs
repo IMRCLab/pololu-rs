@@ -138,12 +138,13 @@ use crate::robotstate;
 
 
 #[embassy_executor::task]
-pub async fn ekf_estimator_task(cfg: Option<RobotConfig>) {
-    let robot_cfg = cfg.unwrap_or_default();
+pub async fn ekf_estimator_task(cfg: Option<RobotConfig>, period_ms: u64) {
+    let _robot_cfg = cfg.unwrap_or_default();
     // ---- Block until orchestrator sends a valid initial pose ----
     let init = robotstate::EKF_INIT_CH.receive().await;
     let mut ekf = Ekf::default_at(init.x, init.y, init.yaw);
-    defmt::info!("EKF initialized at ({}, {}, {}) at 100 Hz", init.x, init.y, init.yaw);
+    let freq = 1000 / period_ms;
+    defmt::info!("EKF initialized at ({}, {}, {}) at {} Hz", init.x, init.y, init.yaw, freq);
 
     // Publish initial estimate immediately so outer loops don't snapshot (0,0,0)
     robotstate::write_ekf_state(robotstate::RobotPose {
@@ -155,8 +156,8 @@ pub async fn ekf_estimator_task(cfg: Option<RobotConfig>) {
     })
     .await;
 
-    // ---- 100 Hz tick ----
-    let mut ticker = Ticker::every(Duration::from_millis(10));
+    // ---- Loop tick ----
+    let mut ticker = Ticker::every(Duration::from_millis(period_ms));
     let mut last_tick = Instant::now();
 
     loop {

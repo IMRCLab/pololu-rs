@@ -75,6 +75,7 @@ async fn main(spawner: Spawner) {
             encoder_count_left,
             encoder_count_right,
             devices.config,
+            10,
         ))
         .unwrap();
     // ================================================================================================================

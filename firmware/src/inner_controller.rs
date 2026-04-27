@@ -17,6 +17,7 @@ pub async fn wheel_speed_inner_loop(
     left_counter: &'static Mutex<NoopRawMutex, i32>,
     right_counter: &'static Mutex<NoopRawMutex, i32>,
     cfg: Option<RobotConfig>,
+    period_ms: u64,
 ) {
     let robot_cfg: RobotConfig;
     if let Some(_) = cfg {
@@ -25,13 +26,13 @@ pub async fn wheel_speed_inner_loop(
         robot_cfg = RobotConfig::default();
     }
 
-    let mut ticker = Ticker::every(Duration::from_millis(10));
+    let mut ticker = Ticker::every(Duration::from_millis(period_ms));
     let (mut il, mut ir) = (0.0f32, 0.0f32);
     let (mut prev_el, mut prev_er) = (0.0f32, 0.0f32);
     let (kp, ki, kd) = (robot_cfg.kp_inner, robot_cfg.ki_inner, robot_cfg.kd_inner);
 
     // =========== Filter Parameters ==============
-    let dt: f32 = 0.01; // 10 ms
+    let dt: f32 = period_ms as f32 / 1000.0;
     let fc_hz: f32 = 3.0;
     let tau: f32 = 1.0 / (2.0 * core::f32::consts::PI * fc_hz);
     let alpha: f32 = dt / (tau + dt);

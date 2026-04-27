@@ -226,6 +226,14 @@ pub async fn functionality_mode_selection_uart_task(cfg: UartCfg) {
 }
 
 /* ======================== Functionality Selection Task ============================ */
+
+// Task tick periods [ms] — single source of truth for all task frequencies
+const EKF_PERIOD_MS: u64 = 10;       // 100 Hz
+const ODOM_PERIOD_MS: u64 = 10;      // 100 Hz
+const INNER_PERIOD_MS: u64 = 10;     // 100 Hz
+const OUTER_PERIOD_MS: u64 = 20;     // 50 Hz (from robot_cfg.traj_following_dt_s)
+const SETPOINT_PERIOD_MS: u64 = 20;  // 50 Hz (same as outer loop)
+const LOG_PERIOD_MS: u64 = 50;       // 20 Hz (Menu), 50 (control modes)
 #[embassy_executor::task]
 pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'static>, cfg: UartCfg) {
     if let Some(led_dev) = devices.led.take() {
@@ -395,7 +403,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             defmt::info!("TeleOp: UART and Motor tasks active");
                         }
                         spawner
-                            .spawn(uart_log_sending_task(cfg.robot_id, 50))
+                            .spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS))
                             .unwrap();
                     }
                     Mode::TrajMocap => {
@@ -408,6 +416,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                                 encoder_count_left,
                                 encoder_count_right,
                                 devices.config,
+                                ODOM_PERIOD_MS,
                             ))
                             .is_ok();
                         let inner_ok = spawner
@@ -416,12 +425,13 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                                 encoder_count_left,
                                 encoder_count_right,
                                 devices.config,
+                                INNER_PERIOD_MS,
                             ))
                             .is_ok();
 
                         // Spawn EKF task first -- it blocks on EKF_INIT_CH.receive(),
                         // so it is safe to spawn before the init message is resolved.
-                        let ekf_ok = spawner.spawn(ekf_estimator_task(devices.config)).is_ok();
+                        let ekf_ok = spawner.spawn(ekf_estimator_task(devices.config, EKF_PERIOD_MS)).is_ok();
 
                         // Resolve initial pose (<=300 ms wait). Outer loop spawned after
                         // so it sees a valid EKF_STATE, but inner/odometry tasks are
@@ -445,7 +455,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             );
                         }
                         spawner
-                            .spawn(uart_log_sending_task(cfg.robot_id, 50))
+                            .spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS))
                             .unwrap();
                     }
                     Mode::CtrlAction => {
@@ -477,7 +487,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             defmt::info!("CtrlAction: UART and Motor tasks active");
                         }
                         spawner
-                            .spawn(uart_log_sending_task(cfg.robot_id, 50))
+                            .spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS))
                             .unwrap();
                     }
                     Mode::TrajOnboard => {
@@ -490,6 +500,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                                 encoder_count_left,
                                 encoder_count_right,
                                 devices.config,
+                                ODOM_PERIOD_MS,
                             ))
                             .is_ok();
                         let inner_ok = spawner
@@ -498,11 +509,12 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                                 encoder_count_left,
                                 encoder_count_right,
                                 devices.config,
+                                INNER_PERIOD_MS,
                             ))
                             .is_ok();
 
                         // Spawn EKF task first -- it blocks on EKF_INIT_CH.receive()
-                        let ekf_ok = spawner.spawn(ekf_estimator_task(devices.config)).is_ok();
+                        let ekf_ok = spawner.spawn(ekf_estimator_task(devices.config, EKF_PERIOD_MS)).is_ok();
 
                         // Resolve initial pose (<=300 ms wait).
                         let init_msg = wait_for_ekf_init().await;
@@ -519,7 +531,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             );
                         }
                         spawner
-                            .spawn(uart_log_sending_task(cfg.robot_id, 50))
+                            .spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS))
                             .unwrap();
                     }
                     Mode::TrajOnboard2 => {
@@ -532,6 +544,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                                 encoder_count_left,
                                 encoder_count_right,
                                 devices.config,
+                                ODOM_PERIOD_MS,
                             ))
                             .is_ok();
                         let inner_ok = spawner
@@ -540,11 +553,12 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                                 encoder_count_left,
                                 encoder_count_right,
                                 devices.config,
+                                INNER_PERIOD_MS,
                             ))
                             .is_ok();
 
                         // Spawn EKF task first -- it blocks on EKF_INIT_CH.receive()
-                        let ekf_ok = spawner.spawn(ekf_estimator_task(devices.config)).is_ok();
+                        let ekf_ok = spawner.spawn(ekf_estimator_task(devices.config, EKF_PERIOD_MS)).is_ok();
 
                         // Resolve initial pose (<=300 ms wait).
                         let init_msg = wait_for_ekf_init().await;
@@ -562,7 +576,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             );
                         }
                         spawner
-                            .spawn(uart_log_sending_task(cfg.robot_id, 50))
+                            .spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS))
                             .unwrap();
                     }
                 }
