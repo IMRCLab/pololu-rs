@@ -419,6 +419,8 @@ pub async fn diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
                         }
                         Either::Second(_) => {
                             defmt::warn!("STOP outer loop (idle) -> exit");
+                            robostate::stop_motors().await;
+                            return;
                         }
                     }
                 }
