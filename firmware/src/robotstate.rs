@@ -865,8 +865,14 @@ use embassy_time::{Duration, Ticker};
 pub async fn uart_log_sending_task(robot_id: u8, period_ms: u64) {
     defmt::info!("uart_log_sending_task started (period={}ms)", period_ms);
 
-    // Wait a bit for UART to stabilize
-    embassy_time::Timer::after_millis(500).await;
+    // Wait a bit for UART to stabilize, but allow interruption by stop signal
+    if let embassy_futures::select::Either::Second(_) = 
+        embassy_futures::select::select(embassy_time::Timer::after_millis(500), STOP_LOG_SENDING_SIG.wait()).await 
+    {
+        defmt::info!("uart_log_sending_task stopped before start.");
+        return;
+    }
+    
     let mut ticker = Ticker::every(Duration::from_millis(period_ms));
 
     loop {

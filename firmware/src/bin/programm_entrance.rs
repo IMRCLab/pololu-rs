@@ -372,9 +372,9 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                                 defmt::warn!("Menu task already running or failed to spawn");
                             }
                         }
-                        spawner
-                            .spawn(uart_log_sending_task(cfg.robot_id, 100))
-                            .unwrap();
+                        if spawner.spawn(uart_log_sending_task(cfg.robot_id, 100)).is_err() {
+                            defmt::warn!("Failed to spawn uart_log_sending_task");
+                        }
                     }
                     Mode::TeleOp => {
                         defmt::info!("TELE-OPERATION Mode is selected!!!!!");
@@ -402,9 +402,9 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             beep_signal(b'T');
                             defmt::info!("TeleOp: UART and Motor tasks active");
                         }
-                        spawner
-                            .spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS))
-                            .unwrap();
+                        if spawner.spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS)).is_err() {
+                            defmt::warn!("Failed to spawn uart_log_sending_task");
+                        }
                     }
                     Mode::TrajMocap => {
                         defmt::info!("TRAJ-FOLLOWING Mode (With Mocap) is selected!!!!!");
@@ -454,9 +454,9 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                                 "TrajMocap: All tasks active (Uart, Mocap, Odo, Inner, Ekf, Outer)"
                             );
                         }
-                        spawner
-                            .spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS))
-                            .unwrap();
+                        if spawner.spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS)).is_err() {
+                            defmt::warn!("Failed to spawn uart_log_sending_task");
+                        }
                     }
                     Mode::CtrlAction => {
                         defmt::info!("CONTROL-ACTION Mode is selected!!!!!");
@@ -486,9 +486,9 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             beep_signal(b'A');
                             defmt::info!("CtrlAction: UART and Motor tasks active");
                         }
-                        spawner
-                            .spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS))
-                            .unwrap();
+                        if spawner.spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS)).is_err() {
+                            defmt::warn!("Failed to spawn uart_log_sending_task");
+                        }
                     }
                     Mode::TrajOnboard => {
                         defmt::info!("ONBOARD-TRAJ Mode (figure-8 etc.) is selected!!!!!");
@@ -530,9 +530,9 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                                 "TrajOnboard: All tasks active (Uart, Mocap, Odo, Inner, Ekf, Outer)"
                             );
                         }
-                        spawner
-                            .spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS))
-                            .unwrap();
+                        if spawner.spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS)).is_err() {
+                            defmt::warn!("Failed to spawn uart_log_sending_task");
+                        }
                     }
                     Mode::TrajOnboard2 => {
                         defmt::info!("ONBOARD-TRAJ-2 Mode (demo) is selected!!!!!");
@@ -575,9 +575,9 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                                 "TrajOnboard2: All tasks active (Uart, Mocap, Odo, Inner, Ekf, Outer)"
                             );
                         }
-                        spawner
-                            .spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS))
-                            .unwrap();
+                        if spawner.spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS)).is_err() {
+                            defmt::warn!("Failed to spawn uart_log_sending_task");
+                        }
                     }
                 }
                 mode = target;
