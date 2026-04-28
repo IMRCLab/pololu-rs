@@ -98,6 +98,9 @@ pub static TRAJECTORY_CONTROL_EVENT: Signal<ThreadModeRawMutex, bool> = Signal::
 /// Signal containing the latest mocap pose frame
 pub static MOCAP_SIG: Signal<ThreadModeRawMutex, MocapPose> = Signal::new();
 
+/// The channel for trajectory providers to send setpoints to the outer loop.
+pub static SETPOINT_CH: Channel<ThreadModeRawMutex, crate::control_types::DiffdriveSetpointCascade, 1> = Channel::new();
+
 // =============================================================================
 //                        EKF INIT CHANNEL
 // =============================================================================

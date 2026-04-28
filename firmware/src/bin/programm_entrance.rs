@@ -21,7 +21,7 @@ use pololu3pi2040_rs::orchestrator_signal::{
 use pololu3pi2040_rs::robotstate;
 use pololu3pi2040_rs::{
     buzzer::{beep_signal, buzzer_beep_task},
-    ekf::ekf_estimator_task,
+    ekf::{ekf_estimator_task, mocap_update_task},
     encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     inner_controller::wheel_speed_inner_loop,
     joystick_control::{control_action_uart_task, teleop_motor_control_task, teleop_uart_task},
@@ -32,7 +32,7 @@ use pololu3pi2040_rs::{
     sdlog::SDLOGGER_SHARED,
     trajectory_control::{
         diffdrive_outer_loop_command_controlled_traj_following_from_sdcard,
-        diffdrive_outer_loop_onboard_traj, diffdrive_outer_loop_onboard_traj2, mocap_update_task,
+        diffdrive_outer_loop_onboard_traj, diffdrive_outer_loop_onboard_traj2,
     },
     trajectory_uart::{UartCfg, uart_motioncap_receiving_task},
     uart::{UART_RX_CHANNEL, uart_hw_task},

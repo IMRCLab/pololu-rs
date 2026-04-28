@@ -134,7 +134,7 @@ impl Ekf {
 use embassy_futures::select::{Either, select};
 use embassy_time::{Duration, Ticker};
 
-use crate::orchestrator_signal::STOP_POSE_EST_SIG;
+use crate::orchestrator_signal::{STOP_POSE_EST_SIG, STOP_MOCAP_UPDATE_SIG};
 use crate::robotstate;
 
 
@@ -201,5 +201,30 @@ pub async fn ekf_estimator_task(cfg: Option<RobotConfig>, period_ms: u64) {
             ..robotstate::RobotPose::DEFAULT
         })
         .await;
+    }
+}
+
+// ============================= MOCAP UPDATE TASK =============================
+
+/// Task that listens for incoming Mocap data on MOCAP_SIG and forwards it
+/// to the robotstate blackboard as the current fresh pose.
+#[embassy_executor::task]
+pub async fn mocap_update_task() {
+    loop {
+        match select(robotstate::MOCAP_SIG.wait(), STOP_MOCAP_UPDATE_SIG.wait()).await {
+            Either::First(new_pose) => {
+                let stamped = robotstate::MocapPose {
+                    stamp: Instant::now(),
+                    ..new_pose
+                };
+                robotstate::write_pose(stamped).await;
+                robotstate::set_pose_fresh(true);
+            }
+
+            Either::Second(_) => {
+                defmt::info!("mocap_update_task stopped by STOP_MOCAP_UPDATE_SIG");
+                return;
+            }
+        }
     }
 }

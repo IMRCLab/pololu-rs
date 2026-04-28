@@ -63,6 +63,7 @@ pub mod read_robot_config_from_sd;
 pub mod robot_parameters_default;
 pub mod robotstate;
 pub mod sdlog;
+pub mod setpoint;
 pub mod trajectory_control;
 pub mod trajectory_reading;
 pub mod trajectory_uart;
