@@ -1,5 +1,5 @@
 use crate::math::SO2;
-use crate::orchestrator_signal::{STOP_TRAJ_OUTER_SIG, STOP_WHEEL_INNER_SIG, TRAJ_PAUSE_SIG, TRAJ_RESUME_SIG};
+use crate::orchestrator_signal::{STOP_TRAJ_OUTER_SIG, STOP_WHEEL_INNER_SIG, TRAJ_PAUSE_SIG, TRAJ_RESUME_SIG, STOP_MOCAP_UPDATE_SIG};
 use core::cell::RefCell;
 use core::f32::consts::PI;
 use defmt::{info};
@@ -21,7 +21,7 @@ use crate::robot_parameters_default::robot_constants::*;
 use crate::sdlog::{SdLogger, TrajControlLog};
 use crate::trajectory_reading::{Action, Pose, Trajectory};
 use crate::robotstate::{
-    TRAJECTORY_CONTROL_EVENT, WHEEL_CMD_CH, WheelCmd,
+    MOCAP_SIG as STATE_SIG, TRAJECTORY_CONTROL_EVENT, WHEEL_CMD_CH, WheelCmd,
 };
 
 use crate::robotstate;
@@ -32,9 +32,32 @@ use portable_atomic::Ordering;
 pub use crate::orchestrator_signal::STOP_ALL;
 
 // =============================== Save Trajectory ================================
-pub use crate::setpoint::{
-    TRAJ_REF, TRAJ_READY, TRAJ_CELL, store_trajectory, register_trajectory, trajectory_start_pose,
-};
+static TRAJ_REF: Mutex<ThreadModeRawMutex, RefCell<Option<&'static Trajectory>>> =
+    Mutex::new(RefCell::new(None));
+pub static TRAJ_READY: Signal<ThreadModeRawMutex, ()> = Signal::new();
+static TRAJ_CELL: StaticCell<Trajectory> = StaticCell::new();
+
+pub fn store_trajectory(traj: Trajectory) -> &'static Trajectory {
+    TRAJ_CELL.init(traj)
+}
+
+pub fn register_trajectory(traj: &'static Trajectory) {
+    block_on(async {
+        let g = TRAJ_REF.lock().await;
+        *g.borrow_mut() = Some(traj);
+        TRAJ_READY.signal(());
+    })
+}
+
+/// Read the first state from the loaded trajectory (for EKF init fallback).
+/// Returns `None` if no trajectory has been registered yet.
+pub async fn trajectory_start_pose() -> Option<(f32, f32, f32)> {
+    let g = TRAJ_REF.lock().await;
+    let t = g.borrow();
+    t.as_ref().and_then(|tr| {
+        tr.states.first().map(|s| (s.x, s.y, s.yaw))
+    })
+}
 
 // Re-export from led.rs (moved in Step 0a)
 pub use crate::led::led_set;
@@ -424,6 +447,28 @@ pub async fn diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
     }
 }
 
+/// Mocap Update Signal
+#[embassy_executor::task]
+pub async fn mocap_update_task() {
+    loop {
+        
+        match select(STATE_SIG.wait(), STOP_MOCAP_UPDATE_SIG.wait()).await {
+            Either::First(new_pose) => {
+                let stamped = robotstate::MocapPose {
+                    stamp: Instant::now(),
+                    ..new_pose
+                };
+                robotstate::write_pose(stamped).await;
+                robotstate::set_pose_fresh(true);
+            }
+
+            Either::Second(_) => {
+                defmt::info!("mocap_update_task stopped by STOP_MOCAP_UPDATE_SIG");
+                return;
+            }
+        }
+    }
+}
 
 /* ===================================================================================== */
 

@@ -11,8 +11,8 @@ use pololu3pi2040_rs::encoder::{EncoderPair, encoder_left_task, encoder_right_ta
 use pololu3pi2040_rs::init::init_all;
 use pololu3pi2040_rs::trajectory_control::{
     diffdrive_outer_loop_command_controlled_traj_following_from_sdcard,
+    mocap_update_task,
 };
-use pololu3pi2040_rs::ekf::mocap_update_task;
 use pololu3pi2040_rs::inner_controller::wheel_speed_inner_loop;
 use pololu3pi2040_rs::trajectory_uart::{UartCfg, uart_motioncap_receiving_task};
 use pololu3pi2040_rs::uart::uart_hw_task;
