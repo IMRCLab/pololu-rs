@@ -99,19 +99,12 @@ pub static TRAJECTORY_CONTROL_EVENT: Signal<ThreadModeRawMutex, bool> = Signal::
 pub static MOCAP_SIG: Signal<ThreadModeRawMutex, MocapPose> = Signal::new();
 
 // =============================================================================
-//                        EKF INIT CHANNEL
-// =============================================================================
-
-/// Sent by the orchestrator to seed the EKF with a valid initial pose.
 #[derive(Copy, Clone, Debug)]
 pub struct EkfInitMsg {
     pub x: f32,
     pub y: f32,
     pub yaw: f32,
 }
-
-/// Capacity 1: only the most recent init matters.
-pub static EKF_INIT_CH: Channel<ThreadModeRawMutex, EkfInitMsg, 1> = Channel::new();
 
 // =============================================================================
 //                          DATA STRUCTURES

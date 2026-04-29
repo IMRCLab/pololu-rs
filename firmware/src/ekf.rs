@@ -5,8 +5,7 @@
 //! Update: absolute pose measurement (e.g. motion capture) with H = I₃
 
 use crate::math::{Mat3, Vec3, wrap_angle};
-use crate::read_robot_config_from_sd::RobotConfig;
-use embassy_time::Instant;
+
 use libm::{cosf, sinf};
 
 // ================================== EKF ======================================
@@ -129,80 +128,7 @@ impl Ekf {
     }
 }
 
-// ================================== EKF TASK =================================
-
-use embassy_futures::select::{Either, select};
-use embassy_time::{Duration, Ticker};
-
-use crate::orchestrator_signal::STOP_POSE_EST_SIG;
-use crate::robotstate;
-
-
-#[embassy_executor::task]
-pub async fn ekf_estimator_task(cfg: Option<RobotConfig>, period_ms: u64) {
-    let _robot_cfg = cfg.unwrap_or_default();
-    // ---- Block until orchestrator sends a valid initial pose ----
-    let init = robotstate::EKF_INIT_CH.receive().await;
-    let mut ekf = Ekf::default_at(init.x, init.y, init.yaw);
-    let freq = 1000 / period_ms;
-    defmt::info!("EKF initialized at ({}, {}, {}) at {} Hz", init.x, init.y, init.yaw, freq);
-
-    // Publish initial estimate immediately so outer loops don't snapshot (0,0,0)
-    robotstate::write_ekf_state(robotstate::RobotPose {
-        x: init.x,
-        y: init.y,
-        yaw: init.yaw,
-        stamp: Instant::now(),
-        ..robotstate::RobotPose::DEFAULT
-    })
-    .await;
-
-    // ---- Loop tick ----
-    let mut ticker = Ticker::every(Duration::from_millis(period_ms));
-    //let mut last_tick = Instant::now();
-
-    loop {
-        match select(ticker.next(), STOP_POSE_EST_SIG.wait()).await {
-            Either::Second(_) => {
-                defmt::info!("ekf_estimator_task stopped");
-                return;
-            }
-            Either::First(_) => {}
-        }
-
-        // dynamic dt, with clamping, potential cause of dead reckoning deviation
-        // let now = Instant::now();
-        // let dt = (now.duration_since(last_tick).as_micros() as f32 / 1_000_000.0)
-        //    .clamp(0.005, 0.050);
-        // last_tick = now;
-
-        //static dt
-        let dt = period_ms as f32 / 1000.0;
-
-        // Read fresh body-frame velocities from odometry_task (ODOM_STATE).
-        // v and w are computed from raw Δcount/dt every 10 ms — no LPF lag.
-        // This mirrors the compare/main branch which also uses odom.v/w.
-        let odom = robotstate::read_odom().await;
-        ekf.predict(odom.v, odom.w, dt);
-
-        // Correct with mocap if a fresh frame arrived
-        if robotstate::get_and_clear_pose_fresh() {
-            let mocap = robotstate::read_pose().await;
-            ekf.update(&crate::math::Vec3::new(mocap.x, mocap.y, mocap.yaw));
-        }
-
-        // Publish fused estimate to blackboard
-        let (fx, fy, fth) = ekf.state();
-        robotstate::write_ekf_state(robotstate::RobotPose {
-            x: fx,
-            y: fy,
-            yaw: fth,
-            stamp: Instant::now(),
-            ..robotstate::RobotPose::DEFAULT
-        })
-        .await;
-    }
-}
+// ================================== MOCAP UPDATE TASK ========================
 
 /// Mocap Update Signal
 #[embassy_executor::task]

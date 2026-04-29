@@ -21,7 +21,7 @@ use pololu3pi2040_rs::orchestrator_signal::{
 use pololu3pi2040_rs::robotstate;
 use pololu3pi2040_rs::{
     buzzer::{beep_signal, buzzer_beep_task},
-    ekf::{ekf_estimator_task, mocap_update_task},
+    ekf::mocap_update_task,
     encoder::{EncoderPair, encoder_left_task, encoder_right_task},
     inner_controller::wheel_speed_inner_loop,
     joystick_control::{control_action_uart_task, teleop_motor_control_task, teleop_uart_task},
@@ -228,11 +228,8 @@ pub async fn functionality_mode_selection_uart_task(cfg: UartCfg) {
 /* ======================== Functionality Selection Task ============================ */
 
 // Task tick periods [ms] — single source of truth for all task frequencies
-const EKF_PERIOD_MS: u64 = 10;       // 100 Hz
 const ODOM_PERIOD_MS: u64 = 10;      // 100 Hz
 const INNER_PERIOD_MS: u64 = 10;     // 100 Hz
-const OUTER_PERIOD_MS: u64 = 20;     // 50 Hz (from robot_cfg.traj_following_dt_s)
-const SETPOINT_PERIOD_MS: u64 = 20;  // 50 Hz (same as outer loop)
 const LOG_PERIOD_MS: u64 = 50;       // 20 Hz (Menu), 50 (control modes)
 #[embassy_executor::task]
 pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'static>, cfg: UartCfg) {
@@ -429,16 +426,18 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             ))
                             .is_ok();
 
-                        // Spawn EKF task first -- it blocks on EKF_INIT_CH.receive(),
-                        // so it is safe to spawn before the init message is resolved.
-                        let ekf_ok = spawner.spawn(ekf_estimator_task(devices.config, EKF_PERIOD_MS)).is_ok();
-
+                        // (The EKF is now inlined in the unified control loop)
                         // Resolve initial pose (<=300 ms wait). Outer loop spawned after
                         // so it sees a valid EKF_STATE, but inner/odometry tasks are
                         // no longer blocked during this window.
                         let init_msg = wait_for_ekf_init().await;
-                        while robotstate::EKF_INIT_CH.try_receive().is_ok() {} // drain stale
-                        let _ = robotstate::EKF_INIT_CH.try_send(init_msg);
+                        robotstate::write_ekf_state(robotstate::RobotPose {
+                            x: init_msg.x,
+                            y: init_msg.y,
+                            yaw: init_msg.yaw,
+                            stamp: embassy_time::Instant::now(),
+                            ..robotstate::RobotPose::DEFAULT
+                        }).await;
 
                         let outer_ok = spawner
                             .spawn(
@@ -448,10 +447,10 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             )
                             .is_ok();
 
-                        if uart_ok && mocap_ok && odo_ok && inner_ok && ekf_ok && outer_ok {
+                        if uart_ok && mocap_ok && odo_ok && inner_ok && outer_ok {
                             beep_signal(b'M');
                             defmt::info!(
-                                "TrajMocap: All tasks active (Uart, Mocap, Odo, Inner, Ekf, Outer)"
+                                "TrajMocap: All tasks active (Uart, Mocap, Odo, Inner, Outer)"
                             );
                         }
                         if spawner.spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS)).is_err() {
@@ -516,21 +515,25 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             ))
                             .is_ok();
 
-                        // Spawn EKF task first -- it blocks on EKF_INIT_CH.receive()
-                        let ekf_ok = spawner.spawn(ekf_estimator_task(devices.config, EKF_PERIOD_MS)).is_ok();
+                        // let ekf_ok = spawner.spawn(ekf_estimator_task(devices.config, EKF_PERIOD_MS)).is_ok();
 
                         // Resolve initial pose (<=300 ms wait).
                         let init_msg = wait_for_ekf_init().await;
-                        while robotstate::EKF_INIT_CH.try_receive().is_ok() {} // drain stale
-                        let _ = robotstate::EKF_INIT_CH.try_send(init_msg);
+                        robotstate::write_ekf_state(robotstate::RobotPose {
+                            x: init_msg.x,
+                            y: init_msg.y,
+                            yaw: init_msg.yaw,
+                            stamp: embassy_time::Instant::now(),
+                            ..robotstate::RobotPose::DEFAULT
+                        }).await;
 
                         let outer_ok = spawner
                             .spawn(diffdrive_outer_loop_onboard_traj(devices.config))
                             .is_ok();
-                        if uart_ok && mocap_ok && odo_ok && inner_ok && ekf_ok && outer_ok {
+                        if uart_ok && mocap_ok && odo_ok && inner_ok && outer_ok {
                             beep_signal(b'F');
                             defmt::info!(
-                                "TrajOnboard: All tasks active (Uart, Mocap, Odo, Inner, Ekf, Outer)"
+                                "TrajOnboard: All tasks active (Uart, Mocap, Odo, Inner, Outer)"
                             );
                         }
                         if spawner.spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS)).is_err() {
@@ -563,22 +566,26 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             ))
                             .is_ok();
 
-                        // Spawn EKF task first -- it blocks on EKF_INIT_CH.receive()
-                        let ekf_ok = spawner.spawn(ekf_estimator_task(devices.config, EKF_PERIOD_MS)).is_ok();
+                        // let ekf_ok = spawner.spawn(ekf_estimator_task(devices.config, EKF_PERIOD_MS)).is_ok();
 
                         // Resolve initial pose (<=300 ms wait).
                         let init_msg = wait_for_ekf_init().await;
-                        while robotstate::EKF_INIT_CH.try_receive().is_ok() {} // drain stale
-                        let _ = robotstate::EKF_INIT_CH.try_send(init_msg);
+                        robotstate::write_ekf_state(robotstate::RobotPose {
+                            x: init_msg.x,
+                            y: init_msg.y,
+                            yaw: init_msg.yaw,
+                            stamp: embassy_time::Instant::now(),
+                            ..robotstate::RobotPose::DEFAULT
+                        }).await;
 
                         let outer_ok = spawner
                             .spawn(diffdrive_outer_loop_onboard_traj2(devices.config))
                             .is_ok();
 
-                        if uart_ok && mocap_ok && odo_ok && inner_ok && ekf_ok && outer_ok {
+                        if uart_ok && mocap_ok && odo_ok && inner_ok && outer_ok {
                             beep_signal(b'G');
                             defmt::info!(
-                                "TrajOnboard2: All tasks active (Uart, Mocap, Odo, Inner, Ekf, Outer)"
+                                "TrajOnboard2: All tasks active (Uart, Mocap, Odo, Inner, Outer)"
                             );
                         }
                         if spawner.spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS)).is_err() {
