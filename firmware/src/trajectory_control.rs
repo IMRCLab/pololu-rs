@@ -29,7 +29,7 @@ use crate::robotstate;
 use portable_atomic::Ordering;
 
 // Re-export from orchestrator_signal (moved in Step 0a)
-pub use crate::orchestrator_signal::STOP_ALL;
+use crate::orchestrator_signal::STOP_ALL;
 
 // =============================== Save Trajectory ================================
 static TRAJ_REF: Mutex<ThreadModeRawMutex, RefCell<Option<&'static Trajectory>>> =
@@ -60,10 +60,10 @@ pub async fn trajectory_start_pose() -> Option<(f32, f32, f32)> {
 }
 
 // Re-export from led.rs (moved in Step 0a)
-pub use crate::led::led_set;
+use crate::led::led_set;
 
 // Re-export from sdlog.rs (moved in Step 0a)
-pub use crate::sdlog::with_sdlogger;
+use crate::sdlog::with_sdlogger;
 
 
 // ====================== TODO: ===========================
@@ -444,29 +444,6 @@ pub async fn diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
             }
         }
         defmt::info!("Waiting for next command...");
-    }
-}
-
-/// Mocap Update Signal
-#[embassy_executor::task]
-pub async fn mocap_update_task() {
-    loop {
-        
-        match select(STATE_SIG.wait(), STOP_MOCAP_UPDATE_SIG.wait()).await {
-            Either::First(new_pose) => {
-                let stamped = robotstate::MocapPose {
-                    stamp: Instant::now(),
-                    ..new_pose
-                };
-                robotstate::write_pose(stamped).await;
-                robotstate::set_pose_fresh(true);
-            }
-
-            Either::Second(_) => {
-                defmt::info!("mocap_update_task stopped by STOP_MOCAP_UPDATE_SIG");
-                return;
-            }
-        }
     }
 }
 
