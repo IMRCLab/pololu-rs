@@ -81,7 +81,7 @@ async fn wait_for_ekf_init() -> robotstate::EkfInitMsg {
         }
         Either::Second(_) => {
             if let Some((x, y, yaw)) =
-                pololu3pi2040_rs::trajectory_control::trajectory_start_pose().await
+                pololu3pi2040_rs::setpoint::trajectory_start_pose().await
             {
                 defmt::info!(
                     "EKF init from trajectory start: ({}, {}, {}) (no mocap)",

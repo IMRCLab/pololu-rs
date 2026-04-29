@@ -23,6 +23,7 @@ use crate::trajectory_reading::{Action, Pose, Trajectory};
 use crate::robotstate::{
     MOCAP_SIG as STATE_SIG, TRAJECTORY_CONTROL_EVENT, WHEEL_CMD_CH, WheelCmd,
 };
+use crate::setpoint::TRAJ_REF;
 
 use crate::robotstate;
 
@@ -31,33 +32,7 @@ use portable_atomic::Ordering;
 // Re-export from orchestrator_signal (moved in Step 0a)
 use crate::orchestrator_signal::STOP_ALL;
 
-// =============================== Save Trajectory ================================
-static TRAJ_REF: Mutex<ThreadModeRawMutex, RefCell<Option<&'static Trajectory>>> =
-    Mutex::new(RefCell::new(None));
-pub static TRAJ_READY: Signal<ThreadModeRawMutex, ()> = Signal::new();
-static TRAJ_CELL: StaticCell<Trajectory> = StaticCell::new();
 
-pub fn store_trajectory(traj: Trajectory) -> &'static Trajectory {
-    TRAJ_CELL.init(traj)
-}
-
-pub fn register_trajectory(traj: &'static Trajectory) {
-    block_on(async {
-        let g = TRAJ_REF.lock().await;
-        *g.borrow_mut() = Some(traj);
-        TRAJ_READY.signal(());
-    })
-}
-
-/// Read the first state from the loaded trajectory (for EKF init fallback).
-/// Returns `None` if no trajectory has been registered yet.
-pub async fn trajectory_start_pose() -> Option<(f32, f32, f32)> {
-    let g = TRAJ_REF.lock().await;
-    let t = g.borrow();
-    t.as_ref().and_then(|tr| {
-        tr.states.first().map(|s| (s.x, s.y, s.yaw))
-    })
-}
 
 // Re-export from led.rs (moved in Step 0a)
 use crate::led::led_set;

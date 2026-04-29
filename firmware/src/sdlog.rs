@@ -19,7 +19,7 @@ use heapless::String;
 use static_cell::StaticCell;
 
 use crate::read_robot_config_from_sd::{RobotConfig, load_robot_config_with_dir};
-use crate::trajectory_control::{register_trajectory, store_trajectory};
+use crate::setpoint::{register_trajectory, store_trajectory};
 
 pub type SpiDev<'a> = ExclusiveDevice<Spi<'a, SPI0, spi::Blocking>, Output<'a>, NoDelay>;
 pub type Sd<'a> = SdCard<SpiDev<'a>, Delay>;
