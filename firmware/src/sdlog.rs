@@ -423,3 +423,70 @@ impl SdLogger {
         let _ = self.file.write(bytes);
     }
 }
+
+#[embassy_executor::task]
+pub async fn sd_logging_task(cfg: Option<RobotConfig>) {
+    let dt = cfg.map(|c| c.traj_following_dt_s).unwrap_or(0.02);
+    let mut ticker = embassy_time::Ticker::every(embassy_time::Duration::from_millis((dt * 1000.0) as u64));
+    
+    // Wait for everything to spin up
+    embassy_time::Timer::after_millis(3000).await;
+
+    loop {
+        match embassy_futures::select::select(ticker.next(), crate::orchestrator_signal::STOP_LOG_SENDING_SIG.wait()).await {
+            embassy_futures::select::Either::First(_) => {
+                let ekf = crate::robotstate::read_ekf_state().await;
+                let setpoint = crate::robotstate::read_setpoint().await;
+                let odom = crate::robotstate::read_odom().await;
+                let err = crate::robotstate::read_tracking_error().await;
+                let cmd = crate::robotstate::read_wheel_cmd().await;
+
+                // Time from EKF or just a counter... 
+                // wait, TrajControlLog takes a timestamp_ms. Let's just use ekf.stamp if it has one or a local duration.
+                // Or just use the current time
+                let t_ms = embassy_time::Instant::now().as_millis() as u32;
+
+                let log = TrajControlLog {
+                    timestamp_ms: t_ms,
+                    target_x: setpoint.x_des,
+                    target_y: setpoint.y_des,
+                    target_theta: setpoint.yaw_des,
+                    actual_x: ekf.x,
+                    actual_y: ekf.y,
+                    actual_theta: ekf.yaw,
+                    target_vx: setpoint.v_ff,
+                    target_vy: 0.0,
+                    target_vz: setpoint.w_ff,
+                    actual_vx: odom.v,
+                    actual_vy: 0.0,
+                    actual_vz: odom.w,
+                    target_qw: 1.0,
+                    target_qx: 0.0,
+                    target_qy: 0.0,
+                    target_qz: 0.0,
+                    actual_qw: 1.0,
+                    actual_qx: 0.0,
+                    actual_qy: 0.0,
+                    actual_qz: 0.0,
+                    xerror: err.x_err,
+                    yerror: err.y_err,
+                    thetaerror: err.yaw_err,
+                    ul: cmd.omega_l,
+                    ur: cmd.omega_r,
+                    dutyl: 0.0,
+                    dutyr: 0.0,
+                };
+
+                with_sdlogger(|logger| {
+                    logger.log_traj_control_as_csv(&log);
+                }).await;
+            }
+            embassy_futures::select::Either::Second(_) => {
+                defmt::info!("sd_logging_task stopped via STOP_LOG_SENDING_SIG");
+                with_sdlogger(|logger| {
+                    logger.flush();
+                }).await;
+            }
+        }
+    }
+}
