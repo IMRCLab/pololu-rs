@@ -1,3 +1,4 @@
+#[allow(unused_imports)]
 use crate::packet::StateLoopBackPacketF32;
 use embassy_futures::select::{Either, select};
 use embassy_rp::uart::{Async, Uart};

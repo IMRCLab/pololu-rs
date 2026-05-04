@@ -4,13 +4,13 @@ use crate::orchestrator_signal::{
     LEN_FUNC_SELECT_CMD, Mode, ORCH_CH, OrchestratorMsg, STOP_MOTOR_CTRL_SIG, STOP_TELEOP_UART_SIG,
     decode_functionality_select_command,
 };
+use crate::uart_parser::{RecvResult, receive_packet};
 use crate::packet::CmdTeleopPacketMix;
 use crate::read_robot_config_from_sd::RobotConfig;
 use crate::trajectory_uart::UartCfg;
-use crate::uart::UART_RX_CHANNEL;
-use embassy_futures::select::{Either, Either3, select, select3};
-use embassy_sync::blocking_mutex::raw::{NoopRawMutex, ThreadModeRawMutex};
+use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::mutex::Mutex;
+use embassy_futures::select::{Either, select};
 use embassy_time::{Duration, Ticker, Timer};
 use heapless::Vec as HVec;
 
@@ -148,99 +148,37 @@ pub async fn teleop_motor_control_task(
 pub async fn teleop_uart_task(cfg: UartCfg) {
     let mut frame: HVec<u8, 32> = HVec::new();
 
-    // Drain any stale bytes from duplicate dongle sends
-    while UART_RX_CHANNEL.try_receive().is_ok() {}
-
     loop {
-        let read_len_fut = UART_RX_CHANNEL.receive();
-        let timeout_len_fut = Timer::after(Duration::from_millis(1));
-        let stop_fut = STOP_TELEOP_UART_SIG.wait();
-
-        let len: Option<u8> = match select3(read_len_fut, timeout_len_fut, stop_fut).await {
-            Either3::First(v) => Some(v),
-            Either3::Second(_) => None,
-            Either3::Third(_) => return,
+        let len = match receive_packet(&mut frame, &STOP_TELEOP_UART_SIG).await {
+            RecvResult::Packet { len } => len,
+            RecvResult::Stop => return,
         };
-
-        let Some(len) = len else {
-            // TimeOut Or Error
-            // info!("teleop illegal timeout");
-            Timer::after(Duration::from_micros(400)).await;
-            continue;
-        };
-
-        // let len = len_buf[0];
-        // defmt::debug!("teleop uart: len={}", len);
-        if !(len == TELEOP_PACK_LEN || len == LEN_FUNC_SELECT_CMD || len == 8) {
-            // Unknown length — wait for remaining payload bytes to arrive
-            // then drain them so they don't corrupt framing of the next packet.
-            defmt::warn!("teleop uart: unknown len={}, draining", len);
-            Timer::after(Duration::from_millis(5)).await;
-            while UART_RX_CHANNEL.try_receive().is_ok() {}
-            continue; // illegal Length
-        }
-
-        // ================= Read PAYLOAD =================
-        frame.clear();
-        let need = len as usize;
-        let mut got = 0usize;
-
-        while got < need {
-            let read_byte_fut = UART_RX_CHANNEL.receive();
-            let timeout_fut = Timer::after(Duration::from_millis(2));
-            let stop_fut = STOP_TELEOP_UART_SIG.wait();
-
-            let b_opt: Option<u8> = match select3(read_byte_fut, timeout_fut, stop_fut).await {
-                Either3::First(b) => Some(b),
-                Either3::Second(_) => None,
-                Either3::Third(_) => return,
-            };
-
-            let Some(b) = b_opt else {
-                frame.clear();
-                got = 0;
-                break;
-            };
-
-            frame.push(b).ok();
-            got += 1;
-        }
-
-        if got != need {
-            continue;
-        }
 
         if len == TELEOP_PACK_LEN {
-            // info!("buffer len {}", buffer.len());
             if let Some(pkt) = CmdTeleopPacketMix::from_bytes(&frame) {
                 let v = {
                     let raw = pkt.linear_velocity as f32;
                     let sign = if raw >= 0.0 { 1.0 } else { -1.0 };
                     let abs_raw = raw.abs();
-
                     let normalized = ((abs_raw - 1000.0) / 19000.0).clamp(0.0, 1.0);
-                    let speed_upper_limits = MAX_SPEED * 0.5; //safety reduction 
+                    let speed_upper_limits = MAX_SPEED * 0.5;
                     let speed = speed_upper_limits * (libm::expf(2.0 * normalized) - 1.0)
                         / (libm::expf(2.0) - 1.0);
                     sign * speed
                 };
-
                 let cmd = UnicycleCmd {
-                    v: v,
+                    v,
                     omega: {
                         let raw_omega = pkt.steering_angle * PI / (180.0 * 0.1);
                         let sign = if raw_omega >= 0.0 { 1.0 } else { -1.0 };
                         let abs_omega = raw_omega.abs();
-
                         let scaled_omega = MAX_OMEGA * (libm::expf(abs_omega / MAX_OMEGA) - 1.0)
                             / (libm::expf(1.0) - 1.0);
                         sign * scaled_omega
                     },
                     stamp: embassy_time::Instant::now(),
                 };
-
                 robotstate::write_unicycle_cmd(cmd).await;
-                // defmt::info!("teleop: v={}, omega={}", cmd.v, cmd.omega);
             }
         }
 
@@ -256,10 +194,8 @@ pub async fn teleop_uart_task(cfg: UartCfg) {
                     6 => Mode::TrajOnboard2,
                     _ => Mode::Menu,
                 };
-                let _ = ORCH_CH.try_send(OrchestratorMsg::SwitchTo(target));
-                // Don't return here — let STOP_TELEOP_UART_SIG handle task exit.
-                // Returning kills this task before the orchestrator can process
-                // the switch, leaving the robot deaf to UART on duplicate commands.
+                // Blocking send — never drop a mode-switch command
+                ORCH_CH.send(OrchestratorMsg::SwitchTo(target)).await;
             }
             continue;
         }
@@ -280,76 +216,19 @@ pub async fn teleop_uart_task(cfg: UartCfg) {
 pub async fn control_action_uart_task(cfg: UartCfg) {
     let mut frame: HVec<u8, 32> = HVec::new();
 
-    // Drain any stale bytes from duplicate dongle sends
-    while UART_RX_CHANNEL.try_receive().is_ok() {}
-
     loop {
-        let read_len_fut = UART_RX_CHANNEL.receive();
-        let timeout_len_fut = Timer::after(Duration::from_millis(100)); // 100ms timeout for MPC
-        let stop_fut = STOP_TELEOP_UART_SIG.wait(); // reuse existing signal
-
-        let len: Option<u8> = match select3(read_len_fut, timeout_len_fut, stop_fut).await {
-            Either3::First(v) => Some(v),
-            Either3::Second(_) => {
-                // MPC timeout - zero commands for safety
-                robotstate::write_unicycle_cmd(UnicycleCmd { v: 0.0, omega: 0.0, stamp: embassy_time::Instant::now() }).await;
-                Timer::after(Duration::from_micros(400)).await;
-                None
-            }
-            Either3::Third(_) => return,
+        let len = match receive_packet(&mut frame, &STOP_TELEOP_UART_SIG).await {
+            RecvResult::Packet { len } => len,
+            RecvResult::Stop => return,
         };
-
-        let Some(len) = len else {
-            continue;
-        };
-
-        if !(len == TELEOP_PACK_LEN || len == LEN_FUNC_SELECT_CMD || len == 8) {
-            // Unknown length — wait for remaining payload bytes to arrive
-            // then drain them so they don't corrupt framing of the next packet.
-            Timer::after(Duration::from_millis(5)).await;
-            while UART_RX_CHANNEL.try_receive().is_ok() {}
-            continue;
-        }
-
-        // Read payload (same as teleop_uart_task)
-        frame.clear();
-        let need = len as usize;
-        let mut got = 0usize;
-
-        while got < need {
-            let read_byte_fut = UART_RX_CHANNEL.receive();
-            let timeout_fut = Timer::after(Duration::from_millis(2));
-            let stop_fut = STOP_TELEOP_UART_SIG.wait();
-
-            let b_opt: Option<u8> = match select3(read_byte_fut, timeout_fut, stop_fut).await {
-                Either3::First(b) => Some(b),
-                Either3::Second(_) => None,
-                Either3::Third(_) => return,
-            };
-
-            let Some(b) = b_opt else {
-                frame.clear();
-                got = 0;
-                break;
-            };
-
-            frame.push(b).ok();
-            got += 1;
-        }
-
-        if got != need {
-            continue;
-        }
 
         if len == TELEOP_PACK_LEN {
-            //Receive Unicycle Commands here directly
             if let Some(pkt) = CmdTeleopPacketMix::from_bytes(&frame) {
                 let cmd = UnicycleCmd {
                     v: pkt.linear_velocity,    // m/s
                     omega: pkt.steering_angle, // rad/s
                     stamp: embassy_time::Instant::now(),
                 };
-
                 robotstate::write_unicycle_cmd(cmd).await;
             }
         }
@@ -365,7 +244,7 @@ pub async fn control_action_uart_task(cfg: UartCfg) {
                     6 => Mode::TrajOnboard2,
                     _ => Mode::Menu,
                 };
-                let _ = ORCH_CH.try_send(OrchestratorMsg::SwitchTo(target));
+                ORCH_CH.send(OrchestratorMsg::SwitchTo(target)).await;
             }
             continue;
         }

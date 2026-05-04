@@ -31,3 +31,14 @@ impl Led {
         }
     }
 }
+
+/// Convenience helper to set the shared LED on/off from any task.
+/// Moved from trajectory_control.rs to consolidate LED logic.
+pub async fn led_set(on: bool) {
+    let mut g = LED_SHARED.lock().await;
+    if let Some(led) = g.as_mut() {
+        if on { led.on(); } else { led.off(); }
+    } else {
+        defmt::warn!("LED not available; skip.");
+    }
+}

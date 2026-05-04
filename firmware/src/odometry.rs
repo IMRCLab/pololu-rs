@@ -42,11 +42,12 @@ pub async fn odometry_task(
     left_counter: &'static Mutex<NoopRawMutex, i32>,
     right_counter: &'static Mutex<NoopRawMutex, i32>,
     cfg: Option<RobotConfig>,
+    period_ms: u64,
 ) {
     let robot_cfg = cfg.unwrap_or_default();
 
-    let dt: f32 = 0.01; // 10 ms
-    let mut ticker = Ticker::every(Duration::from_millis(10));
+    let dt: f32 = period_ms as f32 / 1000.0;
+    let mut ticker = Ticker::every(Duration::from_millis(period_ms));
     // Use lock().await to guarantee a valid starting count (try_lock could return 0
     // if the encoder task holds the mutex, causing a spurious spike on the first tick).
     let mut prev_l: i32 = *left_counter.lock().await;
