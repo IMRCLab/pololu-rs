@@ -45,6 +45,8 @@ async fn run_unified_loop(
         let tick_result =
             select3(ticker.next(), TRAJECTORY_CONTROL_EVENT.wait(), TRAJ_PAUSE_SIG.wait()).await;
         
+        // defmt::info!("OuterLoop Tick");
+        
         match tick_result {
             Either3::First(_) => {}
             Either3::Second(command) => {
@@ -105,6 +107,12 @@ async fn run_unified_loop(
         let t = (Instant::now() - start) - pause_offset;
         let t_sec = t.as_millis() as f32 / 1000.0;
         let setpoint = finder.get_setpoint(robot, t_sec);
+        
+        if (t.as_millis() as u32) % 500 < 50 {
+            defmt::info!("t_sec={}: Setpoint pos=({},{},{}), vdes={}, wdes={}", 
+                t_sec, setpoint.des.x, setpoint.des.y, setpoint.des.theta.rad(), setpoint.vdes, setpoint.wdes);
+        }
+
         robotstate::write_setpoint(robotstate::Setpoint {
             x_des: setpoint.des.x,
             y_des: setpoint.des.y,
@@ -121,6 +129,10 @@ async fn run_unified_loop(
         let (action, x_err, y_err, th_err) = controller.control(robot, setpoint);
         let ul = action.ul;
         let ur = action.ur;
+
+        if (t.as_millis() as u32) % 500 < 50 {
+            defmt::info!("Control: ul={}, ur={}, errors=({},{},{})", ul, ur, x_err, y_err, th_err);
+        }
 
         // ---- 4. Output ----
         while WHEEL_CMD_CH.try_receive().is_ok() {}
@@ -161,9 +173,16 @@ pub async fn diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
     );
 
     loop {
-        // Wait for start command
-        let command = TRAJECTORY_CONTROL_EVENT.wait().await;
-        if !command { continue; } // was a stop command
+        // Wait for start command — but also watch for a stop signal so the task
+        // exits cleanly even when idle (prevents zombie task accumulation).
+        let command = match select(TRAJECTORY_CONTROL_EVENT.wait(), STOP_TRAJ_OUTER_SIG.wait()).await {
+            Either::First(cmd) => cmd,
+            Either::Second(_) => {
+                defmt::warn!("STOP outer (idle) -> exit");
+                return;
+            }
+        };
+        if !command { continue; } // was a stop command, keep waiting
 
         let (states, actions, dt_s) = {
             let g = TRAJ_REF.lock().await;
@@ -214,7 +233,14 @@ pub async fn diffdrive_outer_loop_onboard_traj(
     );
 
     loop {
-        let command = TRAJECTORY_CONTROL_EVENT.wait().await;
+        // Wait for start command — also watch stop signal to prevent zombie tasks.
+        let command = match select(TRAJECTORY_CONTROL_EVENT.wait(), STOP_TRAJ_OUTER_SIG.wait()).await {
+            Either::First(cmd) => cmd,
+            Either::Second(_) => {
+                defmt::warn!("STOP outer (idle) -> exit");
+                return;
+            }
+        };
         if !command { continue; }
 
         let init = robotstate::read_ekf_state().await;
@@ -263,7 +289,14 @@ pub async fn diffdrive_outer_loop_onboard_traj2(
     );
 
     loop {
-        let command = TRAJECTORY_CONTROL_EVENT.wait().await;
+        // Wait for start command — also watch stop signal to prevent zombie tasks.
+        let command = match select(TRAJECTORY_CONTROL_EVENT.wait(), STOP_TRAJ_OUTER_SIG.wait()).await {
+            Either::First(cmd) => cmd,
+            Either::Second(_) => {
+                defmt::warn!("STOP outer (idle) -> exit");
+                return;
+            }
+        };
         if !command { continue; }
 
         let init = robotstate::read_ekf_state().await;

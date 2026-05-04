@@ -68,3 +68,4 @@ pub mod trajectory_control;
 pub mod trajectory_reading;
 pub mod trajectory_uart;
 pub mod uart;
+pub mod uart_parser;

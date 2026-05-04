@@ -130,72 +130,14 @@ async fn main(spawner: Spawner) {
 
 #[embassy_executor::task]
 pub async fn functionality_mode_selection_uart_task(cfg: UartCfg) {
-    // let mut len_buf = [0u8; 1];
     let mut frame: HVec<u8, FRAME_MAX> = HVec::new();
 
-    // Drain any stale bytes that arrived between orchestrator drain and task start
-    drain_uart_rx_channel();
-
     loop {
-        let read_len_fut = UART_RX_CHANNEL.receive();
-        let timeout_fut = Timer::after(Duration::from_millis(1));
-        let stop_fut = STOP_MENU_UART_SIG.wait();
-
-        let len_opt: Option<u8> = match select3(read_len_fut, timeout_fut, stop_fut).await {
-            Either3::First(b) => Some(b), // read len
-            Either3::Second(_) => None,   // timeout, continue looping
-            Either3::Third(_) => break,   // Stop top uart task signal
+        let len = match pololu3pi2040_rs::uart_parser::receive_packet(&mut frame, &STOP_MENU_UART_SIG).await {
+            pololu3pi2040_rs::uart_parser::RecvResult::Packet { len } => len,
+            pololu3pi2040_rs::uart_parser::RecvResult::Stop => break,
         };
 
-        let Some(len) = len_opt else {
-            // TimeOut Or Error
-            Timer::after(Duration::from_micros(400)).await;
-            continue;
-        };
-
-        // Only handle mode-select packets and parameter updates (len 8); for anything else,
-        // wait briefly for the remaining payload bytes to arrive
-        // from the HW UART task, then drain them so they don't
-        // corrupt framing of the next packet.
-        if len != LEN_FUNC_SELECT_CMD && len != 8 {
-            Timer::after(Duration::from_millis(5)).await;
-            drain_uart_rx_channel();
-            continue;
-        }
-
-        // -------- read payload，until [len] bytes --------
-        frame.clear();
-        let need = len as usize;
-        let mut got = 0usize;
-
-        while got < need {
-            let read_byte_fut = UART_RX_CHANNEL.receive();
-            let timeout_fut = Timer::after(Duration::from_millis(2));
-            let stop_fut = STOP_MENU_UART_SIG.wait();
-
-            let byte_opt: Option<u8> = match select3(read_byte_fut, timeout_fut, stop_fut).await {
-                Either3::First(b) => Some(b),
-                Either3::Second(_) => None,
-                Either3::Third(_) => {
-                    return;
-                }
-            };
-
-            let Some(b) = byte_opt else {
-                // timeout or error -> drop frame
-                frame.clear();
-                got = 0;
-                break;
-            };
-
-            frame.push(b).ok();
-            got += 1;
-        }
-
-        if got != need {
-            continue;
-        }
-        // info!("len {}", len);
         if len == LEN_FUNC_SELECT_CMD {
             if let Some(cmd) = decode_functionality_select_command(&frame, cfg.robot_id) {
                 let target = match cmd {
@@ -207,7 +149,8 @@ pub async fn functionality_mode_selection_uart_task(cfg: UartCfg) {
                     6 => Mode::TrajOnboard2,
                     _ => continue,
                 };
-                let _ = ORCH_CH.try_send(OrchestratorMsg::SwitchTo(target));
+                // Blocking send — never drop a mode-switch command
+                ORCH_CH.send(OrchestratorMsg::SwitchTo(target)).await;
             }
             continue;
         }
@@ -221,6 +164,7 @@ pub async fn functionality_mode_selection_uart_task(cfg: UartCfg) {
             }
             continue;
         }
+        // All other packet types are irrelevant in Menu mode — parser already filtered noise
     }
     defmt::info!("UART functionality_mode_selection task stopped.");
 }
@@ -330,7 +274,8 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
 
                         // 100 ms gives >=10 EKF cycles (10 ms each) -- enough time
                         // for the task to exit even if blocked inside a mutex.
-                        Timer::after(Duration::from_millis(100)).await;
+                        // Wait for tasks to terminate cleanly
+                        Timer::after(Duration::from_millis(200)).await;
 
                         devices.motor.set_speed(0.0, 0.0).await;
 
@@ -369,7 +314,16 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                                 defmt::warn!("Menu task already running or failed to spawn");
                             }
                         }
-                        if spawner.spawn(uart_log_sending_task(cfg.robot_id, 100)).is_err() {
+                        // Retry spawning if previous task is still cleaning up
+                        let mut spawned = false;
+                        for _ in 0..3 {
+                            if spawner.spawn(uart_log_sending_task(cfg.robot_id, 100)).is_ok() {
+                                spawned = true;
+                                break;
+                            }
+                            Timer::after_millis(50).await;
+                        }
+                        if !spawned {
                             defmt::warn!("Failed to spawn uart_log_sending_task");
                         }
                     }
