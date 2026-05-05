@@ -4,7 +4,8 @@
 //! Prediction: unicycle kinematics using body-frame (v, ω)
 //! Update: absolute pose measurement (e.g. motion capture) with H = I₃
 
-use crate::math::{wrap_angle, Mat3, Vec3};
+use crate::math::{Mat3, Vec3, wrap_angle};
+
 use libm::{cosf, sinf};
 
 // ================================== EKF ======================================
@@ -29,22 +30,17 @@ pub struct Ekf {
 impl Ekf {
     /// Create a new EKF with the given initial state and noise matrices.
     pub fn new(x0: Vec3, p0: Mat3, q: Mat3, r: Mat3) -> Self {
-        Self {
-            x: x0,
-            p: p0,
-            q,
-            r,
-        }
+        Self { x: x0, p: p0, q, r }
     }
 
-    /// Create a default EKF initialized at the origin 
-    
+    /// Create a default EKF initialized at the origin
+
     pub fn default_at_origin() -> Self {
         Self {
             x: Vec3::zero(),
-            p: Mat3::diag(1.0, 1.0, 1.0),           // large initial uncertainty
-            q: Mat3::diag(0.001, 0.001, 0.01),       // process noise (encoders), theta is worse
-            r: Mat3::diag(0.0001, 0.0001, 0.001),    // measurement noise (mocap)
+            p: Mat3::diag(1.0, 1.0, 1.0), // large initial uncertainty
+            q: Mat3::diag(0.001, 0.001, 0.01), // process noise (encoders), theta is worse
+            r: Mat3::diag(0.0001, 0.0001, 0.001), // measurement noise (mocap)
         }
     }
 
@@ -62,12 +58,13 @@ impl Ekf {
     /// * `w` — angular velocity [rad/s]
     /// * `dt` — time step [s]
     pub fn predict(&mut self, v: f32, w: f32, dt: f32) {
-        let theta = self.x.data[2];
-
-        // State prediction: x⁻ = f(x, u)
-        self.x.data[0] += v * cosf(theta) * dt;
-        self.x.data[1] += v * sinf(theta) * dt;
-        self.x.data[2] = wrap_angle(self.x.data[2] + w * dt);
+        //stabilized prediction using the theta_mid for x,y propagation
+        let theta_old = self.x.data[2];
+        let theta_new = wrap_angle(theta_old + w * dt);
+        let theta_mid = wrap_angle(theta_old + w * dt * 0.5); // Better approximation
+        self.x.data[0] += v * cosf(theta_mid) * dt;
+        self.x.data[1] += v * sinf(theta_mid) * dt;
+        self.x.data[2] = theta_new;
 
         // Jacobian F = ∂f/∂x
         //   [ 1  0  -v·sin(θ)·dt ]
@@ -75,8 +72,8 @@ impl Ekf {
         //   [ 0  0   1           ]
         let f = Mat3 {
             data: [
-                [1.0, 0.0, -v * sinf(theta) * dt],
-                [0.0, 1.0, v * cosf(theta) * dt],
+                [1.0, 0.0, -v * sinf(theta_mid) * dt],
+                [0.0, 1.0, v * cosf(theta_mid) * dt],
                 [0.0, 0.0, 1.0],
             ],
         };
@@ -128,5 +125,32 @@ impl Ekf {
     /// Returns the current state estimate as (x, y, θ).
     pub fn state(&self) -> (f32, f32, f32) {
         (self.x.data[0], self.x.data[1], self.x.data[2])
+    }
+}
+
+// ================================== MOCAP UPDATE TASK ========================
+
+/// Mocap Update Signal
+#[embassy_executor::task]
+pub async fn mocap_update_task() {
+    loop {
+        match embassy_futures::select::select(
+            crate::robotstate::MOCAP_SIG.wait(),
+            crate::orchestrator_signal::STOP_MOCAP_UPDATE_SIG.wait()
+        ).await {
+            embassy_futures::select::Either::First(new_pose) => {
+                let stamped = crate::robotstate::MocapPose {
+                    stamp: embassy_time::Instant::now(),
+                    ..new_pose
+                };
+                crate::robotstate::write_pose(stamped).await;
+                crate::robotstate::set_pose_fresh(true);
+            }
+
+            embassy_futures::select::Either::Second(_) => {
+                defmt::info!("mocap_update_task stopped by STOP_MOCAP_UPDATE_SIG");
+                return;
+            }
+        }
     }
 }

@@ -12,7 +12,6 @@ pub enum Mode {
     Menu,
     TeleOp,
     TrajMocap,
-    TrajDuty,
     CtrlAction,
     TrajOnboard,
     TrajOnboard2,
@@ -40,9 +39,14 @@ pub static STOP_WHEEL_INNER_SIG: Signal<Raw, ()> = Signal::new();
 pub static STOP_TRAJ_OUTER_SIG: Signal<Raw, ()> = Signal::new();
 pub static STOP_ODOM_SIG: Signal<Raw, ()> = Signal::new();
 pub static STOP_LOG_SENDING_SIG: Signal<Raw, ()> = Signal::new();
+pub static STOP_POSE_EST_SIG: Signal<Raw, ()> = Signal::new();
 
 pub static TRAJ_PAUSE_SIG: Signal<Raw, bool> = Signal::new();
 pub static TRAJ_RESUME_SIG: Signal<Raw, bool> = Signal::new();
+
+/// Legacy global stop flag, checked in execute loops and goto.rs.
+/// Moved from trajectory_control.rs to consolidate lifecycle control.
+pub static STOP_ALL: portable_atomic::AtomicBool = portable_atomic::AtomicBool::new(false);
 
 pub fn decode_functionality_select_command(payload: &[u8], robot_id: u8) -> Option<u8> {
     // Check frame format: should be 4 bytes with specific header
@@ -65,8 +69,7 @@ pub fn decode_functionality_select_command(payload: &[u8], robot_id: u8) -> Opti
     match payload[2] {
         b'q' => Some(0), // Menu
         b'T' => Some(1), // Tele operation
-        b'M' => Some(2), // Traj following (Mocap)
-        b'D' => Some(3), // Traj following (Direct duty)
+        b'M' => Some(2), // Traj following
         b'A' => Some(4), // Control Action
         b'F' => Some(5), // Onboard trajectory (figure-8 etc.)
         b'G' => Some(6), // Onboard trajectory 2 (demo)

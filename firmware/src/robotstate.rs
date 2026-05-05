@@ -12,6 +12,7 @@
 
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::Channel;
+use embassy_sync::signal::Signal;
 use embassy_sync::mutex::Mutex;
 use embassy_time::Instant;
 use heapless::Vec;
@@ -90,6 +91,20 @@ pub static WHEEL_CMD_CH: Channel<ThreadModeRawMutex, WheelCmd, CMD_CHANNEL_SIZE>
 /// This channel is for streaming raw/filtered readings to external tasks if needed.
 pub static ENCODER_CH: Channel<ThreadModeRawMutex, EncoderReading, SENSOR_CHANNEL_SIZE> =
     Channel::new();
+
+/// Signal for trajectory control events (true = start, false = stop)
+pub static TRAJECTORY_CONTROL_EVENT: Signal<ThreadModeRawMutex, bool> = Signal::new();
+
+/// Signal containing the latest mocap pose frame
+pub static MOCAP_SIG: Signal<ThreadModeRawMutex, MocapPose> = Signal::new();
+
+// =============================================================================
+#[derive(Copy, Clone, Debug)]
+pub struct EkfInitMsg {
+    pub x: f32,
+    pub y: f32,
+    pub yaw: f32,
+}
 
 // =============================================================================
 //                          DATA STRUCTURES
@@ -187,6 +202,7 @@ pub struct Setpoint {
     pub yaw_des: f32, // rad
     pub v_ff: f32,    // feedforward linear velocity [m/s]
     pub w_ff: f32,    // feedforward angular velocity [rad/s]
+    pub stamp: Instant, // wall-clock time of last provider write
 }
 
 impl Setpoint {
@@ -196,7 +212,13 @@ impl Setpoint {
         yaw_des: 0.0,
         v_ff: 0.0,
         w_ff: 0.0,
+        stamp: Instant::MIN,
     };
+
+    /// True if the setpoint was written within `max_age_ms` milliseconds.
+    pub fn is_fresh(&self, max_age_ms: u64) -> bool {
+        Instant::now().duration_since(self.stamp).as_millis() < max_age_ms
+    }
 }
 
 impl Default for Setpoint {
@@ -517,6 +539,9 @@ pub async fn reset_all() {
     *TRACKING_ERROR.lock().await = TrackingError::DEFAULT;
     *WHEEL_CMD.lock().await = WheelCmd::DEFAULT;
     *IMU.lock().await = ImuReading::DEFAULT;
+    
+    drain_wheel_cmd_ch();
+    drain_encoder_ch();
 }
 
 // =============================================================================
@@ -719,6 +744,14 @@ pub async fn read_imu() -> ImuReading {
 //                      WHEEL COMMAND CHANNEL HELPERS
 // =============================================================================
 
+pub fn drain_wheel_cmd_ch() {
+    while WHEEL_CMD_CH.try_receive().is_ok() {}
+}
+
+pub fn drain_encoder_ch() {
+    while ENCODER_CH.try_receive().is_ok() {}
+}
+
 /// Send wheel command via channel (non-blocking, drains old)
 /// DEPRECATED: prefer write_wheel_cmd() which updates both mutex and channel
 pub fn send_wheel_cmd(cmd: WheelCmd) {
@@ -825,8 +858,14 @@ use embassy_time::{Duration, Ticker};
 pub async fn uart_log_sending_task(robot_id: u8, period_ms: u64) {
     defmt::info!("uart_log_sending_task started (period={}ms)", period_ms);
 
-    // Wait a bit for UART to stabilize
-    embassy_time::Timer::after_millis(500).await;
+    // Wait a bit for UART to stabilize, but allow interruption by stop signal
+    if let embassy_futures::select::Either::Second(_) = 
+        embassy_futures::select::select(embassy_time::Timer::after_millis(500), STOP_LOG_SENDING_SIG.wait()).await 
+    {
+        defmt::info!("uart_log_sending_task stopped before start.");
+        return;
+    }
+    
     let mut ticker = Ticker::every(Duration::from_millis(period_ms));
 
     loop {

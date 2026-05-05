@@ -42,11 +42,13 @@ macro_rules! debug_warn {
 
 pub mod button;
 pub mod buzzer;
+pub mod control_types;
 pub mod diffdrive;
 pub mod ekf;
 pub mod encoder;
 pub mod encoder_lib;
 pub mod goto;
+pub mod inner_controller;
 pub mod imu;
 pub mod init;
 pub mod joystick_control;
@@ -61,8 +63,9 @@ pub mod read_robot_config_from_sd;
 pub mod robot_parameters_default;
 pub mod robotstate;
 pub mod sdlog;
+pub mod setpoint;
 pub mod trajectory_control;
 pub mod trajectory_reading;
-pub mod trajectory_signal;
 pub mod trajectory_uart;
 pub mod uart;
+pub mod uart_parser;

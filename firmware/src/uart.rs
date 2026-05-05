@@ -1,3 +1,4 @@
+#[allow(unused_imports)]
 use crate::packet::StateLoopBackPacketF32;
 use embassy_futures::select::{Either, select};
 use embassy_rp::uart::{Async, Uart};
@@ -44,7 +45,7 @@ pub async fn uart_hw_task(uart: &'static Mutex<ThreadModeRawMutex, Uart<'static,
                 if let Err(_) = u.write(&tx).await {
                     defmt::error!("UART TX failed");
                 } else {
-                    defmt::info!("UART TX: sent {} bytes", tx.len());
+                    // defmt::info!("UART TX: sent {} bytes", tx.len());
                 }
             }
 
