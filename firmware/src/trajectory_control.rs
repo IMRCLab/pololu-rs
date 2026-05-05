@@ -27,8 +27,7 @@ async fn run_unified_loop(
     controller: &mut DiffdriveControllerCascade,
     robot_cfg: &RobotConfig,
 ) -> TrajectoryResult {
-    // Wait for the EKF to publish its first state
-    Timer::after_millis(120).await;
+
     
     let init = robotstate::read_ekf_state().await;
     let mut ekf = crate::ekf::Ekf::default_at(init.x, init.y, init.yaw);
