@@ -138,7 +138,7 @@ pub async fn teleop_motor_control_task(
 
         motor.set_speed(duty_l, duty_r).await;
 
-        Timer::after(Duration::from_millis(robot_cfg.joystick_control_dt_ms)).await;
+    //Timer::after(Duration::from_millis(robot_cfg.joystick_control_dt_ms)).await;
     }
 }
 /* ========================== Joy Stick Speed Control Task =============================== */
