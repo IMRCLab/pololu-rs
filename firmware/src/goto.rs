@@ -1,6 +1,5 @@
 use crate::math::SO2;
 use crate::read_robot_config_from_sd::RobotConfig;
-use crate::sdlog::{TrajControlLog, with_sdlogger};
 use crate::orchestrator_signal::STOP_ALL;
 use crate::control_types::{
     DiffdriveCascade, DiffdriveControllerCascade, PointCascade, TrajectoryResult,
@@ -14,7 +13,7 @@ use portable_atomic::Ordering;
 
 // ======================== Constants ========================
 const GOTO_DURATION_S: f32 = 5.0; //only meant for short ways
-const GOTO_DT_S: f32 = 0.1; // 10 Hz control loop
+//const GOTO_DT_S: f32 = 0.1; // 10 Hz control loop -> now handled dynamically
 
 // goal pose for go-to
 #[derive(Clone, Copy, Debug)]
@@ -89,9 +88,8 @@ pub async fn goto_pose(
     let bezier = build_bezier_points(&start_pose, &goal);
 
     // ==================== Setup ticker ====================
-    let mut ticker = Ticker::every(Duration::from_millis(
-        (robot_cfg.traj_following_dt_s * 1000.0) as u64,
-    ));
+    let dt_s = robot_cfg.traj_following_dt_s;
+    let mut ticker = Ticker::every(Duration::from_millis((dt_s * 1000.0) as u64));
 
     // ==================== Initialize EKF ==================
     let mut fused_x: f32 = start_pose.x;
@@ -107,11 +105,7 @@ pub async fn goto_pose(
 
         // Check stop
         if STOP_ALL.load(Ordering::Relaxed) {
-            let _ = WHEEL_CMD_CH.try_send(WheelCmd {
-                omega_l: 0.0,
-                omega_r: 0.0,
-                stamp: Instant::now(),
-            });
+            robotstate::stop_motors();
             defmt::info!("goto: stopped via STOP_ALL");
             return TrajectoryResult::Stopped;
         }
@@ -122,18 +116,14 @@ pub async fn goto_pose(
 
         if t_sec >= GOTO_DURATION_S {
             // Stop motors
-            let _ = WHEEL_CMD_CH.try_send(WheelCmd {
-                omega_l: 0.0,
-                omega_r: 0.0,
-                stamp: Instant::now(),
-            });
+            robotstate::stop_motors();
             defmt::info!("goto: reached goal after {}s", t_sec);
             return TrajectoryResult::Completed;
         }
 
         /* =================== Pose Fusion =================== */
         let odom_now = robotstate::read_odom().await;
-        ekf.predict(odom_now.v, odom_now.w, GOTO_DT_S);
+        ekf.predict(odom_now.v, odom_now.w, dt_s);
 
         let pose_is_fresh = robotstate::get_and_clear_pose_fresh();
         if pose_is_fresh {
@@ -146,8 +136,23 @@ pub async fn goto_pose(
         fused_y = fy;
         fused_yaw = fth;
 
+        // Publish to robotstate for other tasks (logger, telemetry)
+        robotstate::write_ekf_state(robotstate::RobotPose {
+            x: fx, y: fy, yaw: fth, stamp: Instant::now(),
+            ..robotstate::RobotPose::DEFAULT
+        }).await;
+
         // ============ Bézier setpoint at time t ============
         let setpoint = robot.beziercurve(bezier.clone(), t_sec, GOTO_DURATION_S);
+        
+        robotstate::write_setpoint(robotstate::Setpoint {
+            x_des: setpoint.des.x,
+            y_des: setpoint.des.y,
+            yaw_des: setpoint.des.theta.rad(),
+            v_ff: setpoint.vdes,
+            w_ff: setpoint.wdes,
+            stamp: Instant::now(),
+        }).await;
 
         // ============ Control ============
         robot.s.x = fused_x;
@@ -160,51 +165,12 @@ pub async fn goto_pose(
 
 
         // ============ Send wheel command ============
-        while WHEEL_CMD_CH.try_receive().is_ok() {} // drain
-        let _ = WHEEL_CMD_CH.try_send(WheelCmd {
-            omega_l: ul,
-            omega_r: ur,
-            stamp: Instant::now(),
-        });
+        robotstate::write_wheel_cmd(robotstate::WheelCmd::new(ul, ur)).await;
+        robotstate::write_tracking_error(robotstate::TrackingError {
+            x_err: x_error, y_err: y_error, yaw_err: theta_error,
+        }).await;
 
-        // ============ Log ============
-        let t_ms = t.as_millis() as u32;
-        let log = TrajControlLog {
-            timestamp_ms: t_ms,
-            target_x: setpoint.des.x,
-            target_y: setpoint.des.y,
-            target_theta: setpoint.des.theta.rad(),
-            actual_x: fused_x,
-            actual_y: fused_y,
-            actual_theta: fused_yaw,
-            target_vx: setpoint.vdes,
-            target_vy: 0.0,
-            target_vz: 0.0,
-            actual_vx: 0.0,
-            actual_vy: 0.0,
-            actual_vz: 0.0,
-            target_qw: setpoint.des.theta.cos(),
-            target_qx: 0.0,
-            target_qy: 0.0,
-            target_qz: setpoint.des.theta.sin(),
-            actual_qw: cosf(fused_yaw),
-            actual_qx: 0.0,
-            actual_qy: 0.0,
-            actual_qz: sinf(fused_yaw),
-            xerror: x_error,
-            yerror: y_error,
-            thetaerror: theta_error,
-            ul,
-            ur,
-            dutyl: 0.0,
-            dutyr: 0.0,
-        };
 
-        let _ = with_sdlogger(|logger| {
-            logger.log_traj_control_as_csv(&log);
-            logger.flush();
-        })
-        .await;
 
         defmt::info!(
             "goto: t={}s pos=({},{},{}) des=({},{},{}) v={} w={} u=({},{}) err=({},{},{})",
