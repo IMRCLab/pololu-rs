@@ -300,11 +300,29 @@ private:
 
     //mocap related functionality
     void posesChanged(const motion_capture_tracking_interfaces::msg::NamedPoseArray::SharedPtr msg)
-    {
+     {
+        // --- EASY CONTROL SETTINGS ---
+        // 0 = Disable broadcasting mocap completely
+        // 1 = Broadcast every message (Original behavior)
+        // 2 = Broadcast every 2nd message (Half frequency)
+        // 5 = Broadcast every 5th message, etc.
+        const int broadcast_divider = 1; 
+
+        
+        if (broadcast_divider == 0) {
+            latest_poses_ = *msg; // Still update latest poses for logging!
+            return; 
+        }
+        static int msg_counter = 0;
+        msg_counter++;
+        if (msg_counter % broadcast_divider != 0) {
+            latest_poses_ = *msg; // Still update latest poses for logging!
+            return;
+        }
+        // -----------------------------
         for (int i = 0; i < 4; ++i)
         {
             if (teleop_activated[i]) continue;
-
             for (const auto &pose : msg->poses)
             {
                 if (getName(pose.name) != robot_ids_[i]) continue;
