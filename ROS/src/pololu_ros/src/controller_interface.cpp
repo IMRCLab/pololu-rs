@@ -3,6 +3,9 @@
 #include <chrono>
 #include <math.h>
 #include <unistd.h>
+#include <fstream>
+#include <filesystem>
+#include <map>
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/joy.hpp"
 #include "geometry_msgs/msg/twist.hpp"
@@ -25,6 +28,10 @@ using namespace std::chrono_literals;
 class TeleopNode : public rclcpp::Node
 {
 public:
+    ~TeleopNode() {
+        stopLogging();
+    }
+
     TeleopNode()
         : Node("controller_interface")
         , logger_(this->get_logger())
@@ -120,6 +127,10 @@ public:
         if (frequency_ > 0) {
             timer_ = this->create_wall_timer(std::chrono::milliseconds(1000/frequency_), std::bind(&TeleopNode::publish, this));
         }
+
+        // Initialize logging: scan logs/ for highest session ID, set up 50Hz timer
+        findLastSessionId();
+        logging_timer_ = this->create_wall_timer(20ms, std::bind(&TeleopNode::performLogging, this));
 
         RCLCPP_INFO(logger_, "Controller Interface started. Robot %d selected.", selected_robot_ + 1);
         printRobotStatus();
@@ -512,6 +523,11 @@ private:
                 robot_running[selected_robot_] = true;
             }
         }
+
+        // LB button (4) - Toggle mocap logging
+        if (getButton(msg, 4) && !prev_buttons_[4]) {
+            toggleLogging();
+        }
         
         //update all button states for edge detection
         for (size_t i = 0; i < msg->buttons.size() && i < 11; ++i) {
@@ -547,6 +563,7 @@ private:
             }
         }
 
+        RCLCPP_INFO(logger_, "Logging: %s (LB to toggle)", logging_active_ ? "\xF0\x9F\x94\xB4 ON" : "\xE2\x9A\xAA OFF");
     }
 
     //handle the sub robot interface
@@ -761,6 +778,85 @@ private:
         RCLCPP_INFO(logger_, "  Left Stick - Control selected robot");
     }
 
+    // ---- Mocap Logging ----
+
+    void findLastSessionId() {
+        session_id_ = 0;
+        if (!std::filesystem::exists("logs")) return;
+
+        for (const auto& entry : std::filesystem::directory_iterator("logs")) {
+            if (!entry.is_regular_file()) continue;
+            std::string stem = entry.path().stem().string(); // e.g. "Pololu10_log_5"
+            auto pos = stem.rfind("_log_");
+            if (pos == std::string::npos) continue;
+            try {
+                int n = std::stoi(stem.substr(pos + 5));
+                if (n > session_id_) session_id_ = n;
+            } catch (...) {
+                // ignore malformed filenames
+            }
+        }
+        RCLCPP_INFO(logger_, "Logging: last session ID found = %d, next session will be %d", session_id_, session_id_ + 1);
+    }
+
+    void toggleLogging() {
+        if (logging_active_) {
+            stopLogging();
+        } else {
+            startLogging();
+        }
+        printRobotStatus();
+    }
+
+    void startLogging() {
+        session_id_++;
+        std::filesystem::create_directories("logs");
+        logging_active_ = true;
+        RCLCPP_INFO(logger_, "\xF0\x9F\x94\xB4 Logging STARTED (session %d)", session_id_);
+    }
+
+    void stopLogging() {
+        if (!logging_active_) return;
+        logging_active_ = false;
+
+        for (auto& pair : log_files_) {
+            if (pair.second && pair.second->is_open()) {
+                pair.second->close();
+            }
+        }
+        log_files_.clear();
+        RCLCPP_INFO(logger_, "\xE2\x9A\xAA Logging STOPPED (session %d)", session_id_);
+    }
+
+    void performLogging() {
+        if (!logging_active_) return;
+
+        for (const auto& pose : latest_poses_.poses) {
+            const std::string& name = pose.name;
+
+            // Lazily open a file for this robot if not yet open in this session
+            if (log_files_.find(name) == log_files_.end()) {
+                std::string filename = "logs/" + name + "_log_" + std::to_string(session_id_) + ".csv";
+                auto file = std::make_unique<std::ofstream>(filename);
+                if (file->is_open()) {
+                    *file << "x,y,z,theta" << std::endl;
+                    log_files_[name] = std::move(file);
+                    RCLCPP_INFO(logger_, "Opened log file: %s", filename.c_str());
+                } else {
+                    RCLCPP_ERROR(logger_, "Failed to open log file: %s", filename.c_str());
+                    continue;
+                }
+            }
+
+            // Write x, y, z, orientation.z directly
+            auto& f = *log_files_[name];
+            f << pose.pose.position.x << ","
+              << pose.pose.position.y << ","
+              << pose.pose.position.z << ","
+              << pose.pose.orientation.z << std::endl;
+        }
+    }
+
     // Member variables
     rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr subscription_[1];
     rclcpp::Subscription<motion_capture_tracking_interfaces::msg::NamedPoseArray>::SharedPtr mocap_subscription;
@@ -776,6 +872,12 @@ private:
     int frequency_;
     float dt_;
     std::shared_ptr<Connection> connection_[4];
+
+    // Logging state
+    bool logging_active_ = false;
+    int session_id_ = 0;
+    std::map<std::string, std::unique_ptr<std::ofstream>> log_files_;
+    rclcpp::TimerBase::SharedPtr logging_timer_;
 };
 
 int main(int argc, char *argv[])
