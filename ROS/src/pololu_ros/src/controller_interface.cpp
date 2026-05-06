@@ -492,6 +492,7 @@ private:
             RCLCPP_INFO(logger_, "Button START pressed"); //send quit command to go back to orchestrator interface
             RCLCPP_INFO(logger_, "START: Starting ALL robots");
             sendGlobalStart();
+            if (logging_standby_ && !logging_active_) startLogging();
         }
         
         // BACK button (6) - Emergency stop ALL robots
@@ -499,6 +500,7 @@ private:
             RCLCPP_INFO(logger_, "Button BACK pressed");
             RCLCPP_WARN(logger_, "STOP: Stopping ALL robots");
             sendGlobalStop();
+            if (logging_active_) stopLogging();
         }
 
         // Y button (3): Demo mode: configure all robots and start
@@ -511,6 +513,7 @@ private:
         if (getButton(msg, 0) && !prev_buttons_[0]) {
             RCLCPP_INFO(logger_, "A: Starting robot %d", selected_robot_ + 1);  // Add +1
             sendIndividualStart(selected_robot_);
+            if (logging_standby_ && !logging_active_) startLogging();
         }
         
         // B button (1) - Stop selected robot
@@ -531,6 +534,8 @@ private:
                 robot_running[selected_robot_] = false;
                 teleop_activated[selected_robot_] = false; //deactivate teleop always when stopping
                 control_action_active[selected_robot_] = false; //deactivate control action when quitting
+                
+                if (logging_active_) stopLogging();
             }
             else
             {
@@ -581,7 +586,11 @@ private:
             }
         }
 
-        RCLCPP_INFO(logger_, "Logging: %s (LB to toggle)", logging_active_ ? "\xF0\x9F\x94\xB4 ON" : "\xE2\x9A\xAA OFF");
+        std::string log_status;
+        if (logging_active_) log_status = "\xF0\x9F\x94\xB4 RECORDING";
+        else if (logging_standby_) log_status = "\xF0\x9F\x9F\xA1 STANDBY";
+        else log_status = "\xE2\x9A\xAA OFF";
+        RCLCPP_INFO(logger_, "Logging: %s (LB to toggle standby)", log_status.c_str());
     }
 
     //handle the sub robot interface
@@ -818,10 +827,9 @@ private:
     }
 
     void toggleLogging() {
-        if (logging_active_) {
+        logging_standby_ = !logging_standby_;
+        if (!logging_standby_ && logging_active_) {
             stopLogging();
-        } else {
-            startLogging();
         }
         printRobotStatus();
     }
@@ -893,6 +901,7 @@ private:
 
     // Logging state
     bool logging_active_ = false;
+    bool logging_standby_ = false;
     int session_id_ = 0;
     std::map<std::string, std::unique_ptr<std::ofstream>> log_files_;
     rclcpp::TimerBase::SharedPtr logging_timer_;
