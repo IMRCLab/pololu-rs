@@ -1,5 +1,6 @@
 use crate::math::SO2;
-use crate::sdlog::{SdLogger, TrajControlLog};
+use crate::sdlog::SdLogger;
+use crate::robotstate;
 // use crate::trajectory_reading::Pose;
 use core::f32::consts::PI;
 use embassy_futures::select::{Either, select};
@@ -10,7 +11,7 @@ use libm::{atan2f, cosf, sinf, sqrtf};
 use crate::led::{self};
 use crate::motor::MotorController;
 use crate::robot_parameters_default::robot_constants::*;
-use crate::robotstate;
+
 use crate::robotstate::MOCAP_SIG as STATE_SIG;
 
 // pub static DIFFDRIVE_TRAJECTORY_READY: Signal<ThreadModeRawMutex, ()> = Signal::new();
@@ -310,10 +311,6 @@ pub async fn diffdrive_control_task(
 
     // Initialize controller
     let controller = DiffdriveController::new(KX_TRAJ, KY_TRAJ, KTHETA_TRAJ);
-    if let Some(ref mut logger) = sdlogger {
-        logger.write_traj_control_header();
-    }
-    defmt::info!("csv header written");
 
     //Log on SD Card
     // Wait for first mocap pose. not needed for now.
@@ -463,39 +460,29 @@ pub async fn diffdrive_control_task(
         let dutyl = (ul / WHEEL_MAX).clamp(-1.0, 1.0);
         let dutyr = (ur / WHEEL_MAX).clamp(-1.0, 1.0);
 
-        let log: TrajControlLog = TrajControlLog {
-            timestamp_ms: t_ms as u32,
-            target_x: state_des.x,
-            target_y: state_des.y,
-            target_theta: state_des.theta.rad(),
-            actual_x: robot.s.x,
-            actual_y: robot.s.y,
-            actual_theta: robot.s.theta.rad(),
-            target_vx: vd,
-            target_vy: 0.0,
-            target_vz: 0.0,
-            actual_vx: 0.0,
-            actual_vy: 0.0,
-            actual_vz: 0.0,
-            target_qw: state_des.theta.cos(),
-            target_qx: 0.0,
-            target_qy: 0.0,
-            target_qz: state_des.theta.sin(),
-            actual_qw: robot.s.theta.cos(),
-            actual_qx: 0.0,
-            actual_qy: 0.0,
-            actual_qz: robot.s.theta.sin(),
-            xerror: xerror,
-            yerror: yerror,
-            thetaerror: therror,
-            ul: ul,
-            ur: ur,
-            dutyl: dutyl,
-            dutyr: dutyr,
+        let log = robotstate::LogSnapshot {
+            t_ms: t_ms as u32,
+            x: robot.s.x,
+            y: robot.s.y,
+            yaw: robot.s.theta.rad(),
+            x_des: state_des.x,
+            y_des: state_des.y,
+            yaw_des: state_des.theta.rad(),
+            v_ff: vd,
+            w_ff: wd,
+            omega_l_cmd: ul,
+            omega_r_cmd: ur,
+            omega_l_meas: 0.0,
+            omega_r_meas: 0.0,
+            duty_l: dutyl,
+            duty_r: dutyr,
+            x_err: xerror,
+            y_err: yerror,
+            yaw_err: therror,
         };
 
         if let Some(ref mut logger) = sdlogger {
-            logger.log_traj_control_as_csv(&log);
+            logger.log_snapshot_as_csv(&log, 0.0, 0.0);
             logger.flush();
         }
 
@@ -607,10 +594,6 @@ pub async fn diffdrive_control_task_new(
 
     // Initialize controller
     let controller = DiffdriveController::new(KX_TRAJ, KY_TRAJ, KTHETA_TRAJ);
-    if let Some(ref mut logger) = sdlogger {
-        logger.write_traj_control_header();
-    }
-    defmt::info!("csv header written");
 
     // FIRST_MESSAGE.wait().await; //--> no mocap needed for diff flatness generated action sequence
     Timer::after(Duration::from_millis(1000)).await;
@@ -751,39 +734,29 @@ pub async fn diffdrive_control_task_new(
         let dutyl = (ul / WHEEL_MAX).clamp(-1.0, 1.0);
         let dutyr = (ur / WHEEL_MAX).clamp(-1.0, 1.0);
 
-        let log: TrajControlLog = TrajControlLog {
-            timestamp_ms: t_ms as u32,
-            target_x: state_des.x,
-            target_y: state_des.y,
-            target_theta: state_des.theta.rad(),
-            actual_x: robot.s.x,
-            actual_y: robot.s.y,
-            actual_theta: robot.s.theta.rad(),
-            target_vx: vd,
-            target_vy: 0.0,
-            target_vz: 0.0,
-            actual_vx: 0.0,
-            actual_vy: 0.0,
-            actual_vz: 0.0,
-            target_qw: state_des.theta.cos(),
-            target_qx: 0.0,
-            target_qy: 0.0,
-            target_qz: state_des.theta.sin(),
-            actual_qw: robot.s.theta.cos(),
-            actual_qx: 0.0,
-            actual_qy: 0.0,
-            actual_qz: robot.s.theta.sin(),
-            xerror: x_error,
-            yerror: y_error,
-            thetaerror: theta_error,
-            ul: ul,
-            ur: ur,
-            dutyl: dutyl,
-            dutyr: dutyr,
+        let log = robotstate::LogSnapshot {
+            t_ms: t_ms as u32,
+            x: robot.s.x,
+            y: robot.s.y,
+            yaw: robot.s.theta.rad(),
+            x_des: state_des.x,
+            y_des: state_des.y,
+            yaw_des: state_des.theta.rad(),
+            v_ff: vd,
+            w_ff: wd,
+            omega_l_cmd: ul,
+            omega_r_cmd: ur,
+            omega_l_meas: 0.0,
+            omega_r_meas: 0.0,
+            duty_l: dutyl,
+            duty_r: dutyr,
+            x_err: x_error,
+            y_err: y_error,
+            yaw_err: theta_error,
         };
 
         if let Some(ref mut logger) = sdlogger {
-            logger.log_traj_control_as_csv(&log);
+            logger.log_snapshot_as_csv(&log, 0.0, 0.0);
             logger.flush();
         }
 

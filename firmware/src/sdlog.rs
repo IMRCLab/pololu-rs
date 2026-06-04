@@ -262,44 +262,19 @@ pub fn init_sd_logger(
         }
     }
 
-    let file = file.expect("No available log file slot");
+    let mut file = file.expect("No available log file slot");
+    // Write header immediately so it's ready before any data arrives
+    let header = b"ts,x,y,yaw,x_des,y_des,yaw_des,v_ff,w_ff,v_actual,w_actual,omega_l_cmd,omega_r_cmd,omega_l_meas,omega_r_meas,duty_l,duty_r,x_err,y_err,yaw_err\n";
+    if let Err(e) = file.write(header) {
+        defmt::error!("Failed to write CSV header: {:?}", defmt::Debug2Format(&e));
+    }
+    let _ = file.flush();
     info!("SD logger initialized.");
 
     Ok((SdLogger { file }, cfg))
 }
 
-#[repr(C)]
-pub struct TrajControlLog {
-    pub timestamp_ms: u32,
-    pub target_x: f32,
-    pub target_y: f32,
-    pub target_theta: f32,
-    pub actual_x: f32,
-    pub actual_y: f32,
-    pub actual_theta: f32,
-    pub target_vx: f32,
-    pub target_vy: f32,
-    pub target_vz: f32,
-    pub actual_vx: f32,
-    pub actual_vy: f32,
-    pub actual_vz: f32,
-    pub target_qw: f32,
-    pub target_qx: f32,
-    pub target_qy: f32,
-    pub target_qz: f32,
-    pub actual_qw: f32,
-    pub actual_qx: f32,
-    pub actual_qy: f32,
-    pub actual_qz: f32,
-    //control errors from
-    pub xerror: f32,
-    pub yerror: f32,
-    pub thetaerror: f32,
-    pub ul: f32,
-    pub ur: f32,
-    pub dutyl: f32,
-    pub dutyr: f32,
-}
+
 
 #[repr(C)]
 pub struct MotionLog {
@@ -331,10 +306,7 @@ impl SdLogger {
         let _ = self.file.write(header);
     }
 
-    pub fn write_traj_control_header(&mut self) {
-        let header = b"ts,target_x,target_y,target_theta,actual_x,actual_y,actual_theta,target_vx,target_vy,target_vz,actual_vx,actual_vy,actual_vz,target_qw,target_qx,target_qy,target_qz,actual_qw,actual_qx,actual_qy,actual_qz,xerror,yerror,thetaerror,ul,ur,dutyl,dutyr\n";
-        let _ = self.file.write(header);
-    }
+
 
     pub fn log_motion(&mut self, data: &MotionLog) {
         let raw: &[u8; core::mem::size_of::<MotionLog>()] = unsafe { core::mem::transmute(data) };
@@ -344,41 +316,32 @@ impl SdLogger {
         }
     }
 
-    pub fn log_traj_control_as_csv(&mut self, data: &TrajControlLog) {
+    pub fn log_snapshot_as_csv(&mut self, data: &crate::robotstate::LogSnapshot, v_actual: f32, w_actual: f32) {
         let mut line: String<512> = String::new();
 
         let _ = core::write!(
             &mut line,
-            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
-            data.timestamp_ms,
-            data.target_x,
-            data.target_y,
-            data.target_theta,
-            data.actual_x,
-            data.actual_y,
-            data.actual_theta,
-            data.target_vx,
-            data.target_vy,
-            data.target_vz,
-            data.actual_vx,
-            data.actual_vy,
-            data.actual_vz,
-            data.target_qw,
-            data.target_qx,
-            data.target_qy,
-            data.target_qz,
-            data.actual_qw,
-            data.actual_qx,
-            data.actual_qy,
-            data.actual_qz,
-            //errrs
-            data.xerror,
-            data.yerror,
-            data.thetaerror,
-            data.ul,
-            data.ur,
-            data.dutyl,
-            data.dutyr,
+            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
+            data.t_ms,
+            data.x,
+            data.y,
+            data.yaw,
+            data.x_des,
+            data.y_des,
+            data.yaw_des,
+            data.v_ff,
+            data.w_ff,
+            v_actual,
+            w_actual,
+            data.omega_l_cmd,
+            data.omega_r_cmd,
+            data.omega_l_meas,
+            data.omega_r_meas,
+            data.duty_l,
+            data.duty_r,
+            data.x_err,
+            data.y_err,
+            data.yaw_err,
         );
         let _ = self.file.write(line.as_bytes());
     }
@@ -427,6 +390,8 @@ impl SdLogger {
 #[embassy_executor::task]
 pub async fn sd_logging_task(cfg: Option<RobotConfig>) {
     let dt = cfg.map(|c| c.traj_following_dt_s).unwrap_or(0.02);
+    let r = cfg.map(|c| c.wheel_radius).unwrap_or(crate::robot_parameters_default::robot_constants::WHEEL_RADIUS);
+    let b = cfg.map(|c| c.wheel_base).unwrap_or(crate::robot_parameters_default::robot_constants::WHEEL_BASE);
     let mut ticker = embassy_time::Ticker::every(embassy_time::Duration::from_millis((dt * 1000.0) as u64));
     
     // Wait for everything to spin up
@@ -435,50 +400,13 @@ pub async fn sd_logging_task(cfg: Option<RobotConfig>) {
     loop {
         match embassy_futures::select::select(ticker.next(), crate::orchestrator_signal::STOP_LOG_SENDING_SIG.wait()).await {
             embassy_futures::select::Either::First(_) => {
-                let ekf = crate::robotstate::read_ekf_state().await;
-                let setpoint = crate::robotstate::read_setpoint().await;
-                let odom = crate::robotstate::read_odom().await;
-                let err = crate::robotstate::read_tracking_error().await;
-                let cmd = crate::robotstate::read_wheel_cmd().await;
+                let snapshot = crate::robotstate::build_log_snapshot_from_state().await;
 
-                // Time from EKF or just a counter... 
-                // wait, TrajControlLog takes a timestamp_ms. Let's just use ekf.stamp if it has one or a local duration.
-                // Or just use the current time
-                let t_ms = embassy_time::Instant::now().as_millis() as u32;
-
-                let log = TrajControlLog {
-                    timestamp_ms: t_ms,
-                    target_x: setpoint.x_des,
-                    target_y: setpoint.y_des,
-                    target_theta: setpoint.yaw_des,
-                    actual_x: ekf.x,
-                    actual_y: ekf.y,
-                    actual_theta: ekf.yaw,
-                    target_vx: setpoint.v_ff,
-                    target_vy: 0.0,
-                    target_vz: setpoint.w_ff,
-                    actual_vx: odom.v,
-                    actual_vy: 0.0,
-                    actual_vz: odom.w,
-                    target_qw: 1.0,
-                    target_qx: 0.0,
-                    target_qy: 0.0,
-                    target_qz: 0.0,
-                    actual_qw: 1.0,
-                    actual_qx: 0.0,
-                    actual_qy: 0.0,
-                    actual_qz: 0.0,
-                    xerror: err.x_err,
-                    yerror: err.y_err,
-                    thetaerror: err.yaw_err,
-                    ul: cmd.omega_l,
-                    ur: cmd.omega_r,
-                    dutyl: 0.0,
-                    dutyr: 0.0,
-                };
+                let v_actual = r * (snapshot.omega_l_meas + snapshot.omega_r_meas) / 2.0;
+                let w_actual = r * (snapshot.omega_r_meas - snapshot.omega_l_meas) / b;
 
                 with_sdlogger(|logger| {
-                    logger.log_traj_control_as_csv(&log);
+                    logger.log_snapshot_as_csv(&snapshot, v_actual, w_actual);
                 }).await;
             }
             embassy_futures::select::Either::Second(_) => {
