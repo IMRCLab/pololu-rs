@@ -69,14 +69,32 @@ def main():
     gs = GridSpec(6, 3, figure=fig, height_ratios=[1.2, 1, 1, 1.2, 1, 1])
 
     ax_traj = fig.add_subplot(gs[0, 0:2])
-    has_tx = safe_col(df, "target_x")
-    has_ty = safe_col(df, "target_y")
-    has_ax = safe_col(df, "actual_x")
-    has_ay = safe_col(df, "actual_y")
+    
+    # Map new columns (Option B) vs legacy columns
+    is_new = "x_des" in df.columns
+    
+    target_x_col = 'x_des' if 'x_des' in df.columns else 'target_x'
+    target_y_col = 'y_des' if 'y_des' in df.columns else 'target_y'
+    actual_x_col = 'x' if 'x' in df.columns else 'actual_x'
+    actual_y_col = 'y' if 'y' in df.columns else 'actual_y'
+    target_theta_col = "yaw_des" if is_new else ("target_theta" if "target_theta" in df.columns else "target_yaw")
+    actual_theta_col = "yaw" if is_new else ("actual_theta" if "actual_theta" in df.columns else "actual_yaw")
+    xerror_col = "x_err" if is_new else "xerror"
+    yerror_col = "y_err" if is_new else "yerror"
+    thetaerror_col = "yaw_err" if is_new else "thetaerror"
+    ul_col = "omega_l_cmd" if is_new else "ul"
+    ur_col = "omega_r_cmd" if is_new else "ur"
+    dl_col = "duty_l" if is_new else "dutyl"
+    dr_col = "duty_r" if is_new else "dutyr"
+
+    has_tx = safe_col(df, target_x_col)
+    has_ty = safe_col(df, target_y_col)
+    has_ax = safe_col(df, actual_x_col)
+    has_ay = safe_col(df, actual_y_col)
     if has_tx and has_ty:
-        ax_traj.plot(df["target_x"], df["target_y"], "--", label="target traj")
+        ax_traj.plot(df[target_x_col], df[target_y_col], "--", label="target traj")
     if has_ax and has_ay:
-        ax_traj.plot(df["actual_x"], df["actual_y"], "-", label="actual traj")
+        ax_traj.plot(df[actual_x_col], df[actual_y_col], "-", label="actual traj")
     ax_traj.set_title("XY Trajectory (target vs actual)")
     ax_traj.set_xlabel("X (m)")
     ax_traj.set_ylabel("Y (m)")
@@ -86,59 +104,86 @@ def main():
 
 
     ax_px = fig.add_subplot(gs[1, 0])
-    plot_pair(ax_px, t, df, "target_x", "actual_x", "x", "X (m)")
+    plot_pair(ax_px, t, df, target_x_col, actual_x_col, "x", "X (m)")
 
     ax_py = fig.add_subplot(gs[1, 1])
-    plot_pair(ax_py, t, df, "target_y", "actual_y", "y", "Y (m)")
+    plot_pair(ax_py, t, df, target_y_col, actual_y_col, "y", "Y (m)")
 
     ax_th = fig.add_subplot(gs[1, 2])
-    target_theta_col = "target_theta" if "target_theta" in df.columns else "target_yaw"
-    actual_theta_col = "actual_theta" if "actual_theta" in df.columns else "actual_yaw"
     _ = plot_pair(ax_th, t, df, target_theta_col, actual_theta_col, "theta", "Theta (deg)", to_deg=True)
 
 
     ax_px2 = fig.add_subplot(gs[2, 0])
-    plot_pair(ax_px2, t, df, "target_x", "actual_x", "x", "X (m)")
+    plot_pair(ax_px2, t, df, target_x_col, actual_x_col, "x", "X (m)")
 
     ax_py2 = fig.add_subplot(gs[2, 1])
-    plot_pair(ax_py2, t, df, "target_y", "actual_y", "y", "Y (m)")
+    plot_pair(ax_py2, t, df, target_y_col, actual_y_col, "y", "Y (m)")
 
     ax_th_err = fig.add_subplot(gs[2, 2])
-    if safe_col(df, "thetaerror"):
-        ax_th_err.plot(t, deg(df["thetaerror"]), "-", label="theta error (deg)")
+    if safe_col(df, thetaerror_col):
+        ax_th_err.plot(t, deg(df[thetaerror_col]), "-", label="theta error (deg)")
         ax_th_err.axhline(0, linewidth=1, alpha=0.5)
         ax_th_err.set_ylabel("deg")
         ax_th_err.grid(True, alpha=0.3)
         ax_th_err.legend(loc="best")
 
-    ax_vx = fig.add_subplot(gs[3, 0])
-    plot_pair(ax_vx, t, df, "target_vx", "actual_vx", "vx", "vx (m/s)")
+    if is_new:
+        # Plot new 2D velocities and wheel speeds instead of quaternions and 3D velocities
+        ax_vx = fig.add_subplot(gs[3, 0])
+        plot_pair(ax_vx, t, df, "v_ff", "v_actual", "linear velocity", "v (m/s)")
 
-    ax_vy = fig.add_subplot(gs[3, 1])
-    plot_pair(ax_vy, t, df, "target_vy", "actual_vy", "vy", "vy (m/s)")
+        ax_vy = fig.add_subplot(gs[3, 1])
+        # Unicycle y-velocity is zero, let's just make it a placeholder or empty
+        ax_vy.text(0.5, 0.5, 'N/A (2D Unicycle)', transform=ax_vy.transAxes, ha='center', va='center', alpha=0.5)
+        ax_vy.set_title("vy (m/s)")
+        ax_vy.grid(True, alpha=0.3)
 
-    ax_vz = fig.add_subplot(gs[3, 2])
-    plot_pair(ax_vz, t, df, "target_vz", "actual_vz", "vz", "vz (m/s)")
+        ax_vz = fig.add_subplot(gs[3, 2])
+        plot_pair(ax_vz, t, df, "w_ff", "w_actual", "angular velocity", "w (rad/s)")
 
-    ax_qw = fig.add_subplot(gs[4, 0])
-    plot_pair(ax_qw, t, df, "target_qw", "actual_qw", "qw", "qw")
+        ax_qw = fig.add_subplot(gs[4, 0])
+        plot_pair(ax_qw, t, df, "omega_l_cmd", "omega_l_meas", "left wheel speed", "omega_l (rad/s)")
 
-    ax_qx = fig.add_subplot(gs[4, 1])
-    plot_pair(ax_qx, t, df, "target_qx", "actual_qx", "qx", "qx")
+        ax_qx = fig.add_subplot(gs[4, 1])
+        plot_pair(ax_qx, t, df, "omega_r_cmd", "omega_r_meas", "right wheel speed", "omega_r (rad/s)")
 
-    ax_qy = fig.add_subplot(gs[4, 2])
-    plot_pair(ax_qy, t, df, "target_qy", "actual_qy", "qy", "qy")
+        # Hide / label empty subplots in grid
+        ax_qy = fig.add_subplot(gs[4, 2])
+        ax_qy.text(0.5, 0.5, 'N/A', transform=ax_qy.transAxes, ha='center', va='center', alpha=0.5)
+        ax_qy.grid(True, alpha=0.3)
 
-    ax_qz = fig.add_subplot(gs[5, 0])
-    plot_pair(ax_qz, t, df, "target_qz", "actual_qz", "qz", "qz")
+        ax_qz = fig.add_subplot(gs[5, 0])
+        ax_qz.text(0.5, 0.5, 'N/A', transform=ax_qz.transAxes, ha='center', va='center', alpha=0.5)
+        ax_qz.grid(True, alpha=0.3)
+    else:
+        ax_vx = fig.add_subplot(gs[3, 0])
+        plot_pair(ax_vx, t, df, "target_vx", "actual_vx", "vx", "vx (m/s)")
+
+        ax_vy = fig.add_subplot(gs[3, 1])
+        plot_pair(ax_vy, t, df, "target_vy", "actual_vy", "vy", "vy (m/s)")
+
+        ax_vz = fig.add_subplot(gs[3, 2])
+        plot_pair(ax_vz, t, df, "target_vz", "actual_vz", "vz", "vz (m/s)")
+
+        ax_qw = fig.add_subplot(gs[4, 0])
+        plot_pair(ax_qw, t, df, "target_qw", "actual_qw", "qw", "qw")
+
+        ax_qx = fig.add_subplot(gs[4, 1])
+        plot_pair(ax_qx, t, df, "target_qx", "actual_qx", "qx", "qx")
+
+        ax_qy = fig.add_subplot(gs[4, 2])
+        plot_pair(ax_qy, t, df, "target_qy", "actual_qy", "qy", "qy")
+
+        ax_qz = fig.add_subplot(gs[5, 0])
+        plot_pair(ax_qz, t, df, "target_qz", "actual_qz", "qz", "qz")
 
     ax_err = fig.add_subplot(gs[5, 1])
     has_any_err = False
-    if safe_col(df, "xerror"):
-        ax_err.plot(t, df["xerror"], "-", label="x error (m)")
+    if safe_col(df, xerror_col):
+        ax_err.plot(t, df[xerror_col], "-", label="x error (m)")
         has_any_err = True
-    if safe_col(df, "yerror"):
-        ax_err.plot(t, df["yerror"], "-", label="y error (m)")
+    if safe_col(df, yerror_col):
+        ax_err.plot(t, df[yerror_col], "-", label="y error (m)")
         has_any_err = True
     if has_any_err:
         ax_err.axhline(0, linewidth=1, alpha=0.5)
@@ -148,17 +193,17 @@ def main():
 
     ax_act = fig.add_subplot(gs[5, 2])
     plotted = False
-    if safe_col(df, "ul"):
-        ax_act.plot(t, df["ul"], "-", label="ul")
+    if safe_col(df, ul_col):
+        ax_act.plot(t, df[ul_col], "-", label="omega_l_cmd" if is_new else "ul")
         plotted = True
-    if safe_col(df, "ur"):
-        ax_act.plot(t, df["ur"], "-", label="ur")
+    if safe_col(df, ur_col):
+        ax_act.plot(t, df[ur_col], "-", label="omega_r_cmd" if is_new else "ur")
         plotted = True
-    if safe_col(df, "dutyl"):
-        ax_act.plot(t, df["dutyl"], "--", label="dutyl")
+    if safe_col(df, dl_col):
+        ax_act.plot(t, df[dl_col], "--", label="duty_l" if is_new else "dutyl")
         plotted = True
-    if safe_col(df, "dutyr"):
-        ax_act.plot(t, df["dutyr"], "--", label="dutyr")
+    if safe_col(df, dr_col):
+        ax_act.plot(t, df[dr_col], "--", label="duty_r" if is_new else "dutyr")
         plotted = True
     if plotted:
         ax_act.set_ylabel("actuation")

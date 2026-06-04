@@ -37,25 +37,38 @@ def display_data_summary(data, filename):
     print(f"Time range: {data['ts'].min()} to {data['ts'].max()} ms")
     print(f"Duration: {(data['ts'].max() - data['ts'].min()) / 1000:.2f} seconds")
     
+    # Map new columns (Option B) vs legacy columns
+    target_x_col = 'x_des' if 'x_des' in data.columns else 'target_vx'
+    target_y_col = 'y_des' if 'y_des' in data.columns else 'target_vy'
+    actual_x_col = 'x' if 'x' in data.columns else 'actual_vx'
+    actual_y_col = 'y' if 'y' in data.columns else 'actual_vy'
+    target_yaw_col = 'yaw_des' if 'yaw_des' in data.columns else 'target_qw'
+    
     print(f"\nTarget position range:")
-    print(f"  x: {data['target_vx'].min():.3f} to {data['target_vx'].max():.3f}")
-    print(f"  y: {data['target_vy'].min():.3f} to {data['target_vy'].max():.3f}")
+    print(f"  x: {data[target_x_col].min():.3f} to {data[target_x_col].max():.3f}")
+    print(f"  y: {data[target_y_col].min():.3f} to {data[target_y_col].max():.3f}")
     
     print(f"\nActual position range:")
-    print(f"  x: {data['actual_vx'].min():.3f} to {data['actual_vx'].max():.3f}")
-    print(f"  y: {data['actual_vy'].min():.3f} to {data['actual_vy'].max():.3f}")
+    print(f"  x: {data[actual_x_col].min():.3f} to {data[actual_x_col].max():.3f}")
+    print(f"  y: {data[actual_y_col].min():.3f} to {data[actual_y_col].max():.3f}")
     
     print(f"\nAngle range (degrees):")
-    print(f"  roll: {np.degrees(data['roll']).min():.1f} to {np.degrees(data['roll']).max():.1f}")
-    print(f"  pitch: {np.degrees(data['pitch']).min():.1f} to {np.degrees(data['pitch']).max():.1f}")
+    if 'roll' in data.columns:
+        print(f"  roll: {np.degrees(data['roll']).min():.1f} to {np.degrees(data['roll']).max():.1f}")
+    if 'pitch' in data.columns:
+        print(f"  pitch: {np.degrees(data['pitch']).min():.1f} to {np.degrees(data['pitch']).max():.1f}")
     print(f"  yaw (actual): {np.degrees(data['yaw']).min():.1f} to {np.degrees(data['yaw']).max():.1f}")
     
     # Add desired angle information if available
-    if 'target_qw' in data.columns and not data['target_qw'].isna().all():
-        print(f"  yaw (desired): {np.degrees(data['target_qw']).min():.1f} to {np.degrees(data['target_qw']).max():.1f}")
+    if target_yaw_col in data.columns and not data[target_yaw_col].isna().all():
+        print(f"  yaw (desired): {np.degrees(data[target_yaw_col]).min():.1f} to {np.degrees(data[target_yaw_col]).max():.1f}")
     
     # Calculate and display velocity information
-    if 'target_vx' in data.columns and 'target_vy' in data.columns:
+    if 'v_ff' in data.columns and 'v_actual' in data.columns:
+        print(f"\nSpeed range (m/s):")
+        print(f"  target speed: {data['v_ff'].min():.3f} to {data['v_ff'].max():.3f}")
+        print(f"  actual speed: {data['v_actual'].min():.3f} to {data['v_actual'].max():.3f}")
+    elif 'target_vx' in data.columns and 'target_vy' in data.columns:
         target_speed = np.sqrt(data['target_vx']**2 + data['target_vy']**2)
         actual_speed = np.sqrt(data['actual_vx']**2 + data['actual_vy']**2)
         print(f"\nSpeed range (m/s):")
@@ -67,25 +80,30 @@ def plot_single_trajectory(data, name, color='blue'):
     """Create comprehensive trajectory and position comparison plots for a single dataset."""
     time_s = data['ts'] / 1000.0  # Convert to seconds
     
+    target_x_col = 'x_des' if 'x_des' in data.columns else 'target_vx'
+    target_y_col = 'y_des' if 'y_des' in data.columns else 'target_vy'
+    actual_x_col = 'x' if 'x' in data.columns else 'actual_vx'
+    actual_y_col = 'y' if 'y' in data.columns else 'actual_vy'
+    target_yaw_col = 'yaw_des' if 'yaw_des' in data.columns else 'target_qw'
+
     # Create figure with 6 subplots (2x3 grid)
     fig, axes = plt.subplots(2, 3, figsize=(24, 12))
     fig.suptitle(f'{name} Robotics Data Analysis - Target vs Actual Comparison', fontsize=16, fontweight='bold')
     
     # Plot 1: XY Trajectory Comparison with Velocity Arrows
     ax1 = axes[0, 0]
-    ax1.plot(data['target_vx'], data['target_vy'], 'r--', label='Target Trajectory', linewidth=2, marker='o', markersize=3)
-    ax1.plot(data['actual_vx'], data['actual_vy'], 'b-', label='Actual Trajectory', linewidth=2, marker='s', markersize=3)
+    ax1.plot(data[target_x_col], data[target_y_col], 'r--', label='Target Trajectory', linewidth=2, marker='o', markersize=3)
+    ax1.plot(data[actual_x_col], data[actual_y_col], 'b-', label='Actual Trajectory', linewidth=2, marker='s', markersize=3)
     
     # Add quiver arrows showing velocity magnitude and direction
-    # Calculate velocity components (assuming these are position derivatives)
     # Skip some points for clarity (every 5th point)
     skip = max(1, len(data) // 20)  # Show about 20 arrows
     
     # Calculate velocity from position differences
-    target_vx_calc = np.gradient(data['target_vx'])
-    target_vy_calc = np.gradient(data['target_vy'])
-    actual_vx_calc = np.gradient(data['actual_vx'])
-    actual_vy_calc = np.gradient(data['actual_vy'])
+    target_vx_calc = np.gradient(data[target_x_col])
+    target_vy_calc = np.gradient(data[target_y_col])
+    actual_vx_calc = np.gradient(data[actual_x_col])
+    actual_vy_calc = np.gradient(data[actual_y_col])
     
     # Calculate speeds for scaling
     target_speed = np.sqrt(target_vx_calc**2 + target_vy_calc**2)
@@ -95,13 +113,13 @@ def plot_single_trajectory(data, name, color='blue'):
     scale_factor = 0.05  # Adjust this to make arrows visible but not overwhelming
     
     # Target trajectory arrows (red)
-    ax1.quiver(data['target_vx'][::skip], data['target_vy'][::skip], 
+    ax1.quiver(data[target_x_col][::skip], data[target_y_col][::skip], 
                target_vx_calc[::skip], target_vy_calc[::skip],
                target_speed[::skip], scale=1/scale_factor, scale_units='xy', angles='xy',
                cmap='Reds', alpha=0.7, width=0.003, label='Target Velocity')
     
     # Actual trajectory arrows (blue)
-    ax1.quiver(data['actual_vx'][::skip], data['actual_vy'][::skip], 
+    ax1.quiver(data[actual_x_col][::skip], data[actual_y_col][::skip], 
                actual_vx_calc[::skip], actual_vy_calc[::skip],
                actual_speed[::skip], scale=1/scale_factor, scale_units='xy', angles='xy',
                cmap='Blues', alpha=0.7, width=0.003, label='Actual Velocity')
@@ -123,8 +141,8 @@ def plot_single_trajectory(data, name, color='blue'):
     
     # Plot 2: Position X Comparison over Time
     ax2 = axes[0, 1]
-    ax2.plot(time_s, data['target_vx'], 'r--', label='Target X', linewidth=2)
-    ax2.plot(time_s, data['actual_vx'], 'b-', label='Actual X', linewidth=2)
+    ax2.plot(time_s, data[target_x_col], 'r--', label='Target X', linewidth=2)
+    ax2.plot(time_s, data[actual_x_col], 'b-', label='Actual X', linewidth=2)
     ax2.set_xlabel('Time (s)')
     ax2.set_ylabel('Position X (m)')
     ax2.set_title('Position X over Time')
@@ -133,8 +151,8 @@ def plot_single_trajectory(data, name, color='blue'):
     
     # Plot 3: Position Y Comparison over Time
     ax3 = axes[1, 0]
-    ax3.plot(time_s, data['target_vy'], 'r--', label='Target Y', linewidth=2)
-    ax3.plot(time_s, data['actual_vy'], 'g-', label='Actual Y', linewidth=2)
+    ax3.plot(time_s, data[target_y_col], 'r--', label='Target Y', linewidth=2)
+    ax3.plot(time_s, data[actual_y_col], 'g-', label='Actual Y', linewidth=2)
     ax3.set_xlabel('Time (s)')
     ax3.set_ylabel('Position Y (m)')
     ax3.set_title('Position Y over Time')
@@ -146,8 +164,8 @@ def plot_single_trajectory(data, name, color='blue'):
     ax4.plot(time_s, np.degrees(data['yaw']), 'b-', label='Actual Yaw', linewidth=2, marker='o', markersize=2)
     
     # Add desired orientation if available
-    if 'target_qw' in data.columns and not data['target_qw'].isna().all():
-        ax4.plot(time_s, np.degrees(data['target_qw']), 'r--', label='Desired Yaw', linewidth=2)
+    if target_yaw_col in data.columns and not data[target_yaw_col].isna().all():
+        ax4.plot(time_s, np.degrees(data[target_yaw_col]), 'r--', label='Desired Yaw', linewidth=2)
     
     ax4.set_xlabel('Time (s)')
     ax4.set_ylabel('Yaw Angle (degrees)')
@@ -158,10 +176,10 @@ def plot_single_trajectory(data, name, color='blue'):
     # Plot 5: Desired vs Actual Orientation Comparison
     ax5 = axes[0, 2]
     # Check if we have target orientation data
-    if 'target_qw' in data.columns and not data['target_qw'].isna().all():
-        # Target orientation is stored in target_qw
-        ax5.plot(time_s, np.degrees(data['target_qw']), 'r--', label='Desired Orientation', linewidth=2)
-        target_orientation = data['target_qw']
+    if target_yaw_col in data.columns and not data[target_yaw_col].isna().all():
+        # Target orientation is stored in target_yaw_col
+        ax5.plot(time_s, np.degrees(data[target_yaw_col]), 'r--', label='Desired Orientation', linewidth=2)
+        target_orientation = data[target_yaw_col]
     else:
         # Generate expected circle trajectory orientation for comparison
         # For a circle trajectory, orientation should follow the tangent
