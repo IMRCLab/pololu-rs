@@ -5,7 +5,7 @@ use {defmt_rtt as _, panic_probe as _};
 
 use defmt::info;
 use embassy_executor::Spawner;
-use embassy_futures::select::{Either, Either3, select, select3};
+use embassy_futures::select::{Either, select};
 use embassy_rp::init;
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex as Raw, signal::Signal};
 use embassy_time::{Duration, Timer};
@@ -29,7 +29,7 @@ use pololu3pi2040_rs::{
     odometry::odometry_task,
     robotstate::TRAJECTORY_CONTROL_EVENT,
     robotstate::uart_log_sending_task,
-    sdlog::{SDLOGGER_SHARED, sd_logging_task},
+    sdlog::{SDLOGGER_SHARED, sd_logging_task, with_sdlogger},
     trajectory_control::{
         diffdrive_outer_loop_command_controlled_traj_following_from_sdcard,
         diffdrive_outer_loop_onboard_traj, diffdrive_outer_loop_onboard_traj2,
@@ -286,6 +286,10 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         drain_signal(&STOP_ODOM_SIG, 2).await;
                         drain_signal(&STOP_LOG_SENDING_SIG, 2).await;
                         drain_signal(&STOP_POSE_EST_SIG, 2).await;
+
+                        with_sdlogger(|logger| {
+                            logger.close_file();
+                        }).await;
                     }
                 }
 
@@ -360,6 +364,11 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                     Mode::TrajMocap => {
                         defmt::info!("TRAJ-FOLLOWING Mode (With Mocap) is selected!!!!!");
                         pololu3pi2040_rs::parameter_sync::send_mode(2).await;
+
+                        with_sdlogger(|logger| {
+                            logger.open_new_file();
+                        }).await;
+
                         let uart_ok = spawner.spawn(uart_motioncap_receiving_task(cfg)).is_ok();
                         let mocap_ok = spawner.spawn(mocap_update_task()).is_ok();
                         let odo_ok = spawner
@@ -449,6 +458,11 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                     Mode::TrajOnboard => {
                         defmt::info!("ONBOARD-TRAJ Mode (figure-8 etc.) is selected!!!!!");
                         pololu3pi2040_rs::parameter_sync::send_mode(5).await;
+
+                        with_sdlogger(|logger| {
+                            logger.open_new_file();
+                        }).await;
+
                         let uart_ok = spawner.spawn(uart_motioncap_receiving_task(cfg)).is_ok();
                         let mocap_ok = spawner.spawn(mocap_update_task()).is_ok();
                         let odo_ok = spawner
@@ -500,6 +514,11 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                     Mode::TrajOnboard2 => {
                         defmt::info!("ONBOARD-TRAJ-2 Mode (demo) is selected!!!!!");
                         pololu3pi2040_rs::parameter_sync::send_mode(6).await;
+
+                        with_sdlogger(|logger| {
+                            logger.open_new_file();
+                        }).await;
+
                         let uart_ok = spawner.spawn(uart_motioncap_receiving_task(cfg)).is_ok();
                         let mocap_ok = spawner.spawn(mocap_update_task()).is_ok();
                         let odo_ok = spawner

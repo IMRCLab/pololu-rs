@@ -1,7 +1,7 @@
 use crate::math::SO2;
 use crate::orchestrator_signal::{STOP_TRAJ_OUTER_SIG, TRAJ_PAUSE_SIG, TRAJ_RESUME_SIG, STOP_ALL};
 use embassy_futures::select::{Either, select, select3, Either3};
-use embassy_time::{Duration, Instant, Ticker, Timer};
+use embassy_time::{Duration, Instant, Ticker};
 use portable_atomic::Ordering;
 
 use crate::led::led_set;
@@ -27,8 +27,14 @@ async fn run_unified_loop(
     controller: &mut DiffdriveControllerCascade,
     robot_cfg: &RobotConfig,
 ) -> TrajectoryResult {
+    // Open new file if not already open
+    crate::sdlog::with_sdlogger(|logger| {
+        if logger.file.is_none() {
+            logger.open_new_file();
+        }
+    }).await;
+    robotstate::set_sd_logging_active(true);
 
-    
     let init = robotstate::read_ekf_state().await;
     let mut ekf = crate::ekf::Ekf::default_at(init.x, init.y, init.yaw);
 
@@ -54,6 +60,7 @@ async fn run_unified_loop(
                         omega_l: 0.0, omega_r: 0.0, stamp: Instant::now(),
                     });
                     defmt::info!("Trajectory stopped by command");
+                    robotstate::set_sd_logging_active(false);
                     return TrajectoryResult::Stopped;
                 }
             }
@@ -63,17 +70,20 @@ async fn run_unified_loop(
                 let _ = WHEEL_CMD_CH.try_send(WheelCmd {
                     omega_l: 0.0, omega_r: 0.0, stamp: Instant::now(),
                 });
+                robotstate::set_sd_logging_active(false);
                 let pause_start = Instant::now();
                 defmt::info!("Execute loop paused");
                 match select(TRAJ_RESUME_SIG.wait(), TRAJECTORY_CONTROL_EVENT.wait()).await {
                     Either::First(_) => {
                         pause_offset += Instant::now() - pause_start;
                         defmt::info!("Execute loop resumed");
+                        robotstate::set_sd_logging_active(true);
                     }
                     Either::Second(_) => {
                         let _ = WHEEL_CMD_CH.try_send(WheelCmd {
                             omega_l: 0.0, omega_r: 0.0, stamp: Instant::now(),
                         });
+                        robotstate::set_sd_logging_active(false);
                         return TrajectoryResult::Stopped;
                     }
                 }
@@ -86,6 +96,7 @@ async fn run_unified_loop(
                 omega_l: 0.0, omega_r: 0.0, stamp: Instant::now(),
             });
             defmt::info!("Trajectory stopped via STOP_ALL");
+            robotstate::set_sd_logging_active(false);
             break;
         }
 
@@ -146,10 +157,12 @@ async fn run_unified_loop(
             if t_sec >= dur { 
                 let _ = WHEEL_CMD_CH.try_send(WheelCmd { omega_l: 0.0, omega_r: 0.0, stamp: Instant::now() });
                 defmt::info!("Trajectory complete after {}s", t_sec);
+                robotstate::set_sd_logging_active(false);
                 return TrajectoryResult::Completed; 
             }
         }
     }
+    robotstate::set_sd_logging_active(false);
     TrajectoryResult::Stopped
 }
 
@@ -205,10 +218,16 @@ pub async fn diffdrive_outer_loop_command_controlled_traj_following_from_sdcard(
                 led_set(false).await;
                 TRAJ_RESUME_SIG.reset();
                 TRAJ_PAUSE_SIG.reset();
+                crate::sdlog::with_sdlogger(|logger| {
+                    logger.close_file();
+                }).await;
             }
             Either::Second(_) => {
                 defmt::warn!("STOP outer during exec -> exit");
                 led_set(false).await;
+                crate::sdlog::with_sdlogger(|logger| {
+                    logger.close_file();
+                }).await;
                 return;
             }
         }
@@ -261,10 +280,16 @@ pub async fn diffdrive_outer_loop_onboard_traj(
                 led_set(false).await;
                 TRAJ_RESUME_SIG.reset();
                 TRAJ_PAUSE_SIG.reset();
+                crate::sdlog::with_sdlogger(|logger| {
+                    logger.close_file();
+                }).await;
             }
             Either::Second(_) => {
                 defmt::warn!("STOP outer during exec -> exit");
                 led_set(false).await;
+                crate::sdlog::with_sdlogger(|logger| {
+                    logger.close_file();
+                }).await;
                 return;
             }
         }
@@ -319,10 +344,16 @@ pub async fn diffdrive_outer_loop_onboard_traj2(
                 led_set(false).await;
                 TRAJ_RESUME_SIG.reset();
                 TRAJ_PAUSE_SIG.reset();
+                crate::sdlog::with_sdlogger(|logger| {
+                    logger.close_file();
+                }).await;
             }
             Either::Second(_) => {
                 defmt::warn!("STOP outer during exec -> exit");
                 led_set(false).await;
+                crate::sdlog::with_sdlogger(|logger| {
+                    logger.close_file();
+                }).await;
                 return;
             }
         }

@@ -11,7 +11,7 @@ use crate::trajectory_uart::UartCfg;
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_futures::select::{Either, select};
-use embassy_time::{Duration, Ticker, Timer};
+use embassy_time::{Duration, Ticker};
 use heapless::Vec as HVec;
 
 const PI: f32 = core::f32::consts::PI;

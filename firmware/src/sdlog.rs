@@ -77,44 +77,106 @@ static SCRATCH_JSON: StaticCell<[u8; 48 * 1024]> = StaticCell::new();
 //     file: File<'static, Sd<'static>, DummyClock, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
 // }
 
+pub type SdDir = Directory<'static, Sd<'static>, Clock, MAX_DIRS, MAX_FILES, MAX_VOLUMES>;
+pub type SdFile = File<'static, Sd<'static>, DummyClock, MAX_DIRS, MAX_FILES, MAX_VOLUMES>;
+
 pub struct SdLogger {
-    file: File<'static, Sd<'static>, DummyClock, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
+    pub file: Option<SdFile>,
+    pub dir: &'static mut SdDir,
 }
 
 impl SdLogger {
+    pub fn open_new_file(&mut self) {
+        if let Some(f) = self.file.take() {
+            drop(f);
+        }
+
+        // We transmute self.dir to have a static lifetime so that the opened file also gets a static lifetime
+        let dir: &'static mut SdDir = unsafe { core::mem::transmute(&mut *self.dir) };
+
+        let mut file = None;
+        for i in 0..100 {
+            let tens = b'0' + (i / 10) as u8;
+            let ones = b'0' + (i % 10) as u8;
+
+            let mut name = String::<8>::new();
+            name.push('T').ok();
+            name.push('R').ok();
+            name.push(char::from(tens)).ok();
+            name.push(char::from(ones)).ok();
+
+            if let Ok(short_name) = ShortFileName::create_from_str(&name) {
+                let exists = dir.open_file_in_dir(&short_name, Mode::ReadOnly).is_ok();
+
+                if !exists {
+                    let new_file = dir
+                        .open_file_in_dir(&short_name, Mode::ReadWriteCreateOrAppend)
+                        .unwrap();
+                    file = Some(new_file);
+                    break;
+                }
+            }
+        }
+
+        if let Some(mut new_file) = file {
+            let header = b"ts,x,y,yaw,x_des,y_des,yaw_des,v_ff,w_ff,v_actual,w_actual,omega_l_cmd,omega_r_cmd,omega_l_meas,omega_r_meas,duty_l,duty_r,x_err,y_err,yaw_err\n";
+            if let Err(e) = new_file.write(header) {
+                defmt::error!("Failed to write CSV header: {:?}", defmt::Debug2Format(&e));
+            }
+            let _ = new_file.flush();
+            self.file = Some(new_file);
+            defmt::info!("SD Logger: opened new log file");
+        } else {
+            defmt::error!("SD Logger: No free file slots found!");
+        }
+    }
+
+    pub fn close_file(&mut self) {
+        if let Some(f) = self.file.take() {
+            drop(f);
+            defmt::info!("SD Logger: file closed.");
+        }
+    }
+
     /// write in string
     pub fn write(&mut self, data: &[u8]) {
-        if let Err(e) = self.file.write(data) {
-            defmt::error!("Write failed: {:?}", defmt::Debug2Format(&e));
+        if let Some(ref mut file) = self.file {
+            if let Err(e) = file.write(data) {
+                defmt::error!("Write failed: {:?}", defmt::Debug2Format(&e));
+            }
         }
     }
 
     /// flush
     /// (CAUTION: This needs to be called when all writing task is finished!!!)
     pub fn flush(&mut self) {
-        if let Err(e) = self.file.flush() {
-            defmt::error!("Flush failed: {:?}", defmt::Debug2Format(&e));
+        if let Some(ref mut file) = self.file {
+            if let Err(e) = file.flush() {
+                defmt::error!("Flush failed: {:?}", defmt::Debug2Format(&e));
+            }
         }
     }
 
     /// print everything in the file(log.txt)
     pub fn read_all(&mut self) {
-        if let Err(e) = self.file.seek_from_start(0) {
-            defmt::error!("Seek failed: {:?}", defmt::Debug2Format(&e));
-            return;
-        }
+        if let Some(ref mut file) = self.file {
+            if let Err(e) = file.seek_from_start(0) {
+                defmt::error!("Seek failed: {:?}", defmt::Debug2Format(&e));
+                return;
+            }
 
-        let mut buf = [0u8; 27];
-        while !self.file.is_eof() {
-            match self.file.read(&mut buf) {
-                Ok(n) => {
-                    if n > 0 {
-                        info!("{:a}", &buf[..n]);
+            let mut buf = [0u8; 27];
+            while !file.is_eof() {
+                match file.read(&mut buf) {
+                    Ok(n) => {
+                        if n > 0 {
+                            info!("{:a}", &buf[..n]);
+                        }
                     }
-                }
-                Err(e) => {
-                    defmt::warn!("Read error: {:?}", defmt::Debug2Format(&e));
-                    break;
+                    Err(e) => {
+                        defmt::warn!("Read error: {:?}", defmt::Debug2Format(&e));
+                        break;
+                    }
                 }
             }
         }
@@ -234,44 +296,10 @@ pub fn init_sd_logger(
         { MAX_VOLUMES },
     >(dir, scratch);
 
-    // ============================= Prepare logging file for trajectory =============================
-    let mut file = None;
-    for i in 0..100 {
-        // File name will be TR00....TR99, binary file
-        let tens = b'0' + (i / 10) as u8;
-        let ones = b'0' + (i % 10) as u8;
-
-        let mut name = String::<8>::new();
-        name.push('T').ok();
-        name.push('R').ok();
-        name.push(char::from(tens)).ok();
-        name.push(char::from(ones)).ok();
-
-        if let Ok(short_name) = ShortFileName::create_from_str(&name) {
-            // drop the first borrow
-            let exists = dir.open_file_in_dir(&short_name, Mode::ReadOnly).is_ok();
-
-            if !exists {
-                // first borrow is released, so the second borrow is safe.
-                let new_file = dir
-                    .open_file_in_dir(&short_name, Mode::ReadWriteCreateOrAppend)
-                    .unwrap();
-                file = Some(new_file);
-                break;
-            }
-        }
-    }
-
-    let mut file = file.expect("No available log file slot");
-    // Write header immediately so it's ready before any data arrives
-    let header = b"ts,x,y,yaw,x_des,y_des,yaw_des,v_ff,w_ff,v_actual,w_actual,omega_l_cmd,omega_r_cmd,omega_l_meas,omega_r_meas,duty_l,duty_r,x_err,y_err,yaw_err\n";
-    if let Err(e) = file.write(header) {
-        defmt::error!("Failed to write CSV header: {:?}", defmt::Debug2Format(&e));
-    }
-    let _ = file.flush();
+    // SD logging file is opened dynamically when starting trajectory/mode.
     info!("SD logger initialized.");
 
-    Ok((SdLogger { file }, cfg))
+    Ok((SdLogger { file: None, dir }, cfg))
 }
 
 
@@ -303,7 +331,9 @@ pub struct MotionLog {
 impl SdLogger {
     pub fn write_csv_header(&mut self) {
         let header = b"ts,target_vx,target_vy,target_vz,target_qw,target_qx,target_qy,target_qz,actual_vx,actual_vy,actual_vz,actual_qw,actual_qx,actual_qy,actual_qz,roll,pitch,yaw,motor_l,motor_r\n";
-        let _ = self.file.write(header);
+        if let Some(ref mut file) = self.file {
+            let _ = file.write(header);
+        }
     }
 
 
@@ -311,79 +341,87 @@ impl SdLogger {
     pub fn log_motion(&mut self, data: &MotionLog) {
         let raw: &[u8; core::mem::size_of::<MotionLog>()] = unsafe { core::mem::transmute(data) };
 
-        if let Err(e) = self.file.write(raw) {
-            defmt::error!("Write log failed: {:?}", defmt::Debug2Format(&e));
+        if let Some(ref mut file) = self.file {
+            if let Err(e) = file.write(raw) {
+                defmt::error!("Write log failed: {:?}", defmt::Debug2Format(&e));
+            }
         }
     }
 
     pub fn log_snapshot_as_csv(&mut self, data: &crate::robotstate::LogSnapshot, v_actual: f32, w_actual: f32) {
-        let mut line: String<512> = String::new();
+        if let Some(ref mut file) = self.file {
+            let mut line: String<512> = String::new();
 
-        let _ = core::write!(
-            &mut line,
-            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
-            data.t_ms,
-            data.x,
-            data.y,
-            data.yaw,
-            data.x_des,
-            data.y_des,
-            data.yaw_des,
-            data.v_ff,
-            data.w_ff,
-            v_actual,
-            w_actual,
-            data.omega_l_cmd,
-            data.omega_r_cmd,
-            data.omega_l_meas,
-            data.omega_r_meas,
-            data.duty_l,
-            data.duty_r,
-            data.x_err,
-            data.y_err,
-            data.yaw_err,
-        );
-        let _ = self.file.write(line.as_bytes());
+            let _ = core::write!(
+                &mut line,
+                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
+                data.t_ms,
+                data.x,
+                data.y,
+                data.yaw,
+                data.x_des,
+                data.y_des,
+                data.yaw_des,
+                data.v_ff,
+                data.w_ff,
+                v_actual,
+                w_actual,
+                data.omega_l_cmd,
+                data.omega_r_cmd,
+                data.omega_l_meas,
+                data.omega_r_meas,
+                data.duty_l,
+                data.duty_r,
+                data.x_err,
+                data.y_err,
+                data.yaw_err,
+            );
+            let _ = file.write(line.as_bytes());
+        }
     }
 
     pub fn log_motion_as_csv(&mut self, log: &MotionLog) {
-        let mut line: String<512> = String::new();
+        if let Some(ref mut file) = self.file {
+            let mut line: String<512> = String::new();
 
-        let _ = core::write!(
-            &mut line,
-            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
-            log.timestamp_ms,
-            log.target_vx,
-            log.target_vy,
-            log.target_vz,
-            log.target_qw,
-            log.target_qx,
-            log.target_qy,
-            log.target_qz,
-            log.actual_vx,
-            log.actual_vy,
-            log.actual_vz,
-            log.actual_qw,
-            log.actual_qx,
-            log.actual_qy,
-            log.actual_qz,
-            log.roll,
-            log.pitch,
-            log.yaw,
-            log.motor_left,
-            log.motor_right,
-        );
+            let _ = core::write!(
+                &mut line,
+                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+                log.timestamp_ms,
+                log.target_vx,
+                log.target_vy,
+                log.target_vz,
+                log.target_qw,
+                log.target_qx,
+                log.target_qy,
+                log.target_qz,
+                log.actual_vx,
+                log.actual_vy,
+                log.actual_vz,
+                log.actual_qw,
+                log.actual_qx,
+                log.actual_qy,
+                log.actual_qz,
+                log.roll,
+                log.pitch,
+                log.yaw,
+                log.motor_left,
+                log.motor_right,
+            );
 
-        let _ = self.file.write(line.as_bytes());
+            let _ = file.write(line.as_bytes());
+        }
     }
 
     pub fn log_motion_as_bin(&mut self, log: &MotionLog) {
-        let size = mem::size_of::<MotionLog>();
+        if let Some(ref mut file) = self.file {
+            let size = mem::size_of::<MotionLog>();
 
-        let ptr = log as *const MotionLog as *const u8;
-        let bytes: &[u8] = unsafe { slice::from_raw_parts(ptr, size) };
+            let ptr = log as *const MotionLog as *const u8;
+            let bytes: &[u8] = unsafe { slice::from_raw_parts(ptr, size) };
 
-        let _ = self.file.write(bytes);
+            let _ = file.write(bytes);
+        }
     }
 }
 
@@ -400,14 +438,16 @@ pub async fn sd_logging_task(cfg: Option<RobotConfig>) {
     loop {
         match embassy_futures::select::select(ticker.next(), crate::orchestrator_signal::STOP_LOG_SENDING_SIG.wait()).await {
             embassy_futures::select::Either::First(_) => {
-                let snapshot = crate::robotstate::build_log_snapshot_from_state().await;
+                if crate::robotstate::is_sd_logging_active() {
+                    let snapshot = crate::robotstate::build_log_snapshot_from_state().await;
 
-                let v_actual = r * (snapshot.omega_l_meas + snapshot.omega_r_meas) / 2.0;
-                let w_actual = r * (snapshot.omega_r_meas - snapshot.omega_l_meas) / b;
+                    let v_actual = r * (snapshot.omega_l_meas + snapshot.omega_r_meas) / 2.0;
+                    let w_actual = r * (snapshot.omega_r_meas - snapshot.omega_l_meas) / b;
 
-                with_sdlogger(|logger| {
-                    logger.log_snapshot_as_csv(&snapshot, v_actual, w_actual);
-                }).await;
+                    with_sdlogger(|logger| {
+                        logger.log_snapshot_as_csv(&snapshot, v_actual, w_actual);
+                    }).await;
+                }
             }
             embassy_futures::select::Either::Second(_) => {
                 defmt::info!("sd_logging_task stopped via STOP_LOG_SENDING_SIG");

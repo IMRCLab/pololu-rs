@@ -31,6 +31,17 @@ const SENSOR_CHANNEL_SIZE: usize = 4;
 /// Indicates a new Mocap pose has arrived
 pub static POSE_FRESH: AtomicBool = AtomicBool::new(false);
 
+/// Indicates whether active SD logging is enabled
+pub static SD_LOGGING_ACTIVE: AtomicBool = AtomicBool::new(false);
+
+pub fn set_sd_logging_active(active: bool) {
+    SD_LOGGING_ACTIVE.store(active, Ordering::Relaxed);
+}
+
+pub fn is_sd_logging_active() -> bool {
+    SD_LOGGING_ACTIVE.load(Ordering::Relaxed)
+}
+
 /// Current robot pose (raw from mocap)
 pub static POSE: Mutex<ThreadModeRawMutex, MocapPose> = Mutex::new(MocapPose::DEFAULT);
 
