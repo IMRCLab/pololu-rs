@@ -7,36 +7,45 @@ import argparse
 from pathlib import Path
 
 def load_trajectory_data_v2(filepath):
-    """Load and parse t    
-    # Plot 4: Theta vs Time with error bars
-    ax4 = axes[1,0]
-    if 'ts' in available_cols:
-        if 'target_theta' in available_cols:
-            ax4.plot(df['ts'], np.degrees(df['target_theta']), 'b-', label='Target θ', linewidth=2)
-        if 'actual_theta' in available_cols:
-            ax4.plot(df['ts'], np.degrees(df['actual_theta']), 'r--', label='Actual θ', linewidth=2)
-        
-        # Add theta error as shaded region
-        if 'target_theta' in available_cols and 'theta_error' in available_cols:
-            # Show error bounds around target (convert to degrees)
-            theta_target_deg = np.degrees(df['target_theta'])
-            theta_error_deg = np.degrees(np.abs(df['theta_error']))
-            theta_upper = theta_target_deg + theta_error_deg
-            theta_lower = theta_target_deg - theta_error_deg
-            ax4.fill_between(df['ts'], theta_lower, theta_upper, alpha=0.3, color='purple', label='θ Error Band')
-    
-    ax4.set_xlabel('Time (s)')
-    ax4.set_ylabel('Orientation (degrees)')
-    ax4.set_title('Orientation vs Time')
-    ax4.legend()
-    ax4.grid(True)ata from CSV (new format with positions)"""
+    """Load and parse trajectory data from CSV (handles Option B format and legacy format)"""
+    def _map_columns(df):
+        is_new = 'x_des' in df.columns
+        if is_new:
+            rename_map = {
+                'x_des': 'target_x',
+                'y_des': 'target_y',
+                'yaw_des': 'target_theta',
+                'x': 'actual_x',
+                'y': 'actual_y',
+                'yaw': 'actual_theta',
+                'x_err': 'xerror',
+                'y_err': 'yerror',
+                'yaw_err': 'thetaerror',
+                'omega_l_cmd': 'ul',
+                'omega_r_cmd': 'ur',
+                'duty_l': 'dutyl',
+                'duty_r': 'dutyr',
+                'v_ff': 'target_vx',
+                'w_ff': 'target_vz',
+                'v_actual': 'actual_vx',
+                'w_actual': 'actual_vz',
+            }
+            df = df.rename(columns=rename_map)
+            
+            # Inject zeros for target_vy/actual_vy
+            if 'target_vy' not in df.columns:
+                df['target_vy'] = 0.0
+            if 'actual_vy' not in df.columns:
+                df['actual_vy'] = 0.0
+        return df
+
     try:
         # First try standard pandas read
         try:
             df = pd.read_csv(filepath)
             if len(df) > 1:  # If we got multiple rows, we're good
                 df = df.dropna()
-                return df
+                return _map_columns(df)
         except:
             pass
         
@@ -109,7 +118,7 @@ def load_trajectory_data_v2(filepath):
             # Drop rows with NaN values
             df = df.dropna()
             
-            return df
+            return _map_columns(df)
         
         else:
             # Normal multi-line CSV processing
@@ -127,7 +136,7 @@ def load_trajectory_data_v2(filepath):
                 df[col] = pd.to_numeric(df[col], errors='coerce')
             
             df = df.dropna()
-            return df
+            return _map_columns(df)
             
     except Exception as e:
         print(f"Error loading {filepath}: {e}")

@@ -101,6 +101,7 @@ async fn main(spawner: Spawner) {
     };
 
     if let Some(sd) = devices.sdlogger.as_mut() {
+        sd.open_new_file();
         sd.write_csv_header();
         defmt::info!("Start Sd card writing test!");
         sd.log_motion_as_bin(&motion);
