@@ -31,6 +31,64 @@ const MAX_VOLUMES: usize = 1;
 
 pub static SDLOGGER_SHARED: Mutex<Raw, Option<SdLogger>> = Mutex::new(None);
 
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct BinaryLogRecord {
+    pub t_ms: u32,
+    pub x: f32,
+    pub y: f32,
+    pub yaw: f32,
+    pub x_des: f32,
+    pub y_des: f32,
+    pub yaw_des: f32,
+    pub v_ff: f32,
+    pub w_ff: f32,
+    pub v_actual: f32,
+    pub w_actual: f32,
+    pub omega_l_cmd: f32,
+    pub omega_r_cmd: f32,
+    pub omega_l_meas: f32,
+    pub omega_r_meas: f32,
+    pub duty_l: f32,
+    pub duty_r: f32,
+    pub x_err: f32,
+    pub y_err: f32,
+    pub yaw_err: f32,
+}
+
+impl BinaryLogRecord {
+    pub fn from_snapshot(data: &crate::robotstate::LogSnapshot, v_actual: f32, w_actual: f32) -> Self {
+        Self {
+            t_ms: data.t_ms,
+            x: data.x,
+            y: data.y,
+            yaw: data.yaw,
+            x_des: data.x_des,
+            y_des: data.y_des,
+            yaw_des: data.yaw_des,
+            v_ff: data.v_ff,
+            w_ff: data.w_ff,
+            v_actual,
+            w_actual,
+            omega_l_cmd: data.omega_l_cmd,
+            omega_r_cmd: data.omega_r_cmd,
+            omega_l_meas: data.omega_l_meas,
+            omega_r_meas: data.omega_r_meas,
+            duty_l: data.duty_l,
+            duty_r: data.duty_r,
+            x_err: data.x_err,
+            y_err: data.y_err,
+            yaw_err: data.yaw_err,
+        }
+    }
+}
+
+pub static BIN_LOG_CH: embassy_sync::channel::Channel<
+    Raw,
+    BinaryLogRecord,
+    64,
+> = embassy_sync::channel::Channel::new();
+
 /// Convenience helper to run a closure with the shared SD logger.
 /// Returns `None` if no SD card / logger is available.
 /// Moved from trajectory_control.rs to consolidate logging logic.
@@ -119,13 +177,13 @@ impl SdLogger {
         }
 
         if let Some(mut new_file) = file {
-            let header = b"ts,x,y,yaw,x_des,y_des,yaw_des,v_ff,w_ff,v_actual,w_actual,omega_l_cmd,omega_r_cmd,omega_l_meas,omega_r_meas,duty_l,duty_r,x_err,y_err,yaw_err\n";
-            if let Err(e) = new_file.write(header) {
-                defmt::error!("Failed to write CSV header: {:?}", defmt::Debug2Format(&e));
+            let magic = [0xAAu8, 0xBBu8, 0xCCu8, 0xDDu8];
+            if let Err(e) = new_file.write(&magic) {
+                defmt::error!("Failed to write magic header: {:?}", defmt::Debug2Format(&e));
             }
             let _ = new_file.flush();
             self.file = Some(new_file);
-            defmt::info!("SD Logger: opened new log file");
+            defmt::info!("SD Logger: opened new binary log file");
         } else {
             defmt::error!("SD Logger: No free file slots found!");
         }
@@ -380,6 +438,17 @@ impl SdLogger {
         }
     }
 
+    pub fn log_snapshot_as_bin(&mut self, record: &BinaryLogRecord) {
+        if let Some(ref mut file) = self.file {
+            let ptr = record as *const BinaryLogRecord as *const u8;
+            let size = core::mem::size_of::<BinaryLogRecord>();
+            let bytes = unsafe { core::slice::from_raw_parts(ptr, size) };
+            if let Err(e) = file.write(bytes) {
+                defmt::error!("Write binary log failed: {:?}", defmt::Debug2Format(&e));
+            }
+        }
+    }
+
     pub fn log_motion_as_csv(&mut self, log: &MotionLog) {
         if let Some(ref mut file) = self.file {
             let mut line: String<512> = String::new();
@@ -426,8 +495,39 @@ impl SdLogger {
 }
 
 #[embassy_executor::task]
-pub async fn sd_logging_task(cfg: Option<RobotConfig>) {
-    let dt = cfg.map(|c| c.traj_following_dt_s).unwrap_or(0.02);
+pub async fn sd_logging_task(_cfg: Option<RobotConfig>) {
+    // Wait for everything to spin up
+    embassy_time::Timer::after_millis(500).await;
+
+    loop {
+        match embassy_futures::select::select(BIN_LOG_CH.receive(), crate::orchestrator_signal::STOP_LOG_SENDING_SIG.wait()).await {
+            embassy_futures::select::Either::First(record) => {
+                with_sdlogger(|logger| {
+                    logger.log_snapshot_as_bin(&record);
+                }).await;
+            }
+            embassy_futures::select::Either::Second(_) => {
+                defmt::info!("sd_logging_task stopped via STOP_LOG_SENDING_SIG");
+                
+                // Drain any remaining records in the queue before flushing
+                while let Ok(record) = BIN_LOG_CH.try_receive() {
+                    with_sdlogger(|logger| {
+                        logger.log_snapshot_as_bin(&record);
+                    }).await;
+                }
+                
+                with_sdlogger(|logger| {
+                    logger.flush();
+                }).await;
+                break;
+            }
+        }
+    }
+}
+
+#[embassy_executor::task]
+pub async fn sd_log_producer_task(cfg: Option<RobotConfig>) {
+    let dt = cfg.map(|c| c.sd_logging_dt_s).unwrap_or(0.01);
     let r = cfg.map(|c| c.wheel_radius).unwrap_or(crate::robot_parameters_default::robot_constants::WHEEL_RADIUS);
     let b = cfg.map(|c| c.wheel_base).unwrap_or(crate::robot_parameters_default::robot_constants::WHEEL_BASE);
     let mut ticker = embassy_time::Ticker::every(embassy_time::Duration::from_millis((dt * 1000.0) as u64));
@@ -440,20 +540,16 @@ pub async fn sd_logging_task(cfg: Option<RobotConfig>) {
             embassy_futures::select::Either::First(_) => {
                 if crate::robotstate::is_sd_logging_active() {
                     let snapshot = crate::robotstate::build_log_snapshot_from_state().await;
-
                     let v_actual = r * (snapshot.omega_l_meas + snapshot.omega_r_meas) / 2.0;
                     let w_actual = r * (snapshot.omega_r_meas - snapshot.omega_l_meas) / b;
-
-                    with_sdlogger(|logger| {
-                        logger.log_snapshot_as_csv(&snapshot, v_actual, w_actual);
-                    }).await;
+                    let record = BinaryLogRecord::from_snapshot(&snapshot, v_actual, w_actual);
+                    
+                    let _ = BIN_LOG_CH.try_send(record);
                 }
             }
             embassy_futures::select::Either::Second(_) => {
-                defmt::info!("sd_logging_task stopped via STOP_LOG_SENDING_SIG");
-                with_sdlogger(|logger| {
-                    logger.flush();
-                }).await;
+                defmt::info!("sd_log_producer_task stopped");
+                break;
             }
         }
     }

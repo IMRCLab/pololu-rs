@@ -29,7 +29,7 @@ use pololu3pi2040_rs::{
     odometry::odometry_task,
     robotstate::TRAJECTORY_CONTROL_EVENT,
     robotstate::uart_log_sending_task,
-    sdlog::{SDLOGGER_SHARED, sd_logging_task, with_sdlogger},
+    sdlog::{SDLOGGER_SHARED, sd_logging_task, sd_log_producer_task, with_sdlogger},
     trajectory_control::{
         diffdrive_outer_loop_command_controlled_traj_following_from_sdcard,
         diffdrive_outer_loop_onboard_traj, diffdrive_outer_loop_onboard_traj2,
@@ -422,6 +422,9 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         if spawner.spawn(sd_logging_task(devices.config)).is_err() {
                             defmt::warn!("Failed to spawn sd_logging_task");
                         }
+                        if spawner.spawn(sd_log_producer_task(devices.config)).is_err() {
+                            defmt::warn!("Failed to spawn sd_log_producer_task");
+                        }
                     }
                     Mode::CtrlAction => {
                         defmt::info!("CONTROL-ACTION Mode is selected!!!!!");
@@ -510,6 +513,9 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         if spawner.spawn(sd_logging_task(devices.config)).is_err() {
                             defmt::warn!("Failed to spawn sd_logging_task");
                         }
+                        if spawner.spawn(sd_log_producer_task(devices.config)).is_err() {
+                            defmt::warn!("Failed to spawn sd_log_producer_task");
+                        }
                     }
                     Mode::TrajOnboard2 => {
                         defmt::info!("ONBOARD-TRAJ-2 Mode (demo) is selected!!!!!");
@@ -566,6 +572,9 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         }
                         if spawner.spawn(sd_logging_task(devices.config)).is_err() {
                             defmt::warn!("Failed to spawn sd_logging_task");
+                        }
+                        if spawner.spawn(sd_log_producer_task(devices.config)).is_err() {
+                            defmt::warn!("Failed to spawn sd_log_producer_task");
                         }
                     }
                 }
