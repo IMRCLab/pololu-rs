@@ -39,11 +39,9 @@ def decode_file(input_path):
             row_str = f"{unpacked[0]}" + "".join(f",{val:.6f}" for val in unpacked[1:])
             records.append(row_str)
             
-    # Output path is original name + ".csv"
-    output_path = input_path + ".csv"
-    
-    print(f"Writing CSV data to: {output_path}")
-    with open(output_path, "w") as csv_file:
+    # Overwrite the original binary file with the CSV content
+    print(f"Overwriting binary file with CSV data: {input_path}")
+    with open(input_path, "w") as csv_file:
         csv_file.write(CSV_HEADER)
         for record in records:
             csv_file.write(record + "\n")
