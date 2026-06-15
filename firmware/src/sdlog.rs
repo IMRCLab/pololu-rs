@@ -551,7 +551,7 @@ pub async fn sd_logging_task(_cfg: Option<RobotConfig>) {
     // Wait for everything to spin up
     embassy_time::Timer::after_millis(500).await;
 
-    let mut ticker = embassy_time::Ticker::every(embassy_time::Duration::from_millis(10)); // 100 Hz
+    let mut ticker = embassy_time::Ticker::every(embassy_time::Duration::from_millis(20)); // 50 Hz
 
     loop {
         match embassy_futures::select::select(
@@ -559,17 +559,12 @@ pub async fn sd_logging_task(_cfg: Option<RobotConfig>) {
             crate::orchestrator_signal::STOP_LOG_SENDING_SIG.wait(),
         ).await {
             embassy_futures::select::Either::First(_) => {
-                let mut row = BinaryLogRecord::nan_init();
-                let mut has_events = false;
+                // Drain all pending events in the channel, writing one row per event
+                while let Ok(event_with_time) = crate::robotstate::LOG_EVENT_CH.try_receive() {
+                    let mut row = BinaryLogRecord::nan_init();
+                    row.t_ms = event_with_time.t_ms;
+                    row.apply_event(&event_with_time.event);
 
-                // Drain all pending events in the channel
-                while let Ok(event) = crate::robotstate::LOG_EVENT_CH.try_receive() {
-                    row.apply_event(&event);
-                    has_events = true;
-                }
-
-                if has_events {
-                    row.t_ms = embassy_time::Instant::now().as_millis() as u32;
                     with_sdlogger(|logger| {
                         logger.log_snapshot_as_bin(&row);
                     }).await;
@@ -578,16 +573,12 @@ pub async fn sd_logging_task(_cfg: Option<RobotConfig>) {
             embassy_futures::select::Either::Second(_) => {
                 defmt::info!("sd_logging_task stopped via STOP_LOG_SENDING_SIG");
 
-                // Drain any remaining events in the queue before flushing
-                let mut row = BinaryLogRecord::nan_init();
-                let mut has_events = false;
-                while let Ok(event) = crate::robotstate::LOG_EVENT_CH.try_receive() {
-                    row.apply_event(&event);
-                    has_events = true;
-                }
+                // Drain any remaining events in the queue, writing one row per event
+                while let Ok(event_with_time) = crate::robotstate::LOG_EVENT_CH.try_receive() {
+                    let mut row = BinaryLogRecord::nan_init();
+                    row.t_ms = event_with_time.t_ms;
+                    row.apply_event(&event_with_time.event);
 
-                if has_events {
-                    row.t_ms = embassy_time::Instant::now().as_millis() as u32;
                     with_sdlogger(|logger| {
                         logger.log_snapshot_as_bin(&row);
                     }).await;

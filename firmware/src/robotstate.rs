@@ -130,8 +130,14 @@ pub enum LogEvent {
     Imu(ImuReading),
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct LogEventWithTime {
+    pub t_ms: u32,
+    pub event: LogEvent,
+}
+
 /// Event-based logging channel. Producers push via try_send(); SD consumer drains.
-pub static LOG_EVENT_CH: Channel<ThreadModeRawMutex, LogEvent, LOG_EVENT_CHANNEL_SIZE> =
+pub static LOG_EVENT_CH: Channel<ThreadModeRawMutex, LogEventWithTime, LOG_EVENT_CHANNEL_SIZE> =
     Channel::new();
 
 // =============================================================================
@@ -591,7 +597,8 @@ pub async fn write_pose(pose: MocapPose) {
         *guard = pose;
     }
     if is_sd_logging_active() {
-        let _ = LOG_EVENT_CH.try_send(LogEvent::Mocap(pose));
+        let t_ms = embassy_time::Instant::now().as_millis() as u32;
+        let _ = LOG_EVENT_CH.try_send(LogEventWithTime { t_ms, event: LogEvent::Mocap(pose) });
     }
 }
 
@@ -619,7 +626,8 @@ pub async fn write_ekf_state(pose: RobotPose) {
         *guard = pose;
     }
     if is_sd_logging_active() {
-        let _ = LOG_EVENT_CH.try_send(LogEvent::EkfState(pose));
+        let t_ms = embassy_time::Instant::now().as_millis() as u32;
+        let _ = LOG_EVENT_CH.try_send(LogEventWithTime { t_ms, event: LogEvent::EkfState(pose) });
     }
 }
 
@@ -638,7 +646,8 @@ pub async fn write_odom(odom: OdomPose) {
         *guard = odom;
     }
     if is_sd_logging_active() {
-        let _ = LOG_EVENT_CH.try_send(LogEvent::Odom(odom));
+        let t_ms = embassy_time::Instant::now().as_millis() as u32;
+        let _ = LOG_EVENT_CH.try_send(LogEventWithTime { t_ms, event: LogEvent::Odom(odom) });
     }
 }
 pub async fn read_odom() -> OdomPose { *ODOM_STATE.lock().await }
@@ -687,7 +696,8 @@ pub async fn write_setpoint(setpoint: Setpoint) {
         *guard = setpoint;
     }
     if is_sd_logging_active() {
-        let _ = LOG_EVENT_CH.try_send(LogEvent::Setpoint(setpoint));
+        let t_ms = embassy_time::Instant::now().as_millis() as u32;
+        let _ = LOG_EVENT_CH.try_send(LogEventWithTime { t_ms, event: LogEvent::Setpoint(setpoint) });
     }
 }
 
@@ -709,7 +719,8 @@ pub async fn write_encoder(enc: EncoderReading) {
         *guard = enc;
     }
     if is_sd_logging_active() {
-        let _ = LOG_EVENT_CH.try_send(LogEvent::Encoder(enc));
+        let t_ms = embassy_time::Instant::now().as_millis() as u32;
+        let _ = LOG_EVENT_CH.try_send(LogEventWithTime { t_ms, event: LogEvent::Encoder(enc) });
     }
 }
 
@@ -731,7 +742,8 @@ pub async fn write_motor(duty: MotorDuty) {
         *guard = duty;
     }
     if is_sd_logging_active() {
-        let _ = LOG_EVENT_CH.try_send(LogEvent::Motor(duty));
+        let t_ms = embassy_time::Instant::now().as_millis() as u32;
+        let _ = LOG_EVENT_CH.try_send(LogEventWithTime { t_ms, event: LogEvent::Motor(duty) });
     }
 }
 
@@ -753,7 +765,8 @@ pub async fn write_tracking_error(err: TrackingError) {
         *guard = err;
     }
     if is_sd_logging_active() {
-        let _ = LOG_EVENT_CH.try_send(LogEvent::TrackingError(err));
+        let t_ms = embassy_time::Instant::now().as_millis() as u32;
+        let _ = LOG_EVENT_CH.try_send(LogEventWithTime { t_ms, event: LogEvent::TrackingError(err) });
     }
 }
 
@@ -780,7 +793,8 @@ pub async fn write_wheel_cmd(cmd: WheelCmd) {
     let _ = WHEEL_CMD_CH.try_send(cmd);
     // Event-based logging push
     if is_sd_logging_active() {
-        let _ = LOG_EVENT_CH.try_send(LogEvent::WheelCmd(cmd));
+        let t_ms = embassy_time::Instant::now().as_millis() as u32;
+        let _ = LOG_EVENT_CH.try_send(LogEventWithTime { t_ms, event: LogEvent::WheelCmd(cmd) });
     }
 }
 
@@ -810,7 +824,8 @@ pub async fn write_imu(imu: ImuReading) {
         *guard = imu;
     }
     if is_sd_logging_active() {
-        let _ = LOG_EVENT_CH.try_send(LogEvent::Imu(imu));
+        let t_ms = embassy_time::Instant::now().as_millis() as u32;
+        let _ = LOG_EVENT_CH.try_send(LogEventWithTime { t_ms, event: LogEvent::Imu(imu) });
     }
 }
 

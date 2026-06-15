@@ -124,6 +124,27 @@ fn decode_abs_pose(payload: &[u8], robot_id: u8) -> Option<MocapPose> {
     let raw = u32::from_le_bytes([s1[12], s1[13], s1[14], s1[15]]);
     let q = quat_decompress(raw);
     let (roll, pitch, yaw) = rpy_from_quaternion(&q);
+
+    // Sanity check coordinates and angles to filter out shifted/corrupted packets
+    if x.is_nan() || y.is_nan() || z.is_nan() || roll.is_nan() || pitch.is_nan() || yaw.is_nan() {
+        return None;
+    }
+    if x.is_infinite() || y.is_infinite() || z.is_infinite() {
+        return None;
+    }
+    // Arena boundaries check: lab coordinates are within [-10m, 10m]
+    if x < -10.0 || x > 10.0 || y < -10.0 || y > 10.0 {
+        return None;
+    }
+    // Height check: robot is on flat ground, height should be close to 0
+    if z < -0.5 || z > 1.0 {
+        return None;
+    }
+    // Flatness/orientation check: roll and pitch should be close to 0
+    if roll < -0.5 || roll > 0.5 || pitch < -0.5 || pitch > 0.5 {
+        return None;
+    }
+
     Some(MocapPose {
         x, y, z, roll, pitch, yaw,
         stamp: Instant::from_ticks(0),
