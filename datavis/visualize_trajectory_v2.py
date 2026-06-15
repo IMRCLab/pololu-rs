@@ -37,6 +37,18 @@ def load_trajectory_data_v2(filepath):
                 df['target_vy'] = 0.0
             if 'actual_vy' not in df.columns:
                 df['actual_vy'] = 0.0
+
+            # Map new raw mocap columns (pass through if present)
+            for col in ['x_raw', 'y_raw', 'yaw_raw',
+                        'acc_x', 'acc_y', 'acc_z',
+                        'gyro_x', 'gyro_y', 'gyro_z']:
+                if col not in df.columns:
+                    df[col] = np.nan
+
+            # Interpolate missing values (NaNs) for columns that have some data
+            cols_to_fill = [c for c in df.columns if c != 'ts' and df[c].notna().any()]
+            if cols_to_fill:
+                df[cols_to_fill] = df[cols_to_fill].interpolate(limit_direction='both')
         return df
 
     try:
@@ -44,7 +56,9 @@ def load_trajectory_data_v2(filepath):
         try:
             df = pd.read_csv(filepath)
             if len(df) > 1:  # If we got multiple rows, we're good
-                df = df.dropna()
+                # Only drop rows that are completely empty (all data columns NaN)
+                data_cols = [c for c in df.columns if c != 'ts']
+                df = df.dropna(subset=data_cols, how='all')
                 return _map_columns(df)
         except:
             pass
@@ -115,8 +129,9 @@ def load_trajectory_data_v2(filepath):
             for col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
             
-            # Drop rows with NaN values
-            df = df.dropna()
+            # Only drop rows that are completely empty
+            data_cols = [c for c in df.columns if c != 'ts']
+            df = df.dropna(subset=data_cols, how='all')
             
             return _map_columns(df)
         
@@ -135,7 +150,9 @@ def load_trajectory_data_v2(filepath):
             for col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
             
-            df = df.dropna()
+            # Only drop completely empty rows
+            data_cols = [c for c in df.columns if c != 'ts']
+            df = df.dropna(subset=data_cols, how='all')
             return _map_columns(df)
             
     except Exception as e:
@@ -318,10 +335,10 @@ def plot_trajectory_comparison_v2(df, title="Trajectory Following"):
 
 def analyze_trajectory_performance_v2(df, is_circle=False, is_bezier=False):
     """Analyze trajectory following performance (new format)"""
-    # Calculate position errors (already in the data)
+    # Calculate position errors (already in the data) — NaN-safe
     pos_error = np.sqrt(df['xerror']**2 + df['yerror']**2)
     
-    # Calculate velocity errors
+    # Calculate velocity errors — NaN-safe
     vel_error_x = df['target_vx'] - df['actual_vx'] 
     vel_error_y = df['target_vy'] - df['actual_vy']
     vel_error_mag = np.sqrt(vel_error_x**2 + vel_error_y**2)
@@ -329,17 +346,17 @@ def analyze_trajectory_performance_v2(df, is_circle=False, is_bezier=False):
     # Calculate orientation error
     theta_error = np.abs(df['thetaerror'])
     
-    # Calculate basic statistics
+    # Calculate basic statistics (using nanmean/nanmax to handle NaN)
     stats = {
-        'mean_pos_error': np.mean(pos_error),
-        'max_pos_error': np.max(pos_error),
-        'rms_pos_error': np.sqrt(np.mean(pos_error**2)),
-        'mean_vel_error': np.mean(vel_error_mag),
-        'max_vel_error': np.max(vel_error_mag),
-        'rms_vel_error': np.sqrt(np.mean(vel_error_mag**2)),
-        'mean_theta_error': np.mean(theta_error),
-        'max_theta_error': np.max(theta_error),
-        'rms_theta_error': np.sqrt(np.mean(theta_error**2))
+        'mean_pos_error': np.nanmean(pos_error),
+        'max_pos_error': np.nanmax(pos_error),
+        'rms_pos_error': np.sqrt(np.nanmean(pos_error**2)),
+        'mean_vel_error': np.nanmean(vel_error_mag),
+        'max_vel_error': np.nanmax(vel_error_mag),
+        'rms_vel_error': np.sqrt(np.nanmean(vel_error_mag**2)),
+        'mean_theta_error': np.nanmean(theta_error),
+        'max_theta_error': np.nanmax(theta_error),
+        'rms_theta_error': np.sqrt(np.nanmean(theta_error**2))
     }
     
     # Add circle-specific analysis if requested

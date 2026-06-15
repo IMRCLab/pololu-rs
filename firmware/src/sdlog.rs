@@ -54,40 +54,92 @@ pub struct BinaryLogRecord {
     pub x_err: f32,
     pub y_err: f32,
     pub yaw_err: f32,
+    // Raw mocap (not fused by EKF)
+    pub x_raw: f32,
+    pub y_raw: f32,
+    pub yaw_raw: f32,
+    // IMU
+    pub acc_x: f32,
+    pub acc_y: f32,
+    pub acc_z: f32,
+    pub gyro_x: f32,
+    pub gyro_y: f32,
+    pub gyro_z: f32,
 }
 
 impl BinaryLogRecord {
-    pub fn from_snapshot(data: &crate::robotstate::LogSnapshot, v_actual: f32, w_actual: f32) -> Self {
+    /// Initialize all float fields to NaN ("no data yet").
+    /// Used by the consumer to start a row assembler.
+    pub fn nan_init() -> Self {
         Self {
-            t_ms: data.t_ms,
-            x: data.x,
-            y: data.y,
-            yaw: data.yaw,
-            x_des: data.x_des,
-            y_des: data.y_des,
-            yaw_des: data.yaw_des,
-            v_ff: data.v_ff,
-            w_ff: data.w_ff,
-            v_actual,
-            w_actual,
-            omega_l_cmd: data.omega_l_cmd,
-            omega_r_cmd: data.omega_r_cmd,
-            omega_l_meas: data.omega_l_meas,
-            omega_r_meas: data.omega_r_meas,
-            duty_l: data.duty_l,
-            duty_r: data.duty_r,
-            x_err: data.x_err,
-            y_err: data.y_err,
-            yaw_err: data.yaw_err,
+            t_ms: 0,
+            x: f32::NAN, y: f32::NAN, yaw: f32::NAN,
+            x_des: f32::NAN, y_des: f32::NAN, yaw_des: f32::NAN,
+            v_ff: f32::NAN, w_ff: f32::NAN,
+            v_actual: f32::NAN, w_actual: f32::NAN,
+            omega_l_cmd: f32::NAN, omega_r_cmd: f32::NAN,
+            omega_l_meas: f32::NAN, omega_r_meas: f32::NAN,
+            duty_l: f32::NAN, duty_r: f32::NAN,
+            x_err: f32::NAN, y_err: f32::NAN, yaw_err: f32::NAN,
+            x_raw: f32::NAN, y_raw: f32::NAN, yaw_raw: f32::NAN,
+            acc_x: f32::NAN, acc_y: f32::NAN, acc_z: f32::NAN,
+            gyro_x: f32::NAN, gyro_y: f32::NAN, gyro_z: f32::NAN,
+        }
+    }
+
+    /// Update the relevant fields from a LogEvent.
+    pub fn apply_event(&mut self, event: &crate::robotstate::LogEvent) {
+        use crate::robotstate::LogEvent;
+        match event {
+            LogEvent::EkfState(p) => {
+                self.x = p.x;
+                self.y = p.y;
+                self.yaw = p.yaw;
+            }
+            LogEvent::Setpoint(s) => {
+                self.x_des = s.x_des;
+                self.y_des = s.y_des;
+                self.yaw_des = s.yaw_des;
+                self.v_ff = s.v_ff;
+                self.w_ff = s.w_ff;
+            }
+            LogEvent::WheelCmd(w) => {
+                self.omega_l_cmd = w.omega_l;
+                self.omega_r_cmd = w.omega_r;
+            }
+            LogEvent::TrackingError(e) => {
+                self.x_err = e.x_err;
+                self.y_err = e.y_err;
+                self.yaw_err = e.yaw_err;
+            }
+            LogEvent::Motor(m) => {
+                self.duty_l = m.left;
+                self.duty_r = m.right;
+            }
+            LogEvent::Encoder(e) => {
+                self.omega_l_meas = e.omega_l;
+                self.omega_r_meas = e.omega_r;
+            }
+            LogEvent::Mocap(p) => {
+                self.x_raw = p.x;
+                self.y_raw = p.y;
+                self.yaw_raw = p.yaw;
+            }
+            LogEvent::Odom(o) => {
+                self.v_actual = o.v;
+                self.w_actual = o.w;
+            }
+            LogEvent::Imu(i) => {
+                self.acc_x = i.acc_x;
+                self.acc_y = i.acc_y;
+                self.acc_z = i.acc_z;
+                self.gyro_x = i.gyro_x;
+                self.gyro_y = i.gyro_y;
+                self.gyro_z = i.gyro_z;
+            }
         }
     }
 }
-
-pub static BIN_LOG_CH: embassy_sync::channel::Channel<
-    Raw,
-    BinaryLogRecord,
-    64,
-> = embassy_sync::channel::Channel::new();
 
 /// Convenience helper to run a closure with the shared SD logger.
 /// Returns `None` if no SD card / logger is available.
@@ -499,56 +551,51 @@ pub async fn sd_logging_task(_cfg: Option<RobotConfig>) {
     // Wait for everything to spin up
     embassy_time::Timer::after_millis(500).await;
 
+    let mut ticker = embassy_time::Ticker::every(embassy_time::Duration::from_millis(10)); // 100 Hz
+
     loop {
-        match embassy_futures::select::select(BIN_LOG_CH.receive(), crate::orchestrator_signal::STOP_LOG_SENDING_SIG.wait()).await {
-            embassy_futures::select::Either::First(record) => {
-                with_sdlogger(|logger| {
-                    logger.log_snapshot_as_bin(&record);
-                }).await;
+        match embassy_futures::select::select(
+            ticker.next(),
+            crate::orchestrator_signal::STOP_LOG_SENDING_SIG.wait(),
+        ).await {
+            embassy_futures::select::Either::First(_) => {
+                let mut row = BinaryLogRecord::nan_init();
+                let mut has_events = false;
+
+                // Drain all pending events in the channel
+                while let Ok(event) = crate::robotstate::LOG_EVENT_CH.try_receive() {
+                    row.apply_event(&event);
+                    has_events = true;
+                }
+
+                if has_events {
+                    row.t_ms = embassy_time::Instant::now().as_millis() as u32;
+                    with_sdlogger(|logger| {
+                        logger.log_snapshot_as_bin(&row);
+                    }).await;
+                }
             }
             embassy_futures::select::Either::Second(_) => {
                 defmt::info!("sd_logging_task stopped via STOP_LOG_SENDING_SIG");
-                
-                // Drain any remaining records in the queue before flushing
-                while let Ok(record) = BIN_LOG_CH.try_receive() {
+
+                // Drain any remaining events in the queue before flushing
+                let mut row = BinaryLogRecord::nan_init();
+                let mut has_events = false;
+                while let Ok(event) = crate::robotstate::LOG_EVENT_CH.try_receive() {
+                    row.apply_event(&event);
+                    has_events = true;
+                }
+
+                if has_events {
+                    row.t_ms = embassy_time::Instant::now().as_millis() as u32;
                     with_sdlogger(|logger| {
-                        logger.log_snapshot_as_bin(&record);
+                        logger.log_snapshot_as_bin(&row);
                     }).await;
                 }
-                
+
                 with_sdlogger(|logger| {
                     logger.flush();
                 }).await;
-                break;
-            }
-        }
-    }
-}
-
-#[embassy_executor::task]
-pub async fn sd_log_producer_task(cfg: Option<RobotConfig>) {
-    let dt = cfg.map(|c| c.sd_logging_dt_s).unwrap_or(0.01);
-    let r = cfg.map(|c| c.wheel_radius).unwrap_or(crate::robot_parameters_default::robot_constants::WHEEL_RADIUS);
-    let b = cfg.map(|c| c.wheel_base).unwrap_or(crate::robot_parameters_default::robot_constants::WHEEL_BASE);
-    let mut ticker = embassy_time::Ticker::every(embassy_time::Duration::from_millis((dt * 1000.0) as u64));
-    
-    // Wait for everything to spin up
-    embassy_time::Timer::after_millis(3000).await;
-
-    loop {
-        match embassy_futures::select::select(ticker.next(), crate::orchestrator_signal::STOP_LOG_SENDING_SIG.wait()).await {
-            embassy_futures::select::Either::First(_) => {
-                if crate::robotstate::is_sd_logging_active() {
-                    let snapshot = crate::robotstate::build_log_snapshot_from_state().await;
-                    let v_actual = r * (snapshot.omega_l_meas + snapshot.omega_r_meas) / 2.0;
-                    let w_actual = r * (snapshot.omega_r_meas - snapshot.omega_l_meas) / b;
-                    let record = BinaryLogRecord::from_snapshot(&snapshot, v_actual, w_actual);
-                    
-                    let _ = BIN_LOG_CH.try_send(record);
-                }
-            }
-            embassy_futures::select::Either::Second(_) => {
-                defmt::info!("sd_log_producer_task stopped");
                 break;
             }
         }
