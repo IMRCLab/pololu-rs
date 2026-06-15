@@ -95,11 +95,33 @@ def decode_file(input_path):
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python decode_binary.py <binary_log_file_1> [<binary_log_file_2> ...]")
+        print("Usage: python decode_binary.py <path_or_dir_1> [<path_or_dir_2> ...]")
         sys.exit(1)
         
     success = True
-    for path in sys.argv[1:]:
+    paths_to_decode = []
+    
+    for arg in sys.argv[1:]:
+        if os.path.isdir(arg):
+            print(f"Scanning directory: {arg}")
+            for entry in sorted(os.listdir(arg)):
+                full_path = os.path.join(arg, entry)
+                if os.path.isfile(full_path) and entry.startswith("TR") and not entry.endswith(".png") and not entry.endswith(".csv"):
+                    try:
+                        with open(full_path, "rb") as f:
+                            magic = f.read(4)
+                            if magic == MAGIC_HEADER:
+                                paths_to_decode.append(full_path)
+                    except Exception:
+                        pass
+        else:
+            paths_to_decode.append(arg)
+            
+    if not paths_to_decode:
+        print("No matching binary log files found to decode.")
+        return
+        
+    for path in paths_to_decode:
         if not decode_file(path):
             success = False
             
