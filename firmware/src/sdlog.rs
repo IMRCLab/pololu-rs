@@ -193,6 +193,8 @@ pub type SdFile = File<'static, Sd<'static>, DummyClock, MAX_DIRS, MAX_FILES, MA
 pub struct SdLogger {
     pub file: Option<SdFile>,
     pub dir: &'static mut SdDir,
+    pub write_buf: [u8; 512],
+    pub write_len: usize,
 }
 
 impl SdLogger {
@@ -257,9 +259,37 @@ impl SdLogger {
         }
     }
 
+    pub fn write_buffered(&mut self, data: &[u8]) {
+        let mut input_offset = 0;
+        while input_offset < data.len() {
+            let available = 512 - self.write_len;
+            let to_copy = core::cmp::min(available, data.len() - input_offset);
+            self.write_buf[self.write_len..self.write_len + to_copy]
+                .copy_from_slice(&data[input_offset..input_offset + to_copy]);
+            self.write_len += to_copy;
+            input_offset += to_copy;
+            
+            if self.write_len == 512 {
+                self.flush_buffer();
+            }
+        }
+    }
+
+    pub fn flush_buffer(&mut self) {
+        if self.write_len > 0 {
+            if let Some(ref mut file) = self.file {
+                if let Err(e) = file.write(&self.write_buf[..self.write_len]) {
+                    defmt::error!("Buffered write failed: {:?}", defmt::Debug2Format(&e));
+                }
+            }
+            self.write_len = 0;
+        }
+    }
+
     /// flush
     /// (CAUTION: This needs to be called when all writing task is finished!!!)
     pub fn flush(&mut self) {
+        self.flush_buffer();
         if let Some(ref mut file) = self.file {
             if let Err(e) = file.flush() {
                 defmt::error!("Flush failed: {:?}", defmt::Debug2Format(&e));
@@ -409,7 +439,7 @@ pub fn init_sd_logger(
     // SD logging file is opened dynamically when starting trajectory/mode.
     info!("SD logger initialized.");
 
-    Ok((SdLogger { file: None, dir }, cfg))
+    Ok((SdLogger { file: None, dir, write_buf: [0; 512], write_len: 0 }, cfg))
 }
 
 
@@ -544,6 +574,56 @@ impl SdLogger {
             let _ = file.write(bytes);
         }
     }
+
+    fn write_floats(&mut self, floats: &[f32]) {
+        let ptr = floats.as_ptr() as *const u8;
+        let size = floats.len() * 4;
+        let bytes = unsafe { core::slice::from_raw_parts(ptr, size) };
+        self.write_buffered(bytes);
+    }
+
+    pub fn log_event_compact(&mut self, t_ms: u32, event: &crate::robotstate::LogEvent) {
+        use crate::robotstate::LogEvent;
+        self.write_buffered(&t_ms.to_le_bytes());
+        match event {
+            LogEvent::EkfState(p) => {
+                self.write_buffered(&[1]);
+                self.write_floats(&[p.x, p.y, p.z, p.roll, p.pitch, p.yaw]);
+            }
+            LogEvent::Setpoint(s) => {
+                self.write_buffered(&[2]);
+                self.write_floats(&[s.x_des, s.y_des, s.yaw_des, s.v_ff, s.w_ff]);
+            }
+            LogEvent::WheelCmd(w) => {
+                self.write_buffered(&[3]);
+                self.write_floats(&[w.omega_l, w.omega_r]);
+            }
+            LogEvent::TrackingError(e) => {
+                self.write_buffered(&[4]);
+                self.write_floats(&[e.x_err, e.y_err, e.yaw_err]);
+            }
+            LogEvent::Motor(m) => {
+                self.write_buffered(&[5]);
+                self.write_floats(&[m.left, m.right]);
+            }
+            LogEvent::Encoder(e) => {
+                self.write_buffered(&[6]);
+                self.write_floats(&[e.omega_l, e.omega_r]);
+            }
+            LogEvent::Mocap(p) => {
+                self.write_buffered(&[7]);
+                self.write_floats(&[p.x, p.y, p.z, p.roll, p.pitch, p.yaw]);
+            }
+            LogEvent::Odom(o) => {
+                self.write_buffered(&[8]);
+                self.write_floats(&[o.x, o.y, o.theta, o.v, o.w]);
+            }
+            LogEvent::Imu(i) => {
+                self.write_buffered(&[9]);
+                self.write_floats(&[i.acc_x, i.acc_y, i.acc_z, i.gyro_x, i.gyro_y, i.gyro_z]);
+            }
+        }
+    }
 }
 
 #[embassy_executor::task]
@@ -561,13 +641,12 @@ pub async fn sd_logging_task(_cfg: Option<RobotConfig>) {
             embassy_futures::select::Either::First(_) => {
                 // Drain all pending events in the channel, writing one row per event
                 while let Ok(event_with_time) = crate::robotstate::LOG_EVENT_CH.try_receive() {
-                    let mut row = BinaryLogRecord::nan_init();
-                    row.t_ms = event_with_time.t_ms;
-                    row.apply_event(&event_with_time.event);
-
                     with_sdlogger(|logger| {
-                        logger.log_snapshot_as_bin(&row);
+                        logger.log_event_compact(event_with_time.t_ms, &event_with_time.event);
                     }).await;
+
+                    // Yield to the executor to allow other tasks (like UART RX) to run
+                    embassy_futures::yield_now().await;
                 }
             }
             embassy_futures::select::Either::Second(_) => {
@@ -575,13 +654,12 @@ pub async fn sd_logging_task(_cfg: Option<RobotConfig>) {
 
                 // Drain any remaining events in the queue, writing one row per event
                 while let Ok(event_with_time) = crate::robotstate::LOG_EVENT_CH.try_receive() {
-                    let mut row = BinaryLogRecord::nan_init();
-                    row.t_ms = event_with_time.t_ms;
-                    row.apply_event(&event_with_time.event);
-
                     with_sdlogger(|logger| {
-                        logger.log_snapshot_as_bin(&row);
+                        logger.log_event_compact(event_with_time.t_ms, &event_with_time.event);
                     }).await;
+
+                    // Yield to the executor
+                    embassy_futures::yield_now().await;
                 }
 
                 with_sdlogger(|logger| {
