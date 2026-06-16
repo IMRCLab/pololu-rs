@@ -1,5 +1,5 @@
-use core::fmt::Write as FmtWrite;
-use core::{mem, slice};
+
+
 use defmt::*;
 use embassy_rp::{
     Peri,
@@ -31,115 +31,7 @@ const MAX_VOLUMES: usize = 1;
 
 pub static SDLOGGER_SHARED: Mutex<Raw, Option<SdLogger>> = Mutex::new(None);
 
-#[repr(C)]
-#[derive(Clone, Copy, Debug)]
-pub struct BinaryLogRecord {
-    pub t_ms: u32,
-    pub x: f32,
-    pub y: f32,
-    pub yaw: f32,
-    pub x_des: f32,
-    pub y_des: f32,
-    pub yaw_des: f32,
-    pub v_ff: f32,
-    pub w_ff: f32,
-    pub v_actual: f32,
-    pub w_actual: f32,
-    pub omega_l_cmd: f32,
-    pub omega_r_cmd: f32,
-    pub omega_l_meas: f32,
-    pub omega_r_meas: f32,
-    pub duty_l: f32,
-    pub duty_r: f32,
-    pub x_err: f32,
-    pub y_err: f32,
-    pub yaw_err: f32,
-    // Raw mocap (not fused by EKF)
-    pub x_raw: f32,
-    pub y_raw: f32,
-    pub yaw_raw: f32,
-    // IMU
-    pub acc_x: f32,
-    pub acc_y: f32,
-    pub acc_z: f32,
-    pub gyro_x: f32,
-    pub gyro_y: f32,
-    pub gyro_z: f32,
-}
 
-impl BinaryLogRecord {
-    /// Initialize all float fields to NaN ("no data yet").
-    /// Used by the consumer to start a row assembler.
-    pub fn nan_init() -> Self {
-        Self {
-            t_ms: 0,
-            x: f32::NAN, y: f32::NAN, yaw: f32::NAN,
-            x_des: f32::NAN, y_des: f32::NAN, yaw_des: f32::NAN,
-            v_ff: f32::NAN, w_ff: f32::NAN,
-            v_actual: f32::NAN, w_actual: f32::NAN,
-            omega_l_cmd: f32::NAN, omega_r_cmd: f32::NAN,
-            omega_l_meas: f32::NAN, omega_r_meas: f32::NAN,
-            duty_l: f32::NAN, duty_r: f32::NAN,
-            x_err: f32::NAN, y_err: f32::NAN, yaw_err: f32::NAN,
-            x_raw: f32::NAN, y_raw: f32::NAN, yaw_raw: f32::NAN,
-            acc_x: f32::NAN, acc_y: f32::NAN, acc_z: f32::NAN,
-            gyro_x: f32::NAN, gyro_y: f32::NAN, gyro_z: f32::NAN,
-        }
-    }
-
-    /// Update the relevant fields from a LogEvent.
-    pub fn apply_event(&mut self, event: &crate::robotstate::LogEvent) {
-        use crate::robotstate::LogEvent;
-        match event {
-            LogEvent::EkfState(p) => {
-                self.x = p.x;
-                self.y = p.y;
-                self.yaw = p.yaw;
-            }
-            LogEvent::Setpoint(s) => {
-                self.x_des = s.x_des;
-                self.y_des = s.y_des;
-                self.yaw_des = s.yaw_des;
-                self.v_ff = s.v_ff;
-                self.w_ff = s.w_ff;
-            }
-            LogEvent::WheelCmd(w) => {
-                self.omega_l_cmd = w.omega_l;
-                self.omega_r_cmd = w.omega_r;
-            }
-            LogEvent::TrackingError(e) => {
-                self.x_err = e.x_err;
-                self.y_err = e.y_err;
-                self.yaw_err = e.yaw_err;
-            }
-            LogEvent::Motor(m) => {
-                self.duty_l = m.left;
-                self.duty_r = m.right;
-            }
-            LogEvent::Encoder(e) => {
-                self.omega_l_meas = e.omega_l;
-                self.omega_r_meas = e.omega_r;
-            }
-            LogEvent::Mocap(p) => {
-                self.x_raw = p.x;
-                self.y_raw = p.y;
-                self.yaw_raw = p.yaw;
-            }
-            LogEvent::Odom(o) => {
-                self.v_actual = o.v;
-                self.w_actual = o.w;
-            }
-            LogEvent::Imu(i) => {
-                self.acc_x = i.acc_x;
-                self.acc_y = i.acc_y;
-                self.acc_z = i.acc_z;
-                self.gyro_x = i.gyro_x;
-                self.gyro_y = i.gyro_y;
-                self.gyro_z = i.gyro_z;
-            }
-        }
-    }
-}
 
 /// Convenience helper to run a closure with the shared SD logger.
 /// Returns `None` if no SD card / logger is available.
@@ -182,10 +74,7 @@ static DIR: StaticCell<Directory<'static, Sd<'static>, Clock, MAX_DIRS, MAX_FILE
     StaticCell::new();
 static SCRATCH_JSON: StaticCell<[u8; 48 * 1024]> = StaticCell::new();
 
-// pub struct SdLogger<'a> {
-//     // volume_mgr: &'a mut VolumeManager<Sd<'static>, DummyClock, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
-//     file: File<'static, Sd<'static>, DummyClock, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
-// }
+
 
 pub type SdDir = Directory<'static, Sd<'static>, Clock, MAX_DIRS, MAX_FILES, MAX_VOLUMES>;
 pub type SdFile = File<'static, Sd<'static>, DummyClock, MAX_DIRS, MAX_FILES, MAX_VOLUMES>;
@@ -444,136 +333,8 @@ pub fn init_sd_logger(
 
 
 
-#[repr(C)]
-pub struct MotionLog {
-    pub timestamp_ms: u32,
-    pub target_vx: f32,
-    pub target_vy: f32,
-    pub target_vz: f32,
-    pub target_qw: f32,
-    pub target_qx: f32,
-    pub target_qy: f32,
-    pub target_qz: f32,
-    pub actual_vx: f32,
-    pub actual_vy: f32,
-    pub actual_vz: f32,
-    pub actual_qw: f32,
-    pub actual_qx: f32,
-    pub actual_qy: f32,
-    pub actual_qz: f32,
-    pub roll: f32,
-    pub pitch: f32,
-    pub yaw: f32,
-    pub motor_left: i16,
-    pub motor_right: i16,
-}
-
 impl SdLogger {
-    pub fn write_csv_header(&mut self) {
-        let header = b"ts,target_vx,target_vy,target_vz,target_qw,target_qx,target_qy,target_qz,actual_vx,actual_vy,actual_vz,actual_qw,actual_qx,actual_qy,actual_qz,roll,pitch,yaw,motor_l,motor_r\n";
-        if let Some(ref mut file) = self.file {
-            let _ = file.write(header);
-        }
-    }
 
-
-
-    pub fn log_motion(&mut self, data: &MotionLog) {
-        let raw: &[u8; core::mem::size_of::<MotionLog>()] = unsafe { core::mem::transmute(data) };
-
-        if let Some(ref mut file) = self.file {
-            if let Err(e) = file.write(raw) {
-                defmt::error!("Write log failed: {:?}", defmt::Debug2Format(&e));
-            }
-        }
-    }
-
-    pub fn log_snapshot_as_csv(&mut self, data: &crate::robotstate::LogSnapshot, v_actual: f32, w_actual: f32) {
-        if let Some(ref mut file) = self.file {
-            let mut line: String<512> = String::new();
-
-            let _ = core::write!(
-                &mut line,
-                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
-                data.t_ms,
-                data.x,
-                data.y,
-                data.yaw,
-                data.x_des,
-                data.y_des,
-                data.yaw_des,
-                data.v_ff,
-                data.w_ff,
-                v_actual,
-                w_actual,
-                data.omega_l_cmd,
-                data.omega_r_cmd,
-                data.omega_l_meas,
-                data.omega_r_meas,
-                data.duty_l,
-                data.duty_r,
-                data.x_err,
-                data.y_err,
-                data.yaw_err,
-            );
-            let _ = file.write(line.as_bytes());
-        }
-    }
-
-    pub fn log_snapshot_as_bin(&mut self, record: &BinaryLogRecord) {
-        if let Some(ref mut file) = self.file {
-            let ptr = record as *const BinaryLogRecord as *const u8;
-            let size = core::mem::size_of::<BinaryLogRecord>();
-            let bytes = unsafe { core::slice::from_raw_parts(ptr, size) };
-            if let Err(e) = file.write(bytes) {
-                defmt::error!("Write binary log failed: {:?}", defmt::Debug2Format(&e));
-            }
-        }
-    }
-
-    pub fn log_motion_as_csv(&mut self, log: &MotionLog) {
-        if let Some(ref mut file) = self.file {
-            let mut line: String<512> = String::new();
-
-            let _ = core::write!(
-                &mut line,
-                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
-                log.timestamp_ms,
-                log.target_vx,
-                log.target_vy,
-                log.target_vz,
-                log.target_qw,
-                log.target_qx,
-                log.target_qy,
-                log.target_qz,
-                log.actual_vx,
-                log.actual_vy,
-                log.actual_vz,
-                log.actual_qw,
-                log.actual_qx,
-                log.actual_qy,
-                log.actual_qz,
-                log.roll,
-                log.pitch,
-                log.yaw,
-                log.motor_left,
-                log.motor_right,
-            );
-
-            let _ = file.write(line.as_bytes());
-        }
-    }
-
-    pub fn log_motion_as_bin(&mut self, log: &MotionLog) {
-        if let Some(ref mut file) = self.file {
-            let size = mem::size_of::<MotionLog>();
-
-            let ptr = log as *const MotionLog as *const u8;
-            let bytes: &[u8] = unsafe { slice::from_raw_parts(ptr, size) };
-
-            let _ = file.write(bytes);
-        }
-    }
 
     fn write_floats(&mut self, floats: &[f32]) {
         let ptr = floats.as_ptr() as *const u8;

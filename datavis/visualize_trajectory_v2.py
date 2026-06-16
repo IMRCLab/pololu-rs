@@ -5,133 +5,117 @@ import glob
 import os
 import argparse
 from pathlib import Path
+def load_trajectory_data_v2(filepath, use_mocap=False):
+    """Load and parse trajectory data from CSV (handles Compact format and legacy format)"""
+    def _map_columns(df):
+        is_new = 'x_des' in df.columns
+        if is_new:
+            # Map new raw mocap columns (pass through if present)
+            for col in ['x_raw', 'y_raw', 'yaw_raw',
+                        'acc_x', 'acc_y', 'acc_z',
+                        'gyro_x', 'gyro_y', 'gyro_z']:
+                if col not in df.columns:
+                    df[col] = np.nan
 
-def load_trajectory_data_v2(filepath):
-    """Load and parse t    
-    # Plot 4: Theta vs Time with error bars
-    ax4 = axes[1,0]
-    if 'ts' in available_cols:
-        if 'target_theta' in available_cols:
-            ax4.plot(df['ts'], np.degrees(df['target_theta']), 'b-', label='Target θ', linewidth=2)
-        if 'actual_theta' in available_cols:
-            ax4.plot(df['ts'], np.degrees(df['actual_theta']), 'r--', label='Actual θ', linewidth=2)
-        
-        # Add theta error as shaded region
-        if 'target_theta' in available_cols and 'theta_error' in available_cols:
-            # Show error bounds around target (convert to degrees)
-            theta_target_deg = np.degrees(df['target_theta'])
-            theta_error_deg = np.degrees(np.abs(df['theta_error']))
-            theta_upper = theta_target_deg + theta_error_deg
-            theta_lower = theta_target_deg - theta_error_deg
-            ax4.fill_between(df['ts'], theta_lower, theta_upper, alpha=0.3, color='purple', label='θ Error Band')
-    
-    ax4.set_xlabel('Time (s)')
-    ax4.set_ylabel('Orientation (degrees)')
-    ax4.set_title('Orientation vs Time')
-    ax4.legend()
-    ax4.grid(True)ata from CSV (new format with positions)"""
+            # Interpolate missing values (NaNs) for columns that have some data
+            cols_to_fill = [c for c in df.columns if c != 'ts' and df[c].notna().any()]
+            if cols_to_fill:
+                df[cols_to_fill] = df[cols_to_fill].interpolate(limit_direction='both')
+
+            use_mocap_actual = False
+            if use_mocap:
+                has_mocap = 'x_raw' in df.columns and df['x_raw'].notna().any()
+                if not has_mocap:
+                    print("Warning: --mocap flag is set but no raw mocap data found in file. Falling back to EKF data.")
+                else:
+                    use_mocap_actual = True
+
+            if use_mocap_actual:
+                rename_map = {
+                    'x_des': 'target_x',
+                    'y_des': 'target_y',
+                    'yaw_des': 'target_theta',
+                    'x': 'x_ekf',
+                    'y': 'y_ekf',
+                    'yaw': 'yaw_ekf',
+                    'x_raw': 'actual_x',
+                    'y_raw': 'actual_y',
+                    'yaw_raw': 'actual_theta',
+                    'omega_l_cmd': 'ul',
+                    'omega_r_cmd': 'ur',
+                    'duty_l': 'dutyl',
+                    'duty_r': 'dutyr',
+                    'v_ff': 'target_vx',
+                    'w_ff': 'target_vz',
+                    'v_actual': 'actual_vx',
+                    'w_actual': 'actual_vz',
+                }
+                df = df.rename(columns=rename_map)
+                
+                # Recalculate tracking errors relative to mocap data
+                df['xerror'] = df['target_x'] - df['actual_x']
+                df['yerror'] = df['target_y'] - df['actual_y']
+                diff = df['target_theta'] - df['actual_theta']
+                df['thetaerror'] = np.arctan2(np.sin(diff), np.cos(diff))
+            else:
+                rename_map = {
+                    'x_des': 'target_x',
+                    'y_des': 'target_y',
+                    'yaw_des': 'target_theta',
+                    'x': 'actual_x',
+                    'y': 'actual_y',
+                    'yaw': 'actual_theta',
+                    'x_err': 'xerror',
+                    'y_err': 'yerror',
+                    'yaw_err': 'thetaerror',
+                    'omega_l_cmd': 'ul',
+                    'omega_r_cmd': 'ur',
+                    'duty_l': 'dutyl',
+                    'duty_r': 'dutyr',
+                    'v_ff': 'target_vx',
+                    'w_ff': 'target_vz',
+                    'v_actual': 'actual_vx',
+                    'w_actual': 'actual_vz',
+                }
+                df = df.rename(columns=rename_map)
+            
+            # Inject zeros for target_vy/actual_vy
+            if 'target_vy' not in df.columns:
+                df['target_vy'] = 0.0
+            if 'actual_vy' not in df.columns:
+                df['actual_vy'] = 0.0
+        return df
+
     try:
-        # First try standard pandas read
-        try:
-            df = pd.read_csv(filepath)
-            if len(df) > 1:  # If we got multiple rows, we're good
-                df = df.dropna()
-                return df
-        except:
-            pass
+        df = pd.read_csv(filepath)
+        if len(df) > 1:  # If we got multiple rows, we're good
+            # Only drop rows that are completely empty (all data columns NaN)
+            data_cols = [c for c in df.columns if c != 'ts']
+            df = df.dropna(subset=data_cols, how='all')
+            return _map_columns(df)
         
-        # Handle malformed CSV - all data on one line
+        # Fallback multi-line parsing
         with open(filepath, 'r') as f:
             content = f.read().strip()
-        
-        # Check if it's all on one line (malformed)
         lines = content.split('\n')
-        if len(lines) <= 2:  # Header + one data line or just one line
-            print(f"Detected malformed CSV (all on one line), attempting to fix...")
-            
-            # Split by comma and try to reconstruct proper CSV structure
-            parts = content.split(',')
-            
-            # Find header (first part should be "ts")
-            if parts[0] != 'ts':
-                print(f"Warning: Expected 'ts' as first column, got '{parts[0]}'")
-                return None
-            
-            # Count columns in header by finding the first numeric value (timestamp)
-            header_end = 0
-            for i, part in enumerate(parts):
-                try:
-                    float(part)
-                    header_end = i
-                    break
-                except ValueError:
-                    continue
-            
-            if header_end == 0:
-                print("Could not find start of data")
-                return None
-            
-            header = parts[:header_end]
-            data_parts = parts[header_end:]
-            
-            # Clean up the header - remove any trailing newlines or extra characters
-            header = [col.strip() for col in header]
-            
-            # Fix the last column name if it has extra characters
-            if len(header) > 0:
-                last_col = header[-1]
-                if '\n' in last_col or any(c.isdigit() for c in last_col):
-                    # Extract just the column name part
-                    clean_name = ''.join(c for c in last_col if c.isalpha() or c == '_')
-                    if clean_name:
-                        header[-1] = clean_name
-            
-            print(f"Found {len(header)} columns: {header}")
-            
-            # Reconstruct rows
-            data_rows = []
-            num_cols = len(header)
-            
-            for i in range(0, len(data_parts), num_cols):
-                if i + num_cols <= len(data_parts):
-                    row = data_parts[i:i+num_cols]
-                    data_rows.append(row)
-            
-            print(f"Reconstructed {len(data_rows)} data rows")
-            
-            # Create DataFrame
-            df = pd.DataFrame(data_rows, columns=header)
-            
-            # Convert to numeric
-            for col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors='coerce')
-            
-            # Drop rows with NaN values
-            df = df.dropna()
-            
-            return df
-        
-        else:
-            # Normal multi-line CSV processing
+        if len(lines) > 2:
             header = lines[0].strip().split(',')
             data_rows = []
-            
             for line in lines[1:]:
                 values = line.strip().split(',')
                 if len(values) >= len(header):
                     data_rows.append(values[:len(header)])
             
             df = pd.DataFrame(data_rows, columns=header)
-            
             for col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
-            
-            df = df.dropna()
-            return df
+            df = df.dropna(subset=[c for c in df.columns if c != 'ts'], how='all')
+            return _map_columns(df)
             
     except Exception as e:
         print(f"Error loading {filepath}: {e}")
         return None
+
 
 def plot_trajectory_comparison_v2(df, title="Trajectory Following"):
     """Plot target vs actual trajectory (new format)"""
@@ -657,7 +641,7 @@ def parse_trajectory_selection(selection, available_trajectories):
     
     return sorted(list(set(selected)))  # Remove duplicates and sort
 
-def visualize_trajectory_directory_v2(directory_path, selected_trajectories=None, save_plots=True, show_plots=True, circle_analysis=True, is_circle=False, is_bezier=False):
+def visualize_trajectory_directory_v2(directory_path, selected_trajectories=None, save_plots=True, show_plots=True, circle_analysis=True, is_circle=False, is_bezier=False, use_mocap=False):
     """Visualize selected trajectory files in a directory (new format)"""
     directory = Path(directory_path)
     
@@ -691,7 +675,7 @@ def visualize_trajectory_directory_v2(directory_path, selected_trajectories=None
         print(f"\nProcessing {tr_name}...")
         
         # Load data
-        df = load_trajectory_data_v2(tr_file)
+        df = load_trajectory_data_v2(tr_file, use_mocap=use_mocap)
         if df is None:
             continue
         
@@ -775,7 +759,7 @@ def visualize_trajectory_directory_v2(directory_path, selected_trajectories=None
         if show_plots:
             plt.show()
 
-def visualize_single_file(filepath, save_plots=True, show_plots=True, circle_analysis=True, is_circle=False, is_bezier=False):
+def visualize_single_file(filepath, save_plots=True, show_plots=True, circle_analysis=True, is_circle=False, is_bezier=False, use_mocap=False):
     """Visualize a single trajectory file"""
     from pathlib import Path
     
@@ -787,7 +771,7 @@ def visualize_single_file(filepath, save_plots=True, show_plots=True, circle_ana
     print(f"Processing single file: {filepath.name}")
     
     # Load data
-    df = load_trajectory_data_v2(filepath)
+    df = load_trajectory_data_v2(filepath, use_mocap=use_mocap)
     if df is None:
         print("Failed to load trajectory data")
         return
@@ -905,6 +889,9 @@ def main():
     parser.add_argument('--bezier', action='store_true',
                         help='Enable Bezier curve analysis with control points, curvature, and curve-specific statistics')
     
+    parser.add_argument('--mocap', action='store_true',
+                        help='Use raw mocap data instead of EKF data')
+    
     args = parser.parse_args()
     
     # Check if input is a file or directory
@@ -919,7 +906,8 @@ def main():
             show_plots=not args.no_show,
             circle_analysis=not args.no_circle,
             is_circle=args.circle,
-            is_bezier=args.bezier
+            is_bezier=args.bezier,
+            use_mocap=args.mocap
         )
     else:
         # Handle directory (existing functionality)
@@ -941,7 +929,8 @@ def main():
             show_plots=not args.no_show,
             circle_analysis=not args.no_circle,
             is_circle=args.circle,
-            is_bezier=args.bezier
+            is_bezier=args.bezier,
+            use_mocap=args.mocap
         )
 
 if __name__ == "__main__":
