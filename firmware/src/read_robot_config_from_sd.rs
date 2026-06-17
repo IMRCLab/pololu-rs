@@ -9,6 +9,7 @@ pub struct RobotConfig {
     pub robot_id: u8,
     pub joystick_control_dt_ms: u64,
     pub traj_following_dt_s: f32,
+    pub sd_logging_dt_s: f32,
     pub wheel_radius: f32,
     pub wheel_base: f32,
     pub motor_direction_left: f32,
@@ -35,6 +36,7 @@ impl Default for RobotConfig {
             robot_id: 7,
             joystick_control_dt_ms: JOYSTICK_CONTROL_DT, // Should be a integer but written in f32
             traj_following_dt_s: TRAJ_FOLLOWING_DT_S,
+            sd_logging_dt_s: 0.01,
             wheel_radius: WHEEL_RADIUS,
             wheel_base: WHEEL_BASE,
             motor_direction_left: MOTOR_DIRECTION_LEFT,
@@ -117,6 +119,11 @@ pub fn parse_robot_config_from_bytes(buf: &[u8]) -> RobotConfig {
                 "traj_following_dt_s" => {
                     if let Some(x) = parse_f32(v) {
                         cfg.traj_following_dt_s = x;
+                    }
+                }
+                "sd_logging_dt_s" => {
+                    if let Some(x) = parse_f32(v) {
+                        cfg.sd_logging_dt_s = x;
                     }
                 }
                 "wheel_radius" => {
@@ -253,7 +260,7 @@ pub fn load_robot_config_with_dir<
             let cfg = parse_robot_config_from_bytes(&scratch[..total]);
             defmt::info!(
                 "RobotConfig loaded {} bytes: 
-                joystick_dt_ms={}, traj_following_dt_s={}, 
+                joystick_dt_ms={}, traj_following_dt_s={}, sd_logging_dt_s={}, 
                 motor_max_duty_left={}, motor_max_duty_right={},
                 wheel_radius={}, wheel_base={}, motor_dir_left={}, motor_dir_right={}, k_clip={},
                 gear_ratio={}, encoder_cpr={}, max_speed={}, max_omega={}, wheel_max(rad/s)={},
@@ -261,6 +268,7 @@ pub fn load_robot_config_with_dir<
                 total,
                 cfg.joystick_control_dt_ms,
                 cfg.traj_following_dt_s,
+                cfg.sd_logging_dt_s,
                 cfg.motor_max_duty_left,
                 cfg.motor_max_duty_right,
                 cfg.wheel_radius,

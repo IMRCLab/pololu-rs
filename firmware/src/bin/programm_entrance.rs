@@ -422,6 +422,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         if spawner.spawn(sd_logging_task(devices.config)).is_err() {
                             defmt::warn!("Failed to spawn sd_logging_task");
                         }
+
                     }
                     Mode::CtrlAction => {
                         defmt::info!("CONTROL-ACTION Mode is selected!!!!!");
@@ -510,6 +511,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         if spawner.spawn(sd_logging_task(devices.config)).is_err() {
                             defmt::warn!("Failed to spawn sd_logging_task");
                         }
+
                     }
                     Mode::TrajOnboard2 => {
                         defmt::info!("ONBOARD-TRAJ-2 Mode (demo) is selected!!!!!");
@@ -567,6 +569,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         if spawner.spawn(sd_logging_task(devices.config)).is_err() {
                             defmt::warn!("Failed to spawn sd_logging_task");
                         }
+
                     }
                 }
                 mode = target;

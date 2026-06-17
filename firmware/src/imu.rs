@@ -76,6 +76,14 @@ pub async fn read_imu_task(mut imu: ImuPack<'static, I2c<'static, I2C0, Async>>)
                 let mut lock = imu.complementary.lock().await;
                 lock.update(gyro, accel, mag, 0.01);
                 let (_pitch, _roll, _yaw) = lock.get_angles_deg();
+
+                // Publish raw IMU to shared state + logging channel
+                crate::robotstate::write_imu(crate::robotstate::ImuReading {
+                    acc_x: accel[0], acc_y: accel[1], acc_z: accel[2],
+                    gyro_x: gyro[0], gyro_y: gyro[1], gyro_z: gyro[2],
+                    stamp: embassy_time::Instant::now(),
+                }).await;
+
                 /*
                 defmt::info!(
                     "Accel: x={} y={} z={} | Gyro: x={} y={} z={} | Mag: x={} y={} z={}",

@@ -15,9 +15,9 @@ use pololu3pi2040_rs::{
     imu::read_imu_task,
     init::init_all,
     joystick_control::teleop_motor_control_task,
-    packet::StateLoopBackPacketF32,
+
     robotstate,
-    sdlog::*,
+
     uart::{uart_hw_task, uart_receive_task},
 };
 
@@ -77,36 +77,11 @@ async fn main(spawner: Spawner) {
     spawner.spawn(uart_receive_task()).unwrap();
 
     // === SdLogger ===
-    let motion = MotionLog {
-        timestamp_ms: 12345,
-        target_vx: 0.2,
-        target_vy: 0.3,
-        target_vz: 0.4,
-        target_qw: 0.5,
-        target_qx: 0.2,
-        target_qy: 0.6,
-        target_qz: 0.3,
-        actual_vx: 0.18,
-        actual_vy: 0.28,
-        actual_vz: 0.38,
-        actual_qw: 0.18,
-        actual_qx: 0.28,
-        actual_qy: 0.38,
-        actual_qz: 0.48,
-        roll: 1.5,
-        pitch: 0.2,
-        yaw: 90.0,
-        motor_left: 1200,
-        motor_right: 1300,
-    };
-
     if let Some(sd) = devices.sdlogger.as_mut() {
         sd.open_new_file();
-        sd.write_csv_header();
-        defmt::info!("Start Sd card writing test!");
-        sd.log_motion_as_bin(&motion);
-        sd.flush(); // This is super important!!!!!!
-        defmt::info!("Finish Sd card writing test!");
+        defmt::info!("Start Sd card logging initialization");
+        sd.flush();
+        defmt::info!("Finish Sd card logging initialization");
     } else {
         defmt::warn!("No SD card / SdLogger disabled, skip logging");
     }
@@ -124,11 +99,7 @@ async fn main(spawner: Spawner) {
         defmt::info!("Set command: v={} m/s, omega={} rad/s", v, omega);
     };
 
-    let sendback = StateLoopBackPacketF32 {
-        header: 0xA1,
-        robot_id: 10,
-        log_snapshot: Default::default(),
-    };
+
 
     loop {
         led.blink(100, 1).await;

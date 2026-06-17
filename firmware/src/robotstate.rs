@@ -23,6 +23,7 @@ use portable_atomic::{AtomicBool, Ordering};
 // =============================================================================
 const CMD_CHANNEL_SIZE: usize = 4;
 const SENSOR_CHANNEL_SIZE: usize = 4;
+const LOG_EVENT_CHANNEL_SIZE: usize = 128;
 
 // =============================================================================
 //                          SHARED STATE (Mutex)
@@ -108,6 +109,36 @@ pub static TRAJECTORY_CONTROL_EVENT: Signal<ThreadModeRawMutex, bool> = Signal::
 
 /// Signal containing the latest mocap pose frame
 pub static MOCAP_SIG: Signal<ThreadModeRawMutex, MocapPose> = Signal::new();
+
+// =============================================================================
+//                     EVENT-BASED LOGGING CHANNEL
+// =============================================================================
+
+/// Tagged union for event-based SD logging.
+/// Each variant carries the exact data that was just written by a producer task.
+/// The SD consumer drains this channel and assembles rows.
+#[derive(Clone, Copy, Debug)]
+pub enum LogEvent {
+    EkfState(RobotPose),
+    Setpoint(Setpoint),
+    WheelCmd(WheelCmd),
+    TrackingError(TrackingError),
+    Motor(MotorDuty),
+    Encoder(EncoderReading),
+    Mocap(MocapPose),
+    Odom(OdomPose),
+    Imu(ImuReading),
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct LogEventWithTime {
+    pub t_ms: u32,
+    pub event: LogEvent,
+}
+
+/// Event-based logging channel. Producers push via try_send(); SD consumer drains.
+pub static LOG_EVENT_CH: Channel<ThreadModeRawMutex, LogEventWithTime, LOG_EVENT_CHANNEL_SIZE> =
+    Channel::new();
 
 // =============================================================================
 #[derive(Copy, Clone, Debug)]
@@ -561,8 +592,14 @@ pub async fn reset_all() {
 
 /// Write raw mocap pose to mutex
 pub async fn write_pose(pose: MocapPose) {
-    let mut guard = POSE.lock().await;
-    *guard = pose;
+    {
+        let mut guard = POSE.lock().await;
+        *guard = pose;
+    }
+    if is_sd_logging_active() {
+        let t_ms = embassy_time::Instant::now().as_millis() as u32;
+        let _ = LOG_EVENT_CH.try_send(LogEventWithTime { t_ms, event: LogEvent::Mocap(pose) });
+    }
 }
 
 /// Read latest raw mocap pose
@@ -584,8 +621,14 @@ pub fn get_and_clear_pose_fresh() -> bool {
 
 /// Write EKF-fused pose to mutex
 pub async fn write_ekf_state(pose: RobotPose) {
-    let mut guard = EKF_STATE.lock().await;
-    *guard = pose;
+    {
+        let mut guard = EKF_STATE.lock().await;
+        *guard = pose;
+    }
+    if is_sd_logging_active() {
+        let t_ms = embassy_time::Instant::now().as_millis() as u32;
+        let _ = LOG_EVENT_CH.try_send(LogEventWithTime { t_ms, event: LogEvent::EkfState(pose) });
+    }
 }
 
 /// Read latest EKF-fused pose
@@ -598,8 +641,14 @@ pub async fn read_ekf_state() -> RobotPose {
 // =============================================================================
 
 pub async fn write_odom(odom: OdomPose) {
-    let mut guard = ODOM_STATE.lock().await;
-    *guard = odom;
+    {
+        let mut guard = ODOM_STATE.lock().await;
+        *guard = odom;
+    }
+    if is_sd_logging_active() {
+        let t_ms = embassy_time::Instant::now().as_millis() as u32;
+        let _ = LOG_EVENT_CH.try_send(LogEventWithTime { t_ms, event: LogEvent::Odom(odom) });
+    }
 }
 pub async fn read_odom() -> OdomPose { *ODOM_STATE.lock().await }
 
@@ -642,8 +691,14 @@ pub async fn add_encoder_count_right(delta: i32) {
 /// Write trajectory setpoint to mutex
 /// Called in: trajectory reader (from SD card), outer loop
 pub async fn write_setpoint(setpoint: Setpoint) {
-    let mut guard = SETPOINT.lock().await;
-    *guard = setpoint;
+    {
+        let mut guard = SETPOINT.lock().await;
+        *guard = setpoint;
+    }
+    if is_sd_logging_active() {
+        let t_ms = embassy_time::Instant::now().as_millis() as u32;
+        let _ = LOG_EVENT_CH.try_send(LogEventWithTime { t_ms, event: LogEvent::Setpoint(setpoint) });
+    }
 }
 
 /// Read latest trajectory setpoint
@@ -659,8 +714,14 @@ pub async fn read_setpoint() -> Setpoint {
 /// Write encoder reading to mutex
 /// Called in: Inner Loop (after low-pass filtering raw encoder counts)
 pub async fn write_encoder(enc: EncoderReading) {
-    let mut guard = ENCODER.lock().await;
-    *guard = enc;
+    {
+        let mut guard = ENCODER.lock().await;
+        *guard = enc;
+    }
+    if is_sd_logging_active() {
+        let t_ms = embassy_time::Instant::now().as_millis() as u32;
+        let _ = LOG_EVENT_CH.try_send(LogEventWithTime { t_ms, event: LogEvent::Encoder(enc) });
+    }
 }
 
 /// Read latest encoder reading
@@ -676,8 +737,14 @@ pub async fn read_encoder() -> EncoderReading {
 /// Write motor duty cycles to mutex
 /// Called in: inner loop (PI controller output)
 pub async fn write_motor(duty: MotorDuty) {
-    let mut guard = MOTOR.lock().await;
-    *guard = duty;
+    {
+        let mut guard = MOTOR.lock().await;
+        *guard = duty;
+    }
+    if is_sd_logging_active() {
+        let t_ms = embassy_time::Instant::now().as_millis() as u32;
+        let _ = LOG_EVENT_CH.try_send(LogEventWithTime { t_ms, event: LogEvent::Motor(duty) });
+    }
 }
 
 /// Read latest motor duty cycles
@@ -693,8 +760,14 @@ pub async fn read_motor() -> MotorDuty {
 /// Write tracking errors to mutex
 /// Called in: position controller after computing errors
 pub async fn write_tracking_error(err: TrackingError) {
-    let mut guard = TRACKING_ERROR.lock().await;
-    *guard = err;
+    {
+        let mut guard = TRACKING_ERROR.lock().await;
+        *guard = err;
+    }
+    if is_sd_logging_active() {
+        let t_ms = embassy_time::Instant::now().as_millis() as u32;
+        let _ = LOG_EVENT_CH.try_send(LogEventWithTime { t_ms, event: LogEvent::TrackingError(err) });
+    }
 }
 
 /// Read latest tracking errors
@@ -718,6 +791,11 @@ pub async fn write_wheel_cmd(cmd: WheelCmd) {
     // Send to channel for inner loop (drain old commands first)
     while WHEEL_CMD_CH.try_receive().is_ok() {}
     let _ = WHEEL_CMD_CH.try_send(cmd);
+    // Event-based logging push
+    if is_sd_logging_active() {
+        let t_ms = embassy_time::Instant::now().as_millis() as u32;
+        let _ = LOG_EVENT_CH.try_send(LogEventWithTime { t_ms, event: LogEvent::WheelCmd(cmd) });
+    }
 }
 
 /// Read latest wheel command (for logging)
@@ -741,8 +819,14 @@ pub fn stop_motors() {
 /// Write IMU reading to mutex
 /// Called in: IMU task
 pub async fn write_imu(imu: ImuReading) {
-    let mut guard = IMU.lock().await;
-    *guard = imu;
+    {
+        let mut guard = IMU.lock().await;
+        *guard = imu;
+    }
+    if is_sd_logging_active() {
+        let t_ms = embassy_time::Instant::now().as_millis() as u32;
+        let _ = LOG_EVENT_CH.try_send(LogEventWithTime { t_ms, event: LogEvent::Imu(imu) });
+    }
 }
 
 /// Read latest IMU reading (for logging)

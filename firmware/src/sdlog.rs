@@ -1,5 +1,5 @@
-use core::fmt::Write as FmtWrite;
-use core::{mem, slice};
+
+
 use defmt::*;
 use embassy_rp::{
     Peri,
@@ -30,6 +30,8 @@ const MAX_FILES: usize = 4;
 const MAX_VOLUMES: usize = 1;
 
 pub static SDLOGGER_SHARED: Mutex<Raw, Option<SdLogger>> = Mutex::new(None);
+
+
 
 /// Convenience helper to run a closure with the shared SD logger.
 /// Returns `None` if no SD card / logger is available.
@@ -72,10 +74,7 @@ static DIR: StaticCell<Directory<'static, Sd<'static>, Clock, MAX_DIRS, MAX_FILE
     StaticCell::new();
 static SCRATCH_JSON: StaticCell<[u8; 48 * 1024]> = StaticCell::new();
 
-// pub struct SdLogger<'a> {
-//     // volume_mgr: &'a mut VolumeManager<Sd<'static>, DummyClock, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
-//     file: File<'static, Sd<'static>, DummyClock, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
-// }
+
 
 pub type SdDir = Directory<'static, Sd<'static>, Clock, MAX_DIRS, MAX_FILES, MAX_VOLUMES>;
 pub type SdFile = File<'static, Sd<'static>, DummyClock, MAX_DIRS, MAX_FILES, MAX_VOLUMES>;
@@ -83,6 +82,8 @@ pub type SdFile = File<'static, Sd<'static>, DummyClock, MAX_DIRS, MAX_FILES, MA
 pub struct SdLogger {
     pub file: Option<SdFile>,
     pub dir: &'static mut SdDir,
+    pub write_buf: [u8; 512],
+    pub write_len: usize,
 }
 
 impl SdLogger {
@@ -119,13 +120,13 @@ impl SdLogger {
         }
 
         if let Some(mut new_file) = file {
-            let header = b"ts,x,y,yaw,x_des,y_des,yaw_des,v_ff,w_ff,v_actual,w_actual,omega_l_cmd,omega_r_cmd,omega_l_meas,omega_r_meas,duty_l,duty_r,x_err,y_err,yaw_err\n";
-            if let Err(e) = new_file.write(header) {
-                defmt::error!("Failed to write CSV header: {:?}", defmt::Debug2Format(&e));
+            let magic = [0xAAu8, 0xBBu8, 0xCCu8, 0xDDu8];
+            if let Err(e) = new_file.write(&magic) {
+                defmt::error!("Failed to write magic header: {:?}", defmt::Debug2Format(&e));
             }
             let _ = new_file.flush();
             self.file = Some(new_file);
-            defmt::info!("SD Logger: opened new log file");
+            defmt::info!("SD Logger: opened new binary log file");
         } else {
             defmt::error!("SD Logger: No free file slots found!");
         }
@@ -147,9 +148,37 @@ impl SdLogger {
         }
     }
 
+    pub fn write_buffered(&mut self, data: &[u8]) {
+        let mut input_offset = 0;
+        while input_offset < data.len() {
+            let available = 512 - self.write_len;
+            let to_copy = core::cmp::min(available, data.len() - input_offset);
+            self.write_buf[self.write_len..self.write_len + to_copy]
+                .copy_from_slice(&data[input_offset..input_offset + to_copy]);
+            self.write_len += to_copy;
+            input_offset += to_copy;
+            
+            if self.write_len == 512 {
+                self.flush_buffer();
+            }
+        }
+    }
+
+    pub fn flush_buffer(&mut self) {
+        if self.write_len > 0 {
+            if let Some(ref mut file) = self.file {
+                if let Err(e) = file.write(&self.write_buf[..self.write_len]) {
+                    defmt::error!("Buffered write failed: {:?}", defmt::Debug2Format(&e));
+                }
+            }
+            self.write_len = 0;
+        }
+    }
+
     /// flush
     /// (CAUTION: This needs to be called when all writing task is finished!!!)
     pub fn flush(&mut self) {
+        self.flush_buffer();
         if let Some(ref mut file) = self.file {
             if let Err(e) = file.flush() {
                 defmt::error!("Flush failed: {:?}", defmt::Debug2Format(&e));
@@ -299,161 +328,105 @@ pub fn init_sd_logger(
     // SD logging file is opened dynamically when starting trajectory/mode.
     info!("SD logger initialized.");
 
-    Ok((SdLogger { file: None, dir }, cfg))
+    Ok((SdLogger { file: None, dir, write_buf: [0; 512], write_len: 0 }, cfg))
 }
 
 
-
-#[repr(C)]
-pub struct MotionLog {
-    pub timestamp_ms: u32,
-    pub target_vx: f32,
-    pub target_vy: f32,
-    pub target_vz: f32,
-    pub target_qw: f32,
-    pub target_qx: f32,
-    pub target_qy: f32,
-    pub target_qz: f32,
-    pub actual_vx: f32,
-    pub actual_vy: f32,
-    pub actual_vz: f32,
-    pub actual_qw: f32,
-    pub actual_qx: f32,
-    pub actual_qy: f32,
-    pub actual_qz: f32,
-    pub roll: f32,
-    pub pitch: f32,
-    pub yaw: f32,
-    pub motor_left: i16,
-    pub motor_right: i16,
-}
 
 impl SdLogger {
-    pub fn write_csv_header(&mut self) {
-        let header = b"ts,target_vx,target_vy,target_vz,target_qw,target_qx,target_qy,target_qz,actual_vx,actual_vy,actual_vz,actual_qw,actual_qx,actual_qy,actual_qz,roll,pitch,yaw,motor_l,motor_r\n";
-        if let Some(ref mut file) = self.file {
-            let _ = file.write(header);
-        }
+
+
+    fn write_floats(&mut self, floats: &[f32]) {
+        let ptr = floats.as_ptr() as *const u8;
+        let size = floats.len() * 4;
+        let bytes = unsafe { core::slice::from_raw_parts(ptr, size) };
+        self.write_buffered(bytes);
     }
 
-
-
-    pub fn log_motion(&mut self, data: &MotionLog) {
-        let raw: &[u8; core::mem::size_of::<MotionLog>()] = unsafe { core::mem::transmute(data) };
-
-        if let Some(ref mut file) = self.file {
-            if let Err(e) = file.write(raw) {
-                defmt::error!("Write log failed: {:?}", defmt::Debug2Format(&e));
+    pub fn log_event_compact(&mut self, t_ms: u32, event: &crate::robotstate::LogEvent) {
+        use crate::robotstate::LogEvent;
+        self.write_buffered(&t_ms.to_le_bytes());
+        match event {
+            LogEvent::EkfState(p) => {
+                self.write_buffered(&[1]);
+                self.write_floats(&[p.x, p.y, p.z, p.roll, p.pitch, p.yaw]);
             }
-        }
-    }
-
-    pub fn log_snapshot_as_csv(&mut self, data: &crate::robotstate::LogSnapshot, v_actual: f32, w_actual: f32) {
-        if let Some(ref mut file) = self.file {
-            let mut line: String<512> = String::new();
-
-            let _ = core::write!(
-                &mut line,
-                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
-                data.t_ms,
-                data.x,
-                data.y,
-                data.yaw,
-                data.x_des,
-                data.y_des,
-                data.yaw_des,
-                data.v_ff,
-                data.w_ff,
-                v_actual,
-                w_actual,
-                data.omega_l_cmd,
-                data.omega_r_cmd,
-                data.omega_l_meas,
-                data.omega_r_meas,
-                data.duty_l,
-                data.duty_r,
-                data.x_err,
-                data.y_err,
-                data.yaw_err,
-            );
-            let _ = file.write(line.as_bytes());
-        }
-    }
-
-    pub fn log_motion_as_csv(&mut self, log: &MotionLog) {
-        if let Some(ref mut file) = self.file {
-            let mut line: String<512> = String::new();
-
-            let _ = core::write!(
-                &mut line,
-                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
-                log.timestamp_ms,
-                log.target_vx,
-                log.target_vy,
-                log.target_vz,
-                log.target_qw,
-                log.target_qx,
-                log.target_qy,
-                log.target_qz,
-                log.actual_vx,
-                log.actual_vy,
-                log.actual_vz,
-                log.actual_qw,
-                log.actual_qx,
-                log.actual_qy,
-                log.actual_qz,
-                log.roll,
-                log.pitch,
-                log.yaw,
-                log.motor_left,
-                log.motor_right,
-            );
-
-            let _ = file.write(line.as_bytes());
-        }
-    }
-
-    pub fn log_motion_as_bin(&mut self, log: &MotionLog) {
-        if let Some(ref mut file) = self.file {
-            let size = mem::size_of::<MotionLog>();
-
-            let ptr = log as *const MotionLog as *const u8;
-            let bytes: &[u8] = unsafe { slice::from_raw_parts(ptr, size) };
-
-            let _ = file.write(bytes);
+            LogEvent::Setpoint(s) => {
+                self.write_buffered(&[2]);
+                self.write_floats(&[s.x_des, s.y_des, s.yaw_des, s.v_ff, s.w_ff]);
+            }
+            LogEvent::WheelCmd(w) => {
+                self.write_buffered(&[3]);
+                self.write_floats(&[w.omega_l, w.omega_r]);
+            }
+            LogEvent::TrackingError(e) => {
+                self.write_buffered(&[4]);
+                self.write_floats(&[e.x_err, e.y_err, e.yaw_err]);
+            }
+            LogEvent::Motor(m) => {
+                self.write_buffered(&[5]);
+                self.write_floats(&[m.left, m.right]);
+            }
+            LogEvent::Encoder(e) => {
+                self.write_buffered(&[6]);
+                self.write_floats(&[e.omega_l, e.omega_r]);
+            }
+            LogEvent::Mocap(p) => {
+                self.write_buffered(&[7]);
+                self.write_floats(&[p.x, p.y, p.z, p.roll, p.pitch, p.yaw]);
+            }
+            LogEvent::Odom(o) => {
+                self.write_buffered(&[8]);
+                self.write_floats(&[o.x, o.y, o.theta, o.v, o.w]);
+            }
+            LogEvent::Imu(i) => {
+                self.write_buffered(&[9]);
+                self.write_floats(&[i.acc_x, i.acc_y, i.acc_z, i.gyro_x, i.gyro_y, i.gyro_z]);
+            }
         }
     }
 }
 
 #[embassy_executor::task]
-pub async fn sd_logging_task(cfg: Option<RobotConfig>) {
-    let dt = cfg.map(|c| c.traj_following_dt_s).unwrap_or(0.02);
-    let r = cfg.map(|c| c.wheel_radius).unwrap_or(crate::robot_parameters_default::robot_constants::WHEEL_RADIUS);
-    let b = cfg.map(|c| c.wheel_base).unwrap_or(crate::robot_parameters_default::robot_constants::WHEEL_BASE);
-    let mut ticker = embassy_time::Ticker::every(embassy_time::Duration::from_millis((dt * 1000.0) as u64));
-    
+pub async fn sd_logging_task(_cfg: Option<RobotConfig>) {
     // Wait for everything to spin up
-    embassy_time::Timer::after_millis(3000).await;
+    embassy_time::Timer::after_millis(500).await;
+
+    let mut ticker = embassy_time::Ticker::every(embassy_time::Duration::from_millis(20)); // 50 Hz
 
     loop {
-        match embassy_futures::select::select(ticker.next(), crate::orchestrator_signal::STOP_LOG_SENDING_SIG.wait()).await {
+        match embassy_futures::select::select(
+            ticker.next(),
+            crate::orchestrator_signal::STOP_LOG_SENDING_SIG.wait(),
+        ).await {
             embassy_futures::select::Either::First(_) => {
-                if crate::robotstate::is_sd_logging_active() {
-                    let snapshot = crate::robotstate::build_log_snapshot_from_state().await;
-
-                    let v_actual = r * (snapshot.omega_l_meas + snapshot.omega_r_meas) / 2.0;
-                    let w_actual = r * (snapshot.omega_r_meas - snapshot.omega_l_meas) / b;
-
+                // Drain all pending events in the channel, writing one row per event
+                while let Ok(event_with_time) = crate::robotstate::LOG_EVENT_CH.try_receive() {
                     with_sdlogger(|logger| {
-                        logger.log_snapshot_as_csv(&snapshot, v_actual, w_actual);
+                        logger.log_event_compact(event_with_time.t_ms, &event_with_time.event);
                     }).await;
+
+                    // Yield to the executor to allow other tasks (like UART RX) to run
+                    embassy_futures::yield_now().await;
                 }
             }
             embassy_futures::select::Either::Second(_) => {
                 defmt::info!("sd_logging_task stopped via STOP_LOG_SENDING_SIG");
+
+                // Drain any remaining events in the queue, writing one row per event
+                while let Ok(event_with_time) = crate::robotstate::LOG_EVENT_CH.try_receive() {
+                    with_sdlogger(|logger| {
+                        logger.log_event_compact(event_with_time.t_ms, &event_with_time.event);
+                    }).await;
+
+                    // Yield to the executor
+                    embassy_futures::yield_now().await;
+                }
+
                 with_sdlogger(|logger| {
                     logger.flush();
                 }).await;
+                break;
             }
         }
     }
