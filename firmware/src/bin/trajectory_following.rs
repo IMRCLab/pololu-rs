@@ -40,9 +40,10 @@ async fn main(spawner: Spawner) {
 
     // =========================== Start uart task for receiving pose information from UART ===========================
     // ===================================== (will update STATE_SIG and LAST_STATE) ===================================
+    let robot_id = devices.config.map(|cfg| cfg.robot_id).unwrap_or(7);
     spawner.spawn(uart_hw_task(devices.uart)).unwrap();
     spawner
-        .spawn(uart_motioncap_receiving_task(UartCfg { robot_id: 10 }))
+        .spawn(uart_motioncap_receiving_task(UartCfg { robot_id }))
         .unwrap();
     // ================================================================================================================
 
