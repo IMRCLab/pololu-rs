@@ -123,8 +123,9 @@ async fn main(spawner: Spawner) {
         defmt::warn!("No SD card / SdLogger disabled, skip logging");
     }
 
+    let robot_id = devices.config.map(|cfg| cfg.robot_id).unwrap_or(7);
     spawner
-        .spawn(orchestrator(spawner, devices, UartCfg { robot_id: 10 }))
+        .spawn(orchestrator(spawner, devices, UartCfg { robot_id }))
         .unwrap();
 }
 

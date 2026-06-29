@@ -60,9 +60,10 @@ async fn main(spawner: Spawner) {
     }
 
     // === Start Receiving Command ===
+    let robot_id = devices.config.map(|cfg| cfg.robot_id).unwrap_or(7);
     spawner.spawn(uart_hw_task(devices.uart)).unwrap();
     spawner
-        .spawn(teleop_uart_task(UartCfg { robot_id: 10 }))
+        .spawn(teleop_uart_task(UartCfg { robot_id }))
         .unwrap();
 
     // === Start Encoder Task ===
