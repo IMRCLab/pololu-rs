@@ -85,7 +85,7 @@ public:
         status_publisher_ = this->create_publisher<std_msgs::msg::Bool>("/experiment/ready", 10);
 
         // NOTE: Pick the correct default URI ending for your setup (07 vs 10)
-        this->declare_parameter("uri1", "radio://*/80/2M/E7C2C2C210?safelink=0&autoping=0");
+        this->declare_parameter("uri1", "radio://*/80/2M/E7C2C2C207?safelink=0&autoping=0");
         std::string uri1;
         this->get_parameter<std::string>("uri1", uri1);
         connection_[0] = std::make_shared<Connection>(uri1);
