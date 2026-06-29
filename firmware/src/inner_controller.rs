@@ -6,7 +6,7 @@ use crate::robotstate::{self, WheelCmd, WHEEL_CMD_CH};
 use embassy_futures::select::{select, select3, Either, Either3};
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::mutex::Mutex;
-use embassy_time::{Duration, Instant, Ticker};
+use embassy_time::{Duration, Instant, Ticker, Timer};
 use portable_atomic::{AtomicU32, Ordering};
 
 static INNER_LOOP_TICK: AtomicU32 = AtomicU32::new(0);
@@ -26,7 +26,6 @@ pub async fn wheel_speed_inner_loop(
         robot_cfg = RobotConfig::default();
     }
 
-    let mut ticker = Ticker::every(Duration::from_millis(period_ms));
     let (mut il, mut ir) = (0.0f32, 0.0f32);
     let (mut prev_el, mut prev_er) = (0.0f32, 0.0f32);
     let (kp, ki, kd) = (robot_cfg.kp_inner, robot_cfg.ki_inner, robot_cfg.kd_inner);
@@ -37,9 +36,14 @@ pub async fn wheel_speed_inner_loop(
     let tau: f32 = 1.0 / (2.0 * core::f32::consts::PI * fc_hz);
     let alpha: f32 = dt / (tau + dt);
 
+    // shift inner controller ticker half a period, so it won't collide with outer controller ticker
+    Timer::after(Duration::from_micros(period_ms * 500)).await;
+    let mut ticker = Ticker::every(Duration::from_millis(period_ms));
+
     //need to get current state of the encoders, because it is potentially leading to v spikes when switching programs.
     let mut prev_l = *left_counter.lock().await;
     let mut prev_r = *right_counter.lock().await;
+    let mut last_sample = Instant::now();
 
     let mut omega_l_lp: f32 = 0.0;
     let mut omega_r_lp: f32 = 0.0;
@@ -72,6 +76,7 @@ pub async fn wheel_speed_inner_loop(
                 omega_l_lp = 0.0; omega_r_lp = 0.0;
                 prev_l = *left_counter.lock().await;
                 prev_r = *right_counter.lock().await;
+                last_sample = Instant::now();
                 last_cmd = WheelCmd { omega_l: 0.0, omega_r: 0.0, stamp: Instant::now() };
                 continue;
             }
@@ -85,6 +90,13 @@ pub async fn wheel_speed_inner_loop(
             last_cmd = cmd; // drain the channel
         }
 
+        let sample_now = Instant::now();
+        let dt_sample = {
+            let elapsed_s = (sample_now - last_sample).as_micros() as f32 / 1_000_000.0;
+            if elapsed_s > 0.0 { elapsed_s } else { dt }
+        };
+        last_sample = sample_now;
+
         // raw angular velocity of the wheel
         let ((omega_l_raw, omega_r_raw), (ln, rn)) = wheel_speed_from_counts_now(
             left_counter,
@@ -92,7 +104,7 @@ pub async fn wheel_speed_inner_loop(
             robot_cfg.encoder_cpr,
             prev_l,
             prev_r,
-            dt,
+            dt_sample,
         ).await;
         prev_l = ln;
         prev_r = rn;
