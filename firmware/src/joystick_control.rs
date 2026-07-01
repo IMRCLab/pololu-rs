@@ -8,11 +8,10 @@ use crate::uart_parser::{RecvResult, receive_packet};
 use crate::packet::CmdTeleopPacketMix;
 use crate::read_robot_config_from_sd::RobotConfig;
 use crate::trajectory_uart::UartCfg;
-use embassy_sync::blocking_mutex::raw::NoopRawMutex;
-use embassy_sync::mutex::Mutex;
 use embassy_futures::select::{Either, select};
 use embassy_time::{Duration, Ticker};
 use heapless::Vec as HVec;
+use portable_atomic::{AtomicI32, Ordering};
 
 const PI: f32 = core::f32::consts::PI;
 const TELEOP_PACK_LEN: u8 = 9;
@@ -34,8 +33,8 @@ use crate::robotstate::{self, UnicycleCmd};
 pub async fn teleop_motor_control_task(
     //adapted from inner loop
     motor: MotorController,
-    left_counter: &'static Mutex<NoopRawMutex, i32>,
-    right_counter: &'static Mutex<NoopRawMutex, i32>,
+    left_counter: &'static AtomicI32,
+    right_counter: &'static AtomicI32,
     cfg: Option<RobotConfig>,
 ) {
     let robot_cfg: RobotConfig;
@@ -61,8 +60,8 @@ pub async fn teleop_motor_control_task(
     let alpha: f32 = dt / (tau + dt);
 
     // CRITICAL: Initialize prev encoder counts with CURRENT values to avoid velocity spike
-    let mut prev_l = *left_counter.lock().await;
-    let mut prev_r = *right_counter.lock().await;
+    let mut prev_l = left_counter.load(Ordering::Relaxed);
+    let mut prev_r = right_counter.load(Ordering::Relaxed);
 
     let mut omega_l_lp: f32 = 0.0;
     let mut omega_r_lp: f32 = 0.0;

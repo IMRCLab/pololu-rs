@@ -389,8 +389,8 @@ impl SdLogger {
 
 #[embassy_executor::task]
 pub async fn sd_logging_task(_cfg: Option<RobotConfig>) {
-    // Wait for everything to spin up
-    embassy_time::Timer::after_millis(500).await;
+    // Wait for everything to spin up + a small phase delay to avoid clashing with ctrl tasks
+    embassy_time::Timer::after_millis(507).await;
 
     let mut ticker = embassy_time::Ticker::every(embassy_time::Duration::from_millis(20)); // 50 Hz
 

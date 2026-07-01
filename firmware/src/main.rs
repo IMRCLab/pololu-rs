@@ -11,7 +11,7 @@ use embassy_time::Timer;
 use pololu3pi2040_rs::{
     button::{button_task_b, button_task_c},
     // buzzer::play_startup_sound,
-    encoder::{EncoderPair, encoder_left_task, encoder_right_task},
+    encoder::start_encoder_irq,
     imu::read_imu_task,
     init::init_all,
     joystick_control::teleop_motor_control_task,
@@ -42,18 +42,9 @@ async fn main(spawner: Spawner) {
     spawner.spawn(button_task_c(buttons.btn_c)).unwrap();
 
     // === Encoder Task ===
-    let EncoderPair {
-        encoder_left,
-        encoder_right,
-    } = devices.encoders;
     let encoder_count_left = devices.encoder_counts.left;
     let encoder_count_right = devices.encoder_counts.right;
-    spawner
-        .spawn(encoder_left_task(encoder_left, encoder_count_left))
-        .unwrap();
-    spawner
-        .spawn(encoder_right_task(encoder_right, encoder_count_right))
-        .unwrap();
+    start_encoder_irq(devices.encoders);
 
     // === Motor Control Task ===
     // Start the PI controller task instead of direct motor control
