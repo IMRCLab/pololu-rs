@@ -28,7 +28,7 @@ use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::mutex::Mutex;
 
 bind_interrupts!(struct Irqs {
-    PIO0_IRQ_0 => PIO_INT_HDL<PIO0>;
+    PIO0_IRQ_0 => PIO_INT_HDL<PIO0>, crate::encoder::EncoderPioIrqHandler;
     I2C0_IRQ => I2C_INT_HDL<I2C0>;
     UART0_IRQ => UART_INT_HDL<UART0>;
 });

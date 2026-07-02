@@ -4,9 +4,8 @@ use crate::read_robot_config_from_sd::RobotConfig;
 use crate::robotstate;
 use defmt::info;
 use embassy_futures::select::{Either, select};
-use embassy_sync::blocking_mutex::raw::NoopRawMutex;
-use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Instant, Ticker};
+use portable_atomic::{AtomicI32, Ordering};
 
 use crate::encoder::wheel_speed_from_counts_now;
 
@@ -39,8 +38,8 @@ impl OdometryData {
 //Responds to `STOP_ODOM_SIG` to cleanly exit when switching modes.
 #[embassy_executor::task]
 pub async fn odometry_task(
-    left_counter: &'static Mutex<NoopRawMutex, i32>,
-    right_counter: &'static Mutex<NoopRawMutex, i32>,
+    left_counter: &'static AtomicI32,
+    right_counter: &'static AtomicI32,
     cfg: Option<RobotConfig>,
     period_ms: u64,
 ) {
@@ -48,10 +47,8 @@ pub async fn odometry_task(
 
     let dt_nominal: f32 = period_ms as f32 / 1000.0;
     let mut ticker = Ticker::every(Duration::from_millis(period_ms));
-    // Use lock().await to guarantee a valid starting count (try_lock could return 0
-    // if the encoder task holds the mutex, causing a spurious spike on the first tick).
-    let mut prev_l: i32 = *left_counter.lock().await;
-    let mut prev_r: i32 = *right_counter.lock().await;
+    let mut prev_l: i32 = left_counter.load(Ordering::Relaxed);
+    let mut prev_r: i32 = right_counter.load(Ordering::Relaxed);
     let mut last_sample = Instant::now();
     let mut odom = OdometryData::new();
 
@@ -74,7 +71,6 @@ pub async fn odometry_task(
             let elapsed_s = (sample_now - last_sample).as_micros() as f32 / 1_000_000.0;
             if elapsed_s > 0.0 { elapsed_s } else { dt_nominal }
         };
-        last_sample = sample_now;
 
         // Raw angular velocity of each wheel [rad/s]
         let ((omega_l, omega_r), (ln, rn)) = wheel_speed_from_counts_now(
@@ -87,6 +83,8 @@ pub async fn odometry_task(
         ).await;
         prev_l = ln;
         prev_r = rn;
+
+        last_sample = Instant::now();
 
         // Differential-drive kinematics as measured (not from CMD_unicycle)
         let v = (robot_cfg.wheel_radius * (omega_r + omega_l)) / 2.0;

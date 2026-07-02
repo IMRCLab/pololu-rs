@@ -7,7 +7,7 @@ use embassy_executor::Spawner;
 use embassy_rp::init;
 
 use pololu3pi2040_rs::{
-    encoder::{EncoderPair, encoder_left_task, encoder_right_task},
+    encoder::start_encoder_irq,
     init::init_all,
     joystick_control::{get_gear_ratio, teleop_motor_control_task, teleop_uart_task},
     trajectory_uart::UartCfg,
@@ -67,18 +67,9 @@ async fn main(spawner: Spawner) {
         .unwrap();
 
     // === Start Encoder Task ===
-    let EncoderPair {
-        encoder_left,
-        encoder_right,
-    } = devices.encoders;
     let encoder_count_left = devices.encoder_counts.left;
     let encoder_count_right = devices.encoder_counts.right;
-    spawner
-        .spawn(encoder_left_task(encoder_left, encoder_count_left))
-        .unwrap();
-    spawner
-        .spawn(encoder_right_task(encoder_right, encoder_count_right))
-        .unwrap();
+    start_encoder_irq(devices.encoders);
 
     // === Start Control Task ===
     spawner

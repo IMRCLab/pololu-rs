@@ -76,10 +76,19 @@ def is_compact_format(bin_file, start_pos):
     return True
 
 
-def decode_file(input_path):
+def csv_output_path(input_path, output_dir=None):
+    filename = os.path.basename(input_path) + ".csv"
+    if output_dir is not None:
+        return os.path.join(output_dir, filename)
+    return os.path.join(os.path.dirname(input_path), filename)
+
+
+def decode_file(input_path, output_path=None):
     if not os.path.exists(input_path):
         print(f"Error: File '{input_path}' does not exist.")
         return False
+    if output_path is None:
+        output_path = csv_output_path(input_path)
         
     print(f"Reading binary file: {input_path}")
     with open(input_path, "rb") as bin_file:
@@ -89,12 +98,7 @@ def decode_file(input_path):
             print(f"Error: Invalid file format (expected magic header {MAGIC_HEADER.hex()}, got {magic.hex()})")
             return False
         
-        # Detect format by checking file size after header
         current_pos = bin_file.tell()
-        bin_file.seek(0, 2)  # seek to end
-        data_size = bin_file.tell() - current_pos
-        
-        # Check if compact format
         is_compact = is_compact_format(bin_file, current_pos)
         bin_file.seek(current_pos)  # seek back
         
@@ -103,8 +107,6 @@ def decode_file(input_path):
             print("Detected Compact Tagged Binary format")
             csv_header = CSV_HEADER
             float_counts = {1: 6, 2: 5, 3: 2, 4: 3, 5: 2, 6: 2, 7: 6, 8: 5, 9: 6}
-            current_row = [""] * 29
-            current_ts = None
             while True:
                 header_chunk = bin_file.read(5)
                 if not header_chunk:
@@ -122,26 +124,18 @@ def decode_file(input_path):
                     print("Warning: Trailing partial payload ignored")
                     break
                 unpacked = struct.unpack(f"<{num_floats}f", payload_chunk)
-                
-                # Coalesce rows within a 2ms window
-                if current_ts is None or abs(t_ms - current_ts) > 2:
-                    if current_ts is not None:
-                        records.append(",".join(current_row))
-                    current_row = [""] * 29
-                    current_row[0] = str(t_ms)
-                    current_ts = t_ms
-                
+
+                current_row = [""] * 29
+                current_row[0] = str(t_ms)
                 map_tag_to_row(tag, unpacked, current_row)
-                
-            if current_ts is not None:
                 records.append(",".join(current_row))
         else:
             print(f"Error: Unsupported legacy binary format. Only Compact Tagged Binary logs can be decoded.")
             return False
             
-    # Overwrite the original binary file with the CSV content
-    print(f"Overwriting binary file with CSV data: {input_path}")
-    with open(input_path, "w") as csv_file:
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+    print(f"Writing CSV data: {output_path}")
+    with open(output_path, "w") as csv_file:
         csv_file.write(csv_header)
         for record in records:
             csv_file.write(record + "\n")
@@ -155,11 +149,12 @@ def main():
         sys.exit(1)
         
     success = True
-    paths_to_decode = []
+    decode_jobs = []
     
     for arg in sys.argv[1:]:
         if os.path.isdir(arg):
             print(f"Scanning directory: {arg}")
+            output_dir = os.path.join(arg, "decoded")
             for entry in sorted(os.listdir(arg)):
                 full_path = os.path.join(arg, entry)
                 if os.path.isfile(full_path) and entry.startswith("TR") and not entry.endswith(".png") and not entry.endswith(".csv"):
@@ -167,18 +162,18 @@ def main():
                         with open(full_path, "rb") as f:
                             magic = f.read(4)
                             if magic == MAGIC_HEADER:
-                                paths_to_decode.append(full_path)
+                                decode_jobs.append((full_path, csv_output_path(full_path, output_dir)))
                     except Exception:
                         pass
         else:
-            paths_to_decode.append(arg)
+            decode_jobs.append((arg, csv_output_path(arg)))
             
-    if not paths_to_decode:
+    if not decode_jobs:
         print("No matching binary log files found to decode.")
         return
         
-    for path in paths_to_decode:
-        if not decode_file(path):
+    for input_path, output_path in decode_jobs:
+        if not decode_file(input_path, output_path):
             success = False
             
     if not success:

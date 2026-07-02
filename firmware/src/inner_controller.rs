@@ -4,18 +4,17 @@ use crate::orchestrator_signal::{STOP_WHEEL_INNER_SIG, TRAJ_PAUSE_SIG, TRAJ_RESU
 use crate::read_robot_config_from_sd::RobotConfig;
 use crate::robotstate::{self, WheelCmd, WHEEL_CMD_CH};
 use embassy_futures::select::{select, select3, Either, Either3};
-use embassy_sync::blocking_mutex::raw::NoopRawMutex;
-use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Instant, Ticker, Timer};
-use portable_atomic::{AtomicU32, Ordering};
+use portable_atomic::{AtomicI32, AtomicU32, Ordering};
 
 static INNER_LOOP_TICK: AtomicU32 = AtomicU32::new(0);
+const USE_ENCODER_LP_FILTER: bool = false;  // flag to activate encoder low pass filter
 
 #[embassy_executor::task]
 pub async fn wheel_speed_inner_loop(
     motor: MotorController,
-    left_counter: &'static Mutex<NoopRawMutex, i32>,
-    right_counter: &'static Mutex<NoopRawMutex, i32>,
+    left_counter: &'static AtomicI32,
+    right_counter: &'static AtomicI32,
     cfg: Option<RobotConfig>,
     period_ms: u64,
 ) {
@@ -32,7 +31,7 @@ pub async fn wheel_speed_inner_loop(
 
     // =========== Filter Parameters ==============
     let dt: f32 = period_ms as f32 / 1000.0;
-    let fc_hz: f32 = 3.0;
+    let fc_hz: f32 = 3.0; // -> tau = 53 ms, quite heavy smoothing
     let tau: f32 = 1.0 / (2.0 * core::f32::consts::PI * fc_hz);
     let alpha: f32 = dt / (tau + dt);
 
@@ -41,8 +40,8 @@ pub async fn wheel_speed_inner_loop(
     let mut ticker = Ticker::every(Duration::from_millis(period_ms));
 
     //need to get current state of the encoders, because it is potentially leading to v spikes when switching programs.
-    let mut prev_l = *left_counter.lock().await;
-    let mut prev_r = *right_counter.lock().await;
+    let mut prev_l = left_counter.load(Ordering::Relaxed);
+    let mut prev_r = right_counter.load(Ordering::Relaxed);
     let mut last_sample = Instant::now();
 
     let mut omega_l_lp: f32 = 0.0;
@@ -74,8 +73,8 @@ pub async fn wheel_speed_inner_loop(
                 il = 0.0; ir = 0.0;
                 prev_el = 0.0; prev_er = 0.0;
                 omega_l_lp = 0.0; omega_r_lp = 0.0;
-                prev_l = *left_counter.lock().await;
-                prev_r = *right_counter.lock().await;
+                prev_l = left_counter.load(Ordering::Relaxed);
+                prev_r = right_counter.load(Ordering::Relaxed);
                 last_sample = Instant::now();
                 last_cmd = WheelCmd { omega_l: 0.0, omega_r: 0.0, stamp: Instant::now() };
                 continue;
@@ -95,7 +94,6 @@ pub async fn wheel_speed_inner_loop(
             let elapsed_s = (sample_now - last_sample).as_micros() as f32 / 1_000_000.0;
             if elapsed_s > 0.0 { elapsed_s } else { dt }
         };
-        last_sample = sample_now;
 
         // raw angular velocity of the wheel
         let ((omega_l_raw, omega_r_raw), (ln, rn)) = wheel_speed_from_counts_now(
@@ -108,18 +106,24 @@ pub async fn wheel_speed_inner_loop(
         ).await;
         prev_l = ln;
         prev_r = rn;
+        last_sample = Instant::now();
 
         // =========== Low Pass Filter ==============
-        omega_l_lp = omega_l_lp + alpha * (omega_l_raw - omega_l_lp);
-        omega_r_lp = omega_r_lp + alpha * (omega_r_raw - omega_r_lp);
+        if USE_ENCODER_LP_FILTER {
+            omega_l_lp = omega_l_lp + alpha * (omega_l_raw - omega_l_lp);
+            omega_r_lp = omega_r_lp + alpha * (omega_r_raw - omega_r_lp);
+        } else {
+            omega_l_lp = omega_l_raw;
+            omega_r_lp = omega_r_raw;
+        }
 
         // error
         let el = last_cmd.omega_l - omega_l_lp;
         let er = last_cmd.omega_r - omega_r_lp;
 
         // error integration
-        il = (il + ki * dt * el).clamp(-2.0, 2.0);
-        ir = (ir + ki * dt * er).clamp(-2.0, 2.0);
+        il = (il + ki * dt * el).clamp(-0.8, 0.8);
+        ir = (ir + ki * dt * er).clamp(-0.8, 0.8);
 
         // error differentiation
         let dl = (el - prev_el) / dt;

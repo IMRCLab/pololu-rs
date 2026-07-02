@@ -1,10 +1,9 @@
 use embassy_rp::peripherals::{PIN_8, PIN_9, PIN_12, PIN_13, PIO0};
 use embassy_rp::pio::{Common, StateMachine};
 // use embassy_rp::pio_programs::rotary_encoder::{Direction, PioEncoder, PioEncoderProgram};
-use embassy_sync::blocking_mutex::raw::NoopRawMutex;
-use embassy_sync::mutex::Mutex;
+use embassy_rp::{interrupt::typelevel::{Handler, PIO0_IRQ_0}, pac};
 use embassy_time::{Duration, Timer};
-use static_cell::StaticCell;
+use portable_atomic::{AtomicI32, Ordering};
 
 use crate::encoder_lib::{PioEncoder, PioEncoderProgram};
 
@@ -16,18 +15,21 @@ pub struct EncoderPair<'a> {
 
 /// Pair Encoder Counters
 pub struct EncoderCounters {
-    pub left: &'static Mutex<NoopRawMutex, i32>,
-    pub right: &'static Mutex<NoopRawMutex, i32>,
+    pub left: &'static AtomicI32,
+    pub right: &'static AtomicI32,
 }
 
-// Global static cells
-static LEFT_COUNT: StaticCell<Mutex<NoopRawMutex, i32>> = StaticCell::new();
-static RIGHT_COUNT: StaticCell<Mutex<NoopRawMutex, i32>> = StaticCell::new();
+static LEFT_COUNT: AtomicI32 = AtomicI32::new(0);
+static RIGHT_COUNT: AtomicI32 = AtomicI32::new(0);
+static LEFT_PREV_AB: AtomicI32 = AtomicI32::new(-1);
+static RIGHT_PREV_AB: AtomicI32 = AtomicI32::new(-1);
 
 /// avoid using global counters
 pub fn init_encoder_counts() -> EncoderCounters {
-    let left = LEFT_COUNT.init(Mutex::new(0));
-    let right = RIGHT_COUNT.init(Mutex::new(0));
+    LEFT_COUNT.store(0, Ordering::Relaxed);
+    RIGHT_COUNT.store(0, Ordering::Relaxed);
+    let left = &LEFT_COUNT;
+    let right = &RIGHT_COUNT;
     EncoderCounters { left, right }
 }
 
@@ -59,72 +61,63 @@ const LUT: [[i8; 4]; 4] = [
     [0, -1, 1, 0], // 11 ->
 ];
 
-// Left encoder task (read AB and drain the FIFO)
-#[embassy_executor::task]
-pub async fn encoder_left_task(
-    mut encoder: PioEncoder<'static, PIO0, 0>,
-    counter: &'static Mutex<NoopRawMutex, i32>,
-) {
-    let mut prev = encoder.read_ab().await;
-    loop {
-        let mut delta: i32 = 0;
-        let curr = encoder.read_ab().await;
-        delta += LUT[prev as usize][curr as usize] as i32;
-        prev = curr;
+pub struct EncoderPioIrqHandler;
 
-        // fast clean FIFO
-        while let Some(c) = encoder.try_read_ab() {
-            delta += LUT[prev as usize][c as usize] as i32;
-            prev = c;
-        }
-
-        if delta != 0 {
-            let mut g = counter.lock().await;
-            *g = g.wrapping_add(delta);
-
-            crate::robotstate::add_encoder_count_left(delta).await;
-            // defmt::info!("Left encoder count = {}", *g);
-        }
+impl Handler<PIO0_IRQ_0> for EncoderPioIrqHandler {
+    unsafe fn on_interrupt() {
+        drain_encoder_fifo::<0>(&LEFT_COUNT, &LEFT_PREV_AB);
+        drain_encoder_fifo::<1>(&RIGHT_COUNT, &RIGHT_PREV_AB);
+        enable_encoder_irq_sources();
     }
 }
 
-// Left encoder task (read AB and drain the FIFO)
-#[embassy_executor::task]
-pub async fn encoder_right_task(
-    mut encoder: PioEncoder<'static, PIO0, 1>,
-    counter: &'static Mutex<NoopRawMutex, i32>,
-) {
-    let mut prev = encoder.read_ab().await;
-    loop {
-        let mut delta: i32 = 0;
-        let curr = encoder.read_ab().await;
-        delta += LUT[prev as usize][curr as usize] as i32;
+fn drain_encoder_fifo<const SM: usize>(counter: &AtomicI32, prev_ab: &AtomicI32) {
+    let mut prev = prev_ab.load(Ordering::Relaxed);
+    let mut delta = 0i32;
+
+    while pac::PIO0.fstat().read().rxempty() & (1u8 << SM) == 0 {
+        let curr = (pac::PIO0.rxf(SM).read() & 0b11) as i32;
+        if prev >= 0 {
+            delta += LUT[prev as usize][curr as usize] as i32;
+        }
         prev = curr;
-
-        while let Some(c) = encoder.try_read_ab() {
-            delta += LUT[prev as usize][c as usize] as i32;
-            prev = c;
-        }
-
-        if delta != 0 {
-            let mut g = counter.lock().await;
-            *g = g.wrapping_add(delta);
-
-            crate::robotstate::add_encoder_count_right(delta).await;
-            // defmt::info!("Right encoder count = {}", *g);
-        }
     }
+
+    if prev >= 0 {
+        prev_ab.store(prev, Ordering::Relaxed);
+    }
+    if delta != 0 {
+        counter.fetch_add(delta, Ordering::Relaxed);
+    }
+}
+
+pub fn start_encoder_irq(encoders: EncoderPair<'static>) {
+    LEFT_PREV_AB.store(-1, Ordering::Relaxed);
+    RIGHT_PREV_AB.store(-1, Ordering::Relaxed);
+
+    drain_encoder_fifo::<0>(&LEFT_COUNT, &LEFT_PREV_AB);
+    drain_encoder_fifo::<1>(&RIGHT_COUNT, &RIGHT_PREV_AB);
+
+    enable_encoder_irq_sources();
+
+    core::mem::forget(encoders);
+}
+
+fn enable_encoder_irq_sources() {
+    pac::PIO0.irqs(0).inte().modify(|m| {
+        m.0 |= (1 << 0) | (1 << 1);
+    });
 }
 
 // Asychronously acquiring left RPM
 pub async fn get_left_rpm(
-    counter: &'static Mutex<NoopRawMutex, i32>,
+    counter: &'static AtomicI32,
     cpr_wheel: f32,
     interval_ms: u64,
 ) -> f32 {
-    let before = *counter.lock().await;
+    let before = counter.load(Ordering::Relaxed);
     Timer::after(Duration::from_millis(interval_ms)).await;
-    let after = *counter.lock().await;
+    let after = counter.load(Ordering::Relaxed);
 
     let delta = after.wrapping_sub(before) as f32;
     let rps = delta / cpr_wheel / (interval_ms as f32 / 1000.0);
@@ -133,13 +126,13 @@ pub async fn get_left_rpm(
 
 // Asychronously acquiring right RPM
 pub async fn get_right_rpm(
-    counter: &'static Mutex<NoopRawMutex, i32>,
+    counter: &'static AtomicI32,
     cpr_wheel: f32,
     interval_ms: u64,
 ) -> f32 {
-    let before = *counter.lock().await;
+    let before = counter.load(Ordering::Relaxed);
     Timer::after(Duration::from_millis(interval_ms)).await;
-    let after = *counter.lock().await;
+    let after = counter.load(Ordering::Relaxed);
 
     let delta = after.wrapping_sub(before) as f32;
     let rps = delta / cpr_wheel / (interval_ms as f32 / 1000.0);
@@ -147,18 +140,18 @@ pub async fn get_right_rpm(
 }
 
 pub async fn get_rpms(
-    left_counter: &'static Mutex<NoopRawMutex, i32>,
-    right_counter: &'static Mutex<NoopRawMutex, i32>,
+    left_counter: &'static AtomicI32,
+    right_counter: &'static AtomicI32,
     cpr_wheel: f32,
     interval_ms: u64,
 ) -> (f32, f32) {
-    let left_before = *left_counter.lock().await;
-    let right_before = *right_counter.lock().await;
+    let left_before = left_counter.load(Ordering::Relaxed);
+    let right_before = right_counter.load(Ordering::Relaxed);
 
     Timer::after(Duration::from_millis(interval_ms)).await;
 
-    let left_after = *left_counter.lock().await;
-    let right_after = *right_counter.lock().await;
+    let left_after = left_counter.load(Ordering::Relaxed);
+    let right_after = right_counter.load(Ordering::Relaxed);
 
     let delta_l = left_after.wrapping_sub(left_before) as f32;
     let delta_r = right_after.wrapping_sub(right_before) as f32;
@@ -171,19 +164,19 @@ pub async fn get_rpms(
 }
 
 pub async fn get_wheel_speed_in_rad(
-    left_counter: &'static Mutex<NoopRawMutex, i32>,
-    right_counter: &'static Mutex<NoopRawMutex, i32>,
+    left_counter: &'static AtomicI32,
+    right_counter: &'static AtomicI32,
     cpr_wheel: f32,
     interval_ms: u64,
     dt: f32, // equal to interval_ms but in second, just for saving one divide calculation
 ) -> (f32, f32) {
-    let left_before = *left_counter.lock().await;
-    let right_before = *right_counter.lock().await;
+    let left_before = left_counter.load(Ordering::Relaxed);
+    let right_before = right_counter.load(Ordering::Relaxed);
 
     Timer::after(Duration::from_millis(interval_ms)).await;
 
-    let left_after = *left_counter.lock().await;
-    let right_after = *right_counter.lock().await;
+    let left_after = left_counter.load(Ordering::Relaxed);
+    let right_after = right_counter.load(Ordering::Relaxed);
 
     let delta_l = left_after.wrapping_sub(left_before) as f32;
     let delta_r = right_after.wrapping_sub(right_before) as f32;
@@ -196,21 +189,15 @@ pub async fn get_wheel_speed_in_rad(
 }
 
 pub async fn wheel_speed_from_counts_now(
-    left_counter: &Mutex<NoopRawMutex, i32>,
-    right_counter: &Mutex<NoopRawMutex, i32>,
+    left_counter: &AtomicI32,
+    right_counter: &AtomicI32,
     cpr_wheel: f32,
     prev_left: i32,
     prev_right: i32,
     dt: f32, // in sec
 ) -> ((f32, f32), (i32, i32)) {
-    // Always acquire the lock to guarantee a valid count.
-    // try_lock() + unwrap_or(&0) would produce a delta of -absolute_count
-    // (potentially thousands of counts) if the lock is held by another task.
-    let (left_now, right_now) = {
-        let l = *left_counter.lock().await;
-        let r = *right_counter.lock().await;
-        (l, r)
-    };
+    let left_now = left_counter.load(Ordering::Relaxed);
+    let right_now = right_counter.load(Ordering::Relaxed);
 
     let delta_l = left_now.wrapping_sub(prev_left) as f32;
     let delta_r = right_now.wrapping_sub(prev_right) as f32;
@@ -221,13 +208,3 @@ pub async fn wheel_speed_from_counts_now(
 
     ((omega_l, omega_r), (left_now, right_now))
 }
-
-// // fast left position reading
-// pub fn read_left_count(counter: &'static Mutex<NoopRawMutex, i32>) -> i32 {
-//     counter.try_lock().map(|g| *g).unwrap_or(0)
-// }
-
-// // fast right position reading
-// pub fn read_right_count(counter: &'static Mutex<NoopRawMutex, i32>) -> i32 {
-//     counter.try_lock().map(|g| *g).unwrap_or(0)
-// }

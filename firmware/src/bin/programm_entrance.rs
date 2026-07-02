@@ -22,7 +22,7 @@ use pololu3pi2040_rs::robotstate;
 use pololu3pi2040_rs::{
     buzzer::{beep_signal, buzzer_beep_task},
     ekf::mocap_update_task,
-    encoder::{EncoderPair, encoder_left_task, encoder_right_task},
+    encoder::start_encoder_irq,
     inner_controller::wheel_speed_inner_loop,
     joystick_control::{control_action_uart_task, teleop_motor_control_task, teleop_uart_task},
     led::LED_SHARED,
@@ -189,18 +189,9 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
     }
 
     // ================ Spawn Encoder Task ==========================
-    let EncoderPair {
-        encoder_left,
-        encoder_right,
-    } = devices.encoders;
     let encoder_count_left = devices.encoder_counts.left;
     let encoder_count_right = devices.encoder_counts.right;
-    spawner
-        .spawn(encoder_left_task(encoder_left, encoder_count_left))
-        .unwrap();
-    spawner
-        .spawn(encoder_right_task(encoder_right, encoder_count_right))
-        .unwrap();
+    start_encoder_irq(devices.encoders);
 
     // ============= spawn low level uart task ======================
     spawner.spawn(uart_hw_task(devices.uart)).unwrap();

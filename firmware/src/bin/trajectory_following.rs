@@ -7,7 +7,7 @@ use {defmt_rtt as _, panic_probe as _};
 use embassy_executor::Spawner;
 use embassy_rp::init;
 
-use pololu3pi2040_rs::encoder::{EncoderPair, encoder_left_task, encoder_right_task};
+use pololu3pi2040_rs::encoder::start_encoder_irq;
 use pololu3pi2040_rs::init::init_all;
 use pololu3pi2040_rs::trajectory_control::{
     diffdrive_outer_loop_command_controlled_traj_following_from_sdcard,
@@ -49,18 +49,9 @@ async fn main(spawner: Spawner) {
 
     // ========================================== Start encoder tasks =================================================
     // =========================== (will be accumulated to ENC_LEFT/RIGHT_DELTA) ======================================
-    let EncoderPair {
-        encoder_left,
-        encoder_right,
-    } = devices.encoders;
     let encoder_count_left = devices.encoder_counts.left;
     let encoder_count_right = devices.encoder_counts.right;
-    spawner
-        .spawn(encoder_left_task(encoder_left, encoder_count_left))
-        .unwrap();
-    spawner
-        .spawn(encoder_right_task(encoder_right, encoder_count_right))
-        .unwrap();
+    start_encoder_irq(devices.encoders);
     // ================================================================================================================
 
     // ======================================== Start Mocap update task ===============================================
