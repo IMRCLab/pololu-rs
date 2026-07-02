@@ -8,6 +8,7 @@ use embassy_time::{Duration, Instant, Ticker, Timer};
 use portable_atomic::{AtomicI32, AtomicU32, Ordering};
 
 static INNER_LOOP_TICK: AtomicU32 = AtomicU32::new(0);
+const USE_ENCODER_LP_FILTER: bool = false;  // flag to activate encoder low pass filter
 
 #[embassy_executor::task]
 pub async fn wheel_speed_inner_loop(
@@ -30,7 +31,7 @@ pub async fn wheel_speed_inner_loop(
 
     // =========== Filter Parameters ==============
     let dt: f32 = period_ms as f32 / 1000.0;
-    let fc_hz: f32 = 3.0;
+    let fc_hz: f32 = 3.0; // -> tau = 53 ms, quite heavy smoothing
     let tau: f32 = 1.0 / (2.0 * core::f32::consts::PI * fc_hz);
     let alpha: f32 = dt / (tau + dt);
 
@@ -108,20 +109,21 @@ pub async fn wheel_speed_inner_loop(
         last_sample = Instant::now();
 
         // =========== Low Pass Filter ==============
-        omega_l_lp = omega_l_lp + alpha * (omega_l_raw - omega_l_lp);
-        omega_r_lp = omega_r_lp + alpha * (omega_r_raw - omega_r_lp);
-
-        // Optionally disable low-pass filter for testing
-        // omega_l_lp = omega_l_raw;
-        // omega_r_lp = omega_r_raw;
+        if USE_ENCODER_LP_FILTER {
+            omega_l_lp = omega_l_lp + alpha * (omega_l_raw - omega_l_lp);
+            omega_r_lp = omega_r_lp + alpha * (omega_r_raw - omega_r_lp);
+        } else {
+            omega_l_lp = omega_l_raw;
+            omega_r_lp = omega_r_raw;
+        }
 
         // error
         let el = last_cmd.omega_l - omega_l_lp;
         let er = last_cmd.omega_r - omega_r_lp;
 
         // error integration
-        il = (il + ki * dt * el).clamp(-2.0, 2.0);
-        ir = (ir + ki * dt * er).clamp(-2.0, 2.0);
+        il = (il + ki * dt * el).clamp(-0.8, 0.8);
+        ir = (ir + ki * dt * er).clamp(-0.8, 0.8);
 
         // error differentiation
         let dl = (el - prev_el) / dt;

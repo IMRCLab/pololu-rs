@@ -625,10 +625,12 @@ pub async fn write_ekf_state(pose: RobotPose) {
         let mut guard = EKF_STATE.lock().await;
         *guard = pose;
     }
-    if is_sd_logging_active() {
-        let t_ms = embassy_time::Instant::now().as_millis() as u32;
-        let _ = LOG_EVENT_CH.try_send(LogEventWithTime { t_ms, event: LogEvent::EkfState(pose) });
-    }
+    // EKF state logging disabled to reduce SD log traffic / CPU load.
+    // Re-enable if fused pose rows are needed in the binary log again.
+    // if is_sd_logging_active() {
+    //     let t_ms = embassy_time::Instant::now().as_millis() as u32;
+    //     let _ = LOG_EVENT_CH.try_send(LogEventWithTime { t_ms, event: LogEvent::EkfState(pose) });
+    // }
 }
 
 /// Read latest EKF-fused pose
@@ -645,10 +647,12 @@ pub async fn write_odom(odom: OdomPose) {
         let mut guard = ODOM_STATE.lock().await;
         *guard = odom;
     }
-    if is_sd_logging_active() {
-        let t_ms = embassy_time::Instant::now().as_millis() as u32;
-        let _ = LOG_EVENT_CH.try_send(LogEventWithTime { t_ms, event: LogEvent::Odom(odom) });
-    }
+    // Odometry logging disabled to reduce SD log traffic / CPU load.
+    // Re-enable if v_actual/w_actual rows are needed in the binary log again.
+    // if is_sd_logging_active() {
+    //     let t_ms = embassy_time::Instant::now().as_millis() as u32;
+    //     let _ = LOG_EVENT_CH.try_send(LogEventWithTime { t_ms, event: LogEvent::Odom(odom) });
+    // }
 }
 pub async fn read_odom() -> OdomPose { *ODOM_STATE.lock().await }
 

@@ -49,13 +49,13 @@ def looks_like_log(path: Path) -> bool:
 
 
 def log_files(directory: Path) -> list[Path]:
-    paths = sorted(path for path in directory.iterdir() if path.is_file() and looks_like_log(path))
+    paths = sorted(path for path in directory.iterdir() if path.is_file() and path.suffix.lower() == ".csv")
     if not paths:
-        raise ValueError(f"No Pololu log files found in {directory}")
+        raise ValueError(f"No CSV files found in {directory}")
     return paths
 
 
-def load_columns(path: str | Path) -> tuple[list[str], np.ndarray]:
+def load_columns(path: str | Path, max_time: float | None = None) -> tuple[list[str], np.ndarray]:
     data = np.genfromtxt(path, delimiter=",", names=True, dtype=float)
     columns = list(data.dtype.names or ())
     values = np.column_stack([data[name] for name in columns])
@@ -64,6 +64,13 @@ def load_columns(path: str | Path) -> tuple[list[str], np.ndarray]:
     ts_index = columns.index("ts")
     values = values[np.isfinite(values[:, ts_index])]
     values = values[np.argsort(values[:, ts_index])]
+    if max_time is not None:
+        if max_time < 0:
+            raise ValueError("--max-time must be non-negative")
+        start_ts = values[0, ts_index]
+        values = values[(values[:, ts_index] - start_ts) / 1000.0 <= max_time]
+        if len(values) == 0:
+            raise ValueError(f"No rows available in {path}")
     values = values.copy()
     values[:, ts_index] = (values[:, ts_index] - values[0, ts_index]) / 1000.0
     return columns, values
@@ -114,8 +121,13 @@ def clip_after_first_trajectory(columns: list[str], data: np.ndarray, min_zero_r
     return data
 
 
-def plot_log(log_path: str | Path, output_path: str | Path, clip: bool = False):
-    columns, data = load_columns(log_path)
+def plot_log(
+    log_path: str | Path,
+    output_path: str | Path,
+    clip: bool = False,
+    max_time: float | None = None,
+):
+    columns, data = load_columns(log_path, max_time=max_time)
     if clip:
         data = clip_after_first_trajectory(columns, data)
 
@@ -207,24 +219,24 @@ def plot_log(log_path: str | Path, output_path: str | Path, clip: bool = False):
 
 def main():
     parser = argparse.ArgumentParser(description="Standalone Pololu log summary plotter.")
-    parser.add_argument("log")
+    parser.add_argument("--log", default="Pololu Data/Experiments/2026_06_27 Johannes Encoder RAM/")
     parser.add_argument("--output", default=None)
     parser.add_argument("--clip-after-first-trajectory", default=True)
+    parser.add_argument("--max-time", type=float, default=5)
     args = parser.parse_args()
 
     log_path = Path(args.log)
     if log_path.is_dir():
-        output_dir = Path(args.output) if args.output is not None else log_path
-        output_dir = output_dir / log_path.name
+        output_dir = Path(args.output) if args.output is not None else log_path / "plots"
         output_dir.mkdir(parents=True, exist_ok=True)
         for path in log_files(log_path):
             output_path = output_dir / f"{path.stem}.pdf"
-            plot_log(path, output_path, clip=args.clip_after_first_trajectory)
+            plot_log(path, output_path, clip=args.clip_after_first_trajectory, max_time=args.max_time)
             print(output_path)
         return
 
     output_path = Path(args.output) if args.output is not None else log_path.with_suffix(".pdf")
-    plot_log(log_path, output_path, clip=args.clip_after_first_trajectory)
+    plot_log(log_path, output_path, clip=args.clip_after_first_trajectory, max_time=args.max_time)
     print(output_path)
 
 
