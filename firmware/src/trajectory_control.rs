@@ -145,8 +145,6 @@ async fn run_unified_loop(
         }
 
         // ---- 4. Output ----
-        while WHEEL_CMD_CH.try_receive().is_ok() {}
-        let _ = WHEEL_CMD_CH.try_send(WheelCmd { omega_l: ul, omega_r: ur, stamp: Instant::now() });
         robotstate::write_wheel_cmd(robotstate::WheelCmd::new(ul, ur)).await;
         robotstate::write_tracking_error(robotstate::TrackingError {
             x_err, y_err, yaw_err: th_err,

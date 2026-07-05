@@ -597,7 +597,7 @@ pub async fn write_pose(pose: MocapPose) {
         *guard = pose;
     }
     if is_sd_logging_active() {
-        let t_ms = embassy_time::Instant::now().as_millis() as u32;
+        let t_ms = pose.stamp.as_millis() as u32;
         let _ = LOG_EVENT_CH.try_send(LogEventWithTime { t_ms, event: LogEvent::Mocap(pose) });
     }
 }
