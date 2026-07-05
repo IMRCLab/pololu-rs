@@ -10,7 +10,7 @@ pub struct ComplementaryFilter {
 }
 
 impl ComplementaryFilter {
-    pub fn new(alpha: f32) -> Self {
+    pub const fn new(alpha: f32) -> Self {
         Self {
             pitch: 0.0,
             roll: 0.0,

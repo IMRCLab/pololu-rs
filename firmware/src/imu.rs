@@ -1,15 +1,16 @@
 use crate::imu::complementary_filter::ComplementaryFilter;
 use crate::imu::lis3mdl::Lis3mdl;
 use crate::imu::lsm6dso::Lsm6dso;
+use crate::orchestrator_signal::STOP_IMU_SIG;
 // use crate::imu::madgwick::Madgwick;
 
+use embassy_futures::select::{Either, select};
 use embassy_rp::i2c::{Async, I2c};
 use embassy_rp::peripherals::I2C0;
-use embassy_sync::blocking_mutex::raw::{NoopRawMutex, ThreadModeRawMutex};
+use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::mutex::Mutex;
-use embassy_time::{Duration, Timer};
+use embassy_time::{Duration, Ticker, Timer};
 use embedded_hal_async::i2c::I2c as AsyncI2c;
-use static_cell::StaticCell;
 
 pub mod complementary_filter;
 pub mod lis3mdl;
@@ -17,27 +18,27 @@ pub mod lsm6dso;
 pub mod madgwick;
 pub mod shared_i2c;
 
-// === Global filters as StaticCell ===
+// === Global filters ===
 // static MADGWICK_CELL: StaticCell<Mutex<NoopRawMutex, Madgwick>> = StaticCell::new();
-static COMPLEMENTARY_CELL: StaticCell<Mutex<NoopRawMutex, ComplementaryFilter>> = StaticCell::new();
+static COMPLEMENTARY: Mutex<ThreadModeRawMutex, ComplementaryFilter> =
+    Mutex::new(ComplementaryFilter::new(0.9));
 
 pub struct ImuPack<'a, T: AsyncI2c> {
     pub i2c: &'a Mutex<ThreadModeRawMutex, T>,
     pub lsm6dso: Lsm6dso<'a, T>,
     pub lis3mdl: Lis3mdl<'a, T>,
-    pub complementary: &'static Mutex<NoopRawMutex, ComplementaryFilter>,
+    pub complementary: &'static Mutex<ThreadModeRawMutex, ComplementaryFilter>,
     // pub madgwick: &'static Mutex<NoopRawMutex, Madgwick>,
 }
 
 impl<'a, T: AsyncI2c + 'a> ImuPack<'a, T> {
     pub fn new(i2c: &'a Mutex<ThreadModeRawMutex, T>) -> Self {
-        let complementary = COMPLEMENTARY_CELL.init(Mutex::new(ComplementaryFilter::new(0.9)));
         // let madgwick = MADGWICK_CELL.init(Mutex::new(Madgwick::new(0.1)));
         Self {
             i2c,
             lsm6dso: Lsm6dso::new(i2c),
             lis3mdl: Lis3mdl::new(i2c),
-            complementary,
+            complementary: &COMPLEMENTARY,
             // madgwick,
         }
     }
@@ -59,13 +60,38 @@ impl<'a, T: AsyncI2c + 'a> ImuPack<'a, T> {
 }
 
 #[embassy_executor::task]
-pub async fn read_imu_task(mut imu: ImuPack<'static, I2c<'static, I2C0, Async>>) {
+pub async fn read_imu_task(i2c: &'static Mutex<ThreadModeRawMutex, I2c<'static, I2C0, Async>>) {
+    let mut imu = ImuPack::new(i2c);
+
     if let Err(_e) = imu.init().await {
         defmt::error!("IMU init failed!");
         return;
     }
 
+    {
+        let mut lock = imu.complementary.lock().await;
+        *lock = ComplementaryFilter::new(0.9);
+    }
+
+    match select(Timer::after_millis(3), STOP_IMU_SIG.wait()).await {
+        Either::First(_) => {}
+        Either::Second(_) => {
+            defmt::info!("IMU task stopped before polling.");
+            return;
+        }
+    }
+
+    let mut ticker = Ticker::every(Duration::from_millis(10));
+
     loop {
+        match select(ticker.next(), STOP_IMU_SIG.wait()).await {
+            Either::First(_) => {}
+            Either::Second(_) => {
+                defmt::info!("IMU task stopped.");
+                return;
+            }
+        }
+
         match imu.read_all().await {
             Ok((accel, gyro, mag)) => {
                 /*
@@ -101,7 +127,5 @@ pub async fn read_imu_task(mut imu: ImuPack<'static, I2c<'static, I2C0, Async>>)
             }
             Err(_e) => defmt::warn!("IMU read error!"),
         }
-
-        Timer::after(Duration::from_millis(10)).await;
     }
 }

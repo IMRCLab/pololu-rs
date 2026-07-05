@@ -38,6 +38,7 @@ pub static STOP_MOCAP_UPDATE_SIG: Signal<Raw, ()> = Signal::new();
 pub static STOP_WHEEL_INNER_SIG: Signal<Raw, ()> = Signal::new();
 pub static STOP_TRAJ_OUTER_SIG: Signal<Raw, ()> = Signal::new();
 pub static STOP_ODOM_SIG: Signal<Raw, ()> = Signal::new();
+pub static STOP_IMU_SIG: Signal<Raw, ()> = Signal::new();
 pub static STOP_LOG_SENDING_SIG: Signal<Raw, ()> = Signal::new();
 pub static STOP_POSE_EST_SIG: Signal<Raw, ()> = Signal::new();
 
