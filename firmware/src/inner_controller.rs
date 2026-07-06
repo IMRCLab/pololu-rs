@@ -8,7 +8,7 @@ use embassy_time::{Duration, Instant, Ticker, Timer};
 use portable_atomic::{AtomicI32, AtomicU32, Ordering};
 
 static INNER_LOOP_TICK: AtomicU32 = AtomicU32::new(0);
-const USE_ENCODER_LP_FILTER: bool = false;  // flag to activate encoder low pass filter
+const USE_ENCODER_LP_FILTER: bool = true;  // flag to activate encoder low pass filter
 
 #[embassy_executor::task]
 pub async fn wheel_speed_inner_loop(
