@@ -55,7 +55,6 @@ pub mod joystick_control;
 pub mod led;
 pub mod math;
 pub mod motor;
-pub mod odometry;
 pub mod orchestrator_signal;
 pub mod packet;
 pub mod parameter_sync;

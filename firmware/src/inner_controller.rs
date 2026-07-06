@@ -104,9 +104,10 @@ pub async fn wheel_speed_inner_loop(
             prev_r,
             dt_sample,
         ).await;
+        let measurement_stamp = Instant::now();
         prev_l = ln;
         prev_r = rn;
-        last_sample = Instant::now();
+        last_sample = measurement_stamp;
 
         // =========== Low Pass Filter ==============
         if USE_ENCODER_LP_FILTER {
@@ -149,7 +150,12 @@ pub async fn wheel_speed_inner_loop(
         robotstate::write_encoder(robotstate::EncoderReading {
             omega_l: omega_l_lp,
             omega_r: omega_r_lp,
-            stamp: Instant::now(),
+            stamp: measurement_stamp,
+        }).await;
+        robotstate::write_odom(robotstate::OdomPose {
+            v: (robot_cfg.wheel_radius * (omega_r_lp + omega_l_lp)) / 2.0,
+            w: (robot_cfg.wheel_radius * (omega_r_lp - omega_l_lp)) / robot_cfg.wheel_base,
+            stamp: measurement_stamp,
         }).await;
 
         let n = INNER_LOOP_TICK.fetch_add(1, Ordering::Relaxed);

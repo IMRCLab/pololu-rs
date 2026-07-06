@@ -15,7 +15,7 @@ use pololu3pi2040_rs::init::{self, init_all};
 use pololu3pi2040_rs::orchestrator_signal::{
     FRAME_MAX, LEN_FUNC_SELECT_CMD, Mode, ORCH_CH, OrchestratorMsg, STOP_IMU_SIG,
     STOP_LOG_SENDING_SIG, STOP_MENU_UART_SIG, STOP_MOCAP_UART_SIG, STOP_MOCAP_UPDATE_SIG,
-    STOP_MOTOR_CTRL_SIG, STOP_ODOM_SIG, STOP_POSE_EST_SIG, STOP_TELEOP_UART_SIG,
+    STOP_MOTOR_CTRL_SIG, STOP_POSE_EST_SIG, STOP_TELEOP_UART_SIG,
     STOP_TRAJ_OUTER_SIG, STOP_WHEEL_INNER_SIG, TRAJ_PAUSE_SIG, TRAJ_RESUME_SIG,
     decode_functionality_select_command,
 };
@@ -28,7 +28,6 @@ use pololu3pi2040_rs::{
     inner_controller::wheel_speed_inner_loop,
     joystick_control::{control_action_uart_task, teleop_motor_control_task, teleop_uart_task},
     led::LED_SHARED,
-    odometry::odometry_task,
     robotstate::TRAJECTORY_CONTROL_EVENT,
     robotstate::uart_log_sending_task,
     sdlog::{SDLOGGER_SHARED, sd_logging_task, with_sdlogger},
@@ -176,7 +175,6 @@ pub async fn functionality_mode_selection_uart_task(cfg: UartCfg) {
 /* ======================== Functionality Selection Task ============================ */
 
 // Task tick periods [ms] — single source of truth for all task frequencies
-const ODOM_PERIOD_MS: u64 = 10;      // 100 Hz
 const INNER_PERIOD_MS: u64 = 10;     // 100 Hz
 const LOG_PERIOD_MS: u64 = 50;       // 20 Hz (Menu), 50 (control modes)
 #[embassy_executor::task]
@@ -263,7 +261,6 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         STOP_MOCAP_UPDATE_SIG.signal(());
                         STOP_WHEEL_INNER_SIG.signal(());
                         STOP_TRAJ_OUTER_SIG.signal(());
-                        STOP_ODOM_SIG.signal(());
                         STOP_IMU_SIG.signal(());
                         STOP_LOG_SENDING_SIG.signal(());
                         STOP_POSE_EST_SIG.signal(());
@@ -279,7 +276,6 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         drain_signal(&STOP_MOCAP_UPDATE_SIG, 2).await;
                         drain_signal(&STOP_WHEEL_INNER_SIG, 2).await;
                         drain_signal(&STOP_TRAJ_OUTER_SIG, 2).await;
-                        drain_signal(&STOP_ODOM_SIG, 2).await;
                         drain_signal(&STOP_IMU_SIG, 2).await;
                         drain_signal(&STOP_LOG_SENDING_SIG, 2).await;
                         drain_signal(&STOP_POSE_EST_SIG, 2).await;
@@ -368,14 +364,6 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
 
                         let uart_ok = spawner.spawn(uart_motioncap_receiving_task(cfg)).is_ok();
                         let mocap_ok = spawner.spawn(mocap_update_task()).is_ok();
-                        let odo_ok = spawner
-                            .spawn(odometry_task(
-                                encoder_count_left,
-                                encoder_count_right,
-                                devices.config,
-                                ODOM_PERIOD_MS,
-                            ))
-                            .is_ok();
                         let inner_ok = spawner
                             .spawn(wheel_speed_inner_loop(
                                 devices.motor,
@@ -389,7 +377,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
 
                         // (The EKF is now inlined in the unified control loop)
                         // Resolve initial pose (<=300 ms wait). Outer loop spawned after
-                        // so it sees a valid EKF_STATE, but inner/odometry tasks are
+                        // so it sees a valid EKF_STATE, but inner loop is
                         // no longer blocked during this window.
                         let init_msg = wait_for_ekf_init().await;
                         robotstate::write_ekf_state(robotstate::RobotPose {
@@ -408,10 +396,10 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             )
                             .is_ok();
 
-                        if uart_ok && mocap_ok && odo_ok && inner_ok && imu_ok && outer_ok {
+                        if uart_ok && mocap_ok && inner_ok && imu_ok && outer_ok {
                             beep_signal(b'M');
                             defmt::info!(
-                                "TrajMocap: All tasks active (Uart, Mocap, Odo, Inner, Imu, Outer)"
+                                "TrajMocap: All tasks active (Uart, Mocap, Inner, Imu, Outer)"
                             );
                         }
                         if spawner.spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS)).is_err() {
@@ -464,14 +452,6 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
 
                         let uart_ok = spawner.spawn(uart_motioncap_receiving_task(cfg)).is_ok();
                         let mocap_ok = spawner.spawn(mocap_update_task()).is_ok();
-                        let odo_ok = spawner
-                            .spawn(odometry_task(
-                                encoder_count_left,
-                                encoder_count_right,
-                                devices.config,
-                                ODOM_PERIOD_MS,
-                            ))
-                            .is_ok();
                         let inner_ok = spawner
                             .spawn(wheel_speed_inner_loop(
                                 devices.motor,
@@ -498,10 +478,10 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         let outer_ok = spawner
                             .spawn(diffdrive_outer_loop_onboard_traj(devices.config))
                             .is_ok();
-                        if uart_ok && mocap_ok && odo_ok && inner_ok && imu_ok && outer_ok {
+                        if uart_ok && mocap_ok && inner_ok && imu_ok && outer_ok {
                             beep_signal(b'F');
                             defmt::info!(
-                                "TrajOnboard: All tasks active (Uart, Mocap, Odo, Inner, Imu, Outer)"
+                                "TrajOnboard: All tasks active (Uart, Mocap, Inner, Imu, Outer)"
                             );
                         }
                         if spawner.spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS)).is_err() {
@@ -522,14 +502,6 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
 
                         let uart_ok = spawner.spawn(uart_motioncap_receiving_task(cfg)).is_ok();
                         let mocap_ok = spawner.spawn(mocap_update_task()).is_ok();
-                        let odo_ok = spawner
-                            .spawn(odometry_task(
-                                encoder_count_left,
-                                encoder_count_right,
-                                devices.config,
-                                ODOM_PERIOD_MS,
-                            ))
-                            .is_ok();
                         let inner_ok = spawner
                             .spawn(wheel_speed_inner_loop(
                                 devices.motor,
@@ -557,10 +529,10 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             .spawn(diffdrive_outer_loop_onboard_traj2(devices.config))
                             .is_ok();
 
-                        if uart_ok && mocap_ok && odo_ok && inner_ok && imu_ok && outer_ok {
+                        if uart_ok && mocap_ok && inner_ok && imu_ok && outer_ok {
                             beep_signal(b'G');
                             defmt::info!(
-                                "TrajOnboard2: All tasks active (Uart, Mocap, Odo, Inner, Imu, Outer)"
+                                "TrajOnboard2: All tasks active (Uart, Mocap, Inner, Imu, Outer)"
                             );
                         }
                         if spawner.spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS)).is_err() {
