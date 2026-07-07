@@ -59,8 +59,7 @@ async fn main(spawner: Spawner) {
         .unwrap();
 
     // === IMU Task ===
-    let imu = devices.imu;
-    spawner.spawn(read_imu_task(imu)).unwrap();
+    spawner.spawn(read_imu_task(devices.imu.i2c)).unwrap();
 
     // === UART Task ===
     let uart_rec = devices.uart;

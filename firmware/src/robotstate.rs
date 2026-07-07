@@ -366,12 +366,12 @@ impl Default for EncoderReading {
 /// IMU readings
 #[derive(Debug, Clone, Copy)]
 pub struct ImuReading {
-    pub acc_x: f32, // m/s²
-    pub acc_y: f32,
-    pub acc_z: f32,
-    pub gyro_x: f32, // rad/s
-    pub gyro_y: f32,
-    pub gyro_z: f32,
+    pub acc_x: f32, // g
+    pub acc_y: f32, // g
+    pub acc_z: f32, // g
+    pub gyro_x: f32, // deg/s
+    pub gyro_y: f32, // deg/s
+    pub gyro_z: f32, // deg/s
     pub stamp: Instant,
 }
 
@@ -597,7 +597,7 @@ pub async fn write_pose(pose: MocapPose) {
         *guard = pose;
     }
     if is_sd_logging_active() {
-        let t_ms = embassy_time::Instant::now().as_millis() as u32;
+        let t_ms = pose.stamp.as_millis() as u32;
         let _ = LOG_EVENT_CH.try_send(LogEventWithTime { t_ms, event: LogEvent::Mocap(pose) });
     }
 }

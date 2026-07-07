@@ -9,7 +9,7 @@
 
 use embassy_futures::select::{Either, Either3, select, select3};
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex as Raw, signal::Signal};
-use embassy_time::{Duration, Timer};
+use embassy_time::{Duration, Instant, Timer};
 use heapless::Vec;
 
 use crate::uart::UART_RX_CHANNEL;
@@ -17,7 +17,7 @@ use crate::uart::UART_RX_CHANNEL;
 /// Result of a single `receive_packet` call.
 pub enum RecvResult {
     /// Fully-received packet. `len` is the length byte, `frame` contains `[0x3C, payload...]`.
-    Packet { len: u8 },
+    Packet { len: u8, stamp: Instant },
     /// The stop signal fired; the caller should exit.
     Stop,
 }
@@ -39,7 +39,8 @@ const VALID_LENGTHS: &[u8] = &[
 /// The function calls `.wait()` on it repeatedly, so the signal must be a `Signal<Raw, ()>`.
 ///
 /// Returns `RecvResult::Stop` when the stop signal fires.
-/// Returns `RecvResult::Packet { len }` on success; `frame` is populated with
+/// Returns `RecvResult::Packet { len, stamp }` on success; `stamp` is the IRQ
+/// timestamp for the length byte, and `frame` is populated with
 /// `[0x3C, byte1, byte2, ...]` (i.e. `len-1` additional bytes after the header).
 ///
 /// On framing errors (timeout, bad header, etc.) the function loops back to seek.
@@ -50,12 +51,13 @@ pub async fn receive_packet<const N: usize>(
     loop {
         // ---- Phase 1: seek a valid [LEN, 0x3C] preamble ----
         let len;
-        'seek: loop {
+        let len_stamp = 'seek: loop {
             // Wait for a byte (or stop)
-            let b = match select(UART_RX_CHANNEL.receive(), stop_sig.wait()).await {
+            let first = match select(UART_RX_CHANNEL.receive(), stop_sig.wait()).await {
                 Either::First(b) => b,
                 Either::Second(_) => return RecvResult::Stop,
             };
+            let b = first.byte;
 
             // Is it a known length byte?
             if !VALID_LENGTHS.contains(&b) {
@@ -73,15 +75,15 @@ pub async fn receive_packet<const N: usize>(
                 Either::Second(_) => continue 'seek, // timeout — keep seeking
             };
 
-            if header == 0x3C {
+            if header.byte == 0x3C {
                 len = b;
                 frame.clear();
                 frame.push(0x3C).ok();
-                break 'seek;
+                break 'seek first.stamp;
             }
             // header wasn't 0x3C — restart seek.
             // The 3× retransmit from the dongle means we'll get another chance quickly.
-        }
+        };
 
         // ---- Phase 2: read remaining payload bytes (len-1 because 0x3C already added) ----
         let need = (len as usize).saturating_sub(1);
@@ -95,7 +97,7 @@ pub async fn receive_packet<const N: usize>(
             )
             .await
             {
-                Either3::First(b) => Some(b),
+                Either3::First(b) => Some(b.byte),
                 Either3::Second(_) => None,  // timeout → framing error, re-seek
                 Either3::Third(_) => return RecvResult::Stop,
             };
@@ -110,7 +112,7 @@ pub async fn receive_packet<const N: usize>(
         }
 
         if got == need {
-            return RecvResult::Packet { len };
+            return RecvResult::Packet { len, stamp: len_stamp };
         }
         // else: partial frame, restart seek
     }
