@@ -46,7 +46,7 @@ impl<'a, PIO: Instance> PioEncoderProgram<'a, PIO> {
 
 /// Pio Backed quadrature encoder reader
 pub struct PioEncoder<'d, T: Instance, const SM: usize> {
-    sm: StateMachine<'d, T, SM>,
+    _sm: StateMachine<'d, T, SM>,
 }
 
 impl<'d, T: Instance, const SM: usize> PioEncoder<'d, T, SM> {
@@ -75,33 +75,7 @@ impl<'d, T: Instance, const SM: usize> PioEncoder<'d, T, SM> {
         cfg.use_program(&program.prg, &[]);
         sm.set_config(&cfg);
         sm.set_enable(true);
-        Self { sm }
+        Self { _sm: sm }
     }
 
-    /// Read a single count from the encoder
-    pub async fn read(&mut self) -> Direction {
-        loop {
-            match self.sm.rx().wait_pull().await {
-                0 => return Direction::CounterClockwise,
-                1 => return Direction::Clockwise,
-                _ => {}
-            }
-        }
-    }
-
-    pub async fn read_ab(&mut self) -> u8 {
-        (self.sm.rx().wait_pull().await & 0b11) as u8
-    }
-
-    pub fn try_read_ab(&mut self) -> Option<u8> {
-        self.sm.rx().try_pull().map(|v| (v & 0b11) as u8)
-    }
-}
-
-/// Encoder Count Direction
-pub enum Direction {
-    /// Encoder turned clockwise
-    Clockwise,
-    /// Encoder turned counter clockwise
-    CounterClockwise,
 }

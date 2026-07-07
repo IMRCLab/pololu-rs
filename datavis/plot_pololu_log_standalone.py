@@ -49,13 +49,13 @@ def looks_like_log(path: Path) -> bool:
 
 
 def log_files(directory: Path) -> list[Path]:
-    paths = sorted(path for path in directory.iterdir() if path.is_file() and looks_like_log(path))
+    paths = sorted(path for path in directory.iterdir() if path.is_file() and path.suffix.lower() == ".csv")
     if not paths:
-        raise ValueError(f"No Pololu log files found in {directory}")
+        raise ValueError(f"No CSV files found in {directory}")
     return paths
 
 
-def load_columns(path: str | Path) -> tuple[list[str], np.ndarray]:
+def load_columns(path: str | Path, max_time: float | None = None) -> tuple[list[str], np.ndarray]:
     data = np.genfromtxt(path, delimiter=",", names=True, dtype=float)
     columns = list(data.dtype.names or ())
     values = np.column_stack([data[name] for name in columns])
@@ -64,6 +64,13 @@ def load_columns(path: str | Path) -> tuple[list[str], np.ndarray]:
     ts_index = columns.index("ts")
     values = values[np.isfinite(values[:, ts_index])]
     values = values[np.argsort(values[:, ts_index])]
+    if max_time is not None:
+        if max_time < 0:
+            raise ValueError("--max-time must be non-negative")
+        start_ts = values[0, ts_index]
+        values = values[(values[:, ts_index] - start_ts) / 1000.0 <= max_time]
+        if len(values) == 0:
+            raise ValueError(f"No rows available in {path}")
     values = values.copy()
     values[:, ts_index] = (values[:, ts_index] - values[0, ts_index]) / 1000.0
     return columns, values
@@ -96,6 +103,28 @@ def stair_series(time: np.ndarray, values: np.ndarray, end_time: float | None) -
     return np.concatenate([time, [end_time]]), np.concatenate([values, values[-1:]])
 
 
+def sparse_stream(columns: list[str], data: np.ndarray, names: tuple[str, ...]) -> tuple[np.ndarray, np.ndarray]:
+    value_indices = [columns.index(name) for name in names]
+    ts_index = columns.index("ts")
+    latest = np.full(len(value_indices), np.nan, dtype=float)
+    times = []
+    values = []
+
+    for row in data:
+        row_values = row[value_indices]
+        updates = np.isfinite(row_values)
+        if not np.any(updates):
+            continue
+        latest[updates] = row_values[updates]
+        if np.all(np.isfinite(latest)):
+            times.append(row[ts_index])
+            values.append(latest.copy())
+
+    if not values:
+        return np.empty(0), np.empty((0, len(value_indices)))
+    return np.asarray(times), np.vstack(values)
+
+
 def clip_after_first_trajectory(columns: list[str], data: np.ndarray, min_zero_rows: int = 3) -> np.ndarray:
     reference_rows = rows_with(columns, data, ("x_des", "y_des", "yaw_des", "v_ff", "w_ff"))
     if len(reference_rows) < min_zero_rows:
@@ -114,8 +143,13 @@ def clip_after_first_trajectory(columns: list[str], data: np.ndarray, min_zero_r
     return data
 
 
-def plot_log(log_path: str | Path, output_path: str | Path, clip: bool = False):
-    columns, data = load_columns(log_path)
+def plot_log(
+    log_path: str | Path,
+    output_path: str | Path,
+    clip: bool = False,
+    max_time: float | None = None,
+):
+    columns, data = load_columns(log_path, max_time=max_time)
     if clip:
         data = clip_after_first_trajectory(columns, data)
 
@@ -123,6 +157,8 @@ def plot_log(log_path: str | Path, output_path: str | Path, clip: bool = False):
     pose_rows = rows_with(columns, data, ("x_raw", "y_raw", "yaw_raw"))
     wheel_rows = rows_with(columns, data, ("omega_r_meas", "omega_l_meas"))
     command_rows = rows_with(columns, data, ("omega_r_cmd", "omega_l_cmd"))
+    duty_time, duty_cycle = sparse_stream(columns, data, ("duty_r", "duty_l"))
+    imu_time, gyro_z = sparse_stream(columns, data, ("gyro_z",))
 
     ref_time = col(columns, reference_rows, "ts")
     reference = np.column_stack(
@@ -167,14 +203,26 @@ def plot_log(log_path: str | Path, output_path: str | Path, clip: bool = False):
     line_mocap_v = ax_v.plot(mocap_time, mocap_vel[:, 0], color="tab:blue", linewidth=0.65, label="mocap v")[0]
     line_ref_w = ax_w.step(ref_time, reference[:, 4], where="post", color="khaki", linestyle="--", linewidth=0.9, label="ref omega")[0]
     line_mocap_w = ax_w.plot(mocap_time, mocap_vel[:, 1], color="goldenrod", linewidth=0.65, label="mocap omega")[0]
+    velocity_lines = [line_ref_v, line_mocap_v, line_ref_w, line_mocap_w]
+    if len(imu_time):
+        line_gyro_z = ax_w.plot(
+            imu_time,
+            np.deg2rad(gyro_z[:, 0]),
+            color="tab:purple",
+            linewidth=0.45,
+            alpha=0.8,
+            label="imu gyro z",
+        )[0]
+        velocity_lines.append(line_gyro_z)
     ax_v.set_xlabel("time [s]")
     ax_v.set_ylabel("linear velocity [m/s]")
     ax_w.set_ylabel("angular velocity [rad/s]")
     ax_v.set_title("Velocity")
     ax_v.grid(True)
-    ax_v.legend(handles=[line_ref_v, line_mocap_v, line_ref_w, line_mocap_w], loc="best")
+    ax_v.legend(handles=velocity_lines, loc="best")
 
     ax = axes[0, 2]
+    ax_duty = ax.twinx()
     cmd_time, cmd_right = stair_series(command_time, wheel_cmd[:, 0], wheel_time[-1] if len(wheel_time) else None)
     _, cmd_left = stair_series(command_time, wheel_cmd[:, 1], wheel_time[-1] if len(wheel_time) else None)
     lines = [
@@ -183,8 +231,37 @@ def plot_log(log_path: str | Path, output_path: str | Path, clip: bool = False):
         ax.step(cmd_time, cmd_left, where="post", color="tab:orange", linestyle="--", linewidth=0.75, label="cmd left")[0],
         ax.plot(wheel_time, wheel_speeds[:, 1], color="tab:orange", linewidth=0.8, label="meas left")[0],
     ]
+    if len(duty_time):
+        duty_end_time = wheel_time[-1] if len(wheel_time) else None
+        duty_right_time, duty_right = stair_series(duty_time, duty_cycle[:, 0], duty_end_time)
+        duty_left_time, duty_left = stair_series(duty_time, duty_cycle[:, 1], duty_end_time)
+        lines.extend(
+            [
+                ax_duty.step(
+                    duty_right_time,
+                    duty_right,
+                    where="post",
+                    color="tab:green",
+                    linestyle="-",
+                    linewidth=0.2,
+                    alpha=0.5,
+                    label="duty right",
+                )[0],
+                ax_duty.step(
+                    duty_left_time,
+                    duty_left,
+                    where="post",
+                    color="tab:orange",
+                    linestyle="-",
+                    linewidth=0.2,
+                    alpha=0.5,
+                    label="duty left",
+                )[0],
+            ]
+        )
     ax.set_xlabel("time [s]")
     ax.set_ylabel("wheel speed [rad/s]")
+    ax_duty.set_ylabel("duty cycle")
     ax.set_title("Wheel Speeds")
     ax.grid(True)
     ax.legend(handles=lines)
@@ -207,24 +284,24 @@ def plot_log(log_path: str | Path, output_path: str | Path, clip: bool = False):
 
 def main():
     parser = argparse.ArgumentParser(description="Standalone Pololu log summary plotter.")
-    parser.add_argument("log")
+    parser.add_argument("--log", default="Pololu Data/Experiments/2026_06_27 Johannes Encoder RAM/")
     parser.add_argument("--output", default=None)
     parser.add_argument("--clip-after-first-trajectory", default=True)
+    parser.add_argument("--max-time", type=float, default=5)
     args = parser.parse_args()
 
     log_path = Path(args.log)
     if log_path.is_dir():
-        output_dir = Path(args.output) if args.output is not None else log_path
-        output_dir = output_dir / log_path.name
+        output_dir = Path(args.output) if args.output is not None else log_path / "plots"
         output_dir.mkdir(parents=True, exist_ok=True)
         for path in log_files(log_path):
             output_path = output_dir / f"{path.stem}.pdf"
-            plot_log(path, output_path, clip=args.clip_after_first_trajectory)
+            plot_log(path, output_path, clip=args.clip_after_first_trajectory, max_time=args.max_time)
             print(output_path)
         return
 
     output_path = Path(args.output) if args.output is not None else log_path.with_suffix(".pdf")
-    plot_log(log_path, output_path, clip=args.clip_after_first_trajectory)
+    plot_log(log_path, output_path, clip=args.clip_after_first_trajectory, max_time=args.max_time)
     print(output_path)
 
 

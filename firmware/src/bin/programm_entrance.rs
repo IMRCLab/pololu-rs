@@ -13,16 +13,18 @@ use heapless::Vec as HVec;
 
 use pololu3pi2040_rs::init::{self, init_all};
 use pololu3pi2040_rs::orchestrator_signal::{
-    FRAME_MAX, LEN_FUNC_SELECT_CMD, Mode, ORCH_CH, OrchestratorMsg, STOP_LOG_SENDING_SIG,
-    STOP_MENU_UART_SIG, STOP_MOCAP_UART_SIG, STOP_MOCAP_UPDATE_SIG, STOP_MOTOR_CTRL_SIG,
-    STOP_ODOM_SIG, STOP_POSE_EST_SIG, STOP_TELEOP_UART_SIG, STOP_TRAJ_OUTER_SIG,
-    STOP_WHEEL_INNER_SIG, TRAJ_PAUSE_SIG, TRAJ_RESUME_SIG, decode_functionality_select_command,
+    FRAME_MAX, LEN_FUNC_SELECT_CMD, Mode, ORCH_CH, OrchestratorMsg, STOP_IMU_SIG,
+    STOP_LOG_SENDING_SIG, STOP_MENU_UART_SIG, STOP_MOCAP_UART_SIG, STOP_MOCAP_UPDATE_SIG,
+    STOP_MOTOR_CTRL_SIG, STOP_ODOM_SIG, STOP_POSE_EST_SIG, STOP_TELEOP_UART_SIG,
+    STOP_TRAJ_OUTER_SIG, STOP_WHEEL_INNER_SIG, TRAJ_PAUSE_SIG, TRAJ_RESUME_SIG,
+    decode_functionality_select_command,
 };
 use pololu3pi2040_rs::robotstate;
 use pololu3pi2040_rs::{
     buzzer::{beep_signal, buzzer_beep_task},
     ekf::mocap_update_task,
-    encoder::{EncoderPair, encoder_left_task, encoder_right_task},
+    encoder::start_encoder_irq,
+    imu::read_imu_task,
     inner_controller::wheel_speed_inner_loop,
     joystick_control::{control_action_uart_task, teleop_motor_control_task, teleop_uart_task},
     led::LED_SHARED,
@@ -60,6 +62,7 @@ fn drain_trajectory_signals() {
     TRAJ_PAUSE_SIG.reset();
     TRAJ_RESUME_SIG.reset();
     TRAJECTORY_CONTROL_EVENT.reset();
+    STOP_IMU_SIG.reset();
     // Reset so a stale signal doesn't kill the next EKF task on its first select() poll.
     STOP_POSE_EST_SIG.reset();
 }
@@ -135,7 +138,7 @@ pub async fn functionality_mode_selection_uart_task(cfg: UartCfg) {
 
     loop {
         let len = match pololu3pi2040_rs::uart_parser::receive_packet(&mut frame, &STOP_MENU_UART_SIG).await {
-            pololu3pi2040_rs::uart_parser::RecvResult::Packet { len } => len,
+            pololu3pi2040_rs::uart_parser::RecvResult::Packet { len, .. } => len,
             pololu3pi2040_rs::uart_parser::RecvResult::Stop => break,
         };
 
@@ -189,18 +192,9 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
     }
 
     // ================ Spawn Encoder Task ==========================
-    let EncoderPair {
-        encoder_left,
-        encoder_right,
-    } = devices.encoders;
     let encoder_count_left = devices.encoder_counts.left;
     let encoder_count_right = devices.encoder_counts.right;
-    spawner
-        .spawn(encoder_left_task(encoder_left, encoder_count_left))
-        .unwrap();
-    spawner
-        .spawn(encoder_right_task(encoder_right, encoder_count_right))
-        .unwrap();
+    start_encoder_irq(devices.encoders);
 
     // ============= spawn low level uart task ======================
     spawner.spawn(uart_hw_task(devices.uart)).unwrap();
@@ -270,6 +264,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         STOP_WHEEL_INNER_SIG.signal(());
                         STOP_TRAJ_OUTER_SIG.signal(());
                         STOP_ODOM_SIG.signal(());
+                        STOP_IMU_SIG.signal(());
                         STOP_LOG_SENDING_SIG.signal(());
                         STOP_POSE_EST_SIG.signal(());
 
@@ -285,6 +280,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         drain_signal(&STOP_WHEEL_INNER_SIG, 2).await;
                         drain_signal(&STOP_TRAJ_OUTER_SIG, 2).await;
                         drain_signal(&STOP_ODOM_SIG, 2).await;
+                        drain_signal(&STOP_IMU_SIG, 2).await;
                         drain_signal(&STOP_LOG_SENDING_SIG, 2).await;
                         drain_signal(&STOP_POSE_EST_SIG, 2).await;
 
@@ -389,6 +385,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                                 INNER_PERIOD_MS,
                             ))
                             .is_ok();
+                        let imu_ok = spawner.spawn(read_imu_task(devices.imu.i2c)).is_ok();
 
                         // (The EKF is now inlined in the unified control loop)
                         // Resolve initial pose (<=300 ms wait). Outer loop spawned after
@@ -411,10 +408,10 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             )
                             .is_ok();
 
-                        if uart_ok && mocap_ok && odo_ok && inner_ok && outer_ok {
+                        if uart_ok && mocap_ok && odo_ok && inner_ok && imu_ok && outer_ok {
                             beep_signal(b'M');
                             defmt::info!(
-                                "TrajMocap: All tasks active (Uart, Mocap, Odo, Inner, Outer)"
+                                "TrajMocap: All tasks active (Uart, Mocap, Odo, Inner, Imu, Outer)"
                             );
                         }
                         if spawner.spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS)).is_err() {
@@ -484,6 +481,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                                 INNER_PERIOD_MS,
                             ))
                             .is_ok();
+                        let imu_ok = spawner.spawn(read_imu_task(devices.imu.i2c)).is_ok();
 
                         // let ekf_ok = spawner.spawn(ekf_estimator_task(devices.config, EKF_PERIOD_MS)).is_ok();
 
@@ -500,10 +498,10 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         let outer_ok = spawner
                             .spawn(diffdrive_outer_loop_onboard_traj(devices.config))
                             .is_ok();
-                        if uart_ok && mocap_ok && odo_ok && inner_ok && outer_ok {
+                        if uart_ok && mocap_ok && odo_ok && inner_ok && imu_ok && outer_ok {
                             beep_signal(b'F');
                             defmt::info!(
-                                "TrajOnboard: All tasks active (Uart, Mocap, Odo, Inner, Outer)"
+                                "TrajOnboard: All tasks active (Uart, Mocap, Odo, Inner, Imu, Outer)"
                             );
                         }
                         if spawner.spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS)).is_err() {
@@ -541,6 +539,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                                 INNER_PERIOD_MS,
                             ))
                             .is_ok();
+                        let imu_ok = spawner.spawn(read_imu_task(devices.imu.i2c)).is_ok();
 
                         // let ekf_ok = spawner.spawn(ekf_estimator_task(devices.config, EKF_PERIOD_MS)).is_ok();
 
@@ -558,10 +557,10 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             .spawn(diffdrive_outer_loop_onboard_traj2(devices.config))
                             .is_ok();
 
-                        if uart_ok && mocap_ok && odo_ok && inner_ok && outer_ok {
+                        if uart_ok && mocap_ok && odo_ok && inner_ok && imu_ok && outer_ok {
                             beep_signal(b'G');
                             defmt::info!(
-                                "TrajOnboard2: All tasks active (Uart, Mocap, Odo, Inner, Outer)"
+                                "TrajOnboard2: All tasks active (Uart, Mocap, Odo, Inner, Imu, Outer)"
                             );
                         }
                         if spawner.spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS)).is_err() {

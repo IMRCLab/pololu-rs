@@ -28,9 +28,9 @@ use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::mutex::Mutex;
 
 bind_interrupts!(struct Irqs {
-    PIO0_IRQ_0 => PIO_INT_HDL<PIO0>;
+    PIO0_IRQ_0 => PIO_INT_HDL<PIO0>, crate::encoder::EncoderPioIrqHandler;
     I2C0_IRQ => I2C_INT_HDL<I2C0>;
-    UART0_IRQ => UART_INT_HDL<UART0>;
+    UART0_IRQ => UART_INT_HDL<UART0>, crate::uart::UartRxIrqHandler;
 });
 
 static UART_CELL: StaticCell<Mutex<ThreadModeRawMutex, Uart<'static, Async>>> = StaticCell::new();
@@ -112,6 +112,7 @@ pub fn init_all(p: embassy_rp::Peripherals) -> InitDevices<'static> {
     let uart = Uart::new(
         p.UART0, p.PIN_28, p.PIN_29, Irqs, p.DMA_CH0, p.DMA_CH1, config,
     );
+    crate::uart::init_uart_rx_irq();
     let uart = UART_CELL.init(Mutex::new(uart));
 
     // === SD Logger ===
