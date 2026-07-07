@@ -31,11 +31,12 @@ pub async fn wheel_speed_inner_loop(
 
     // =========== Filter Parameters ==============
     let dt: f32 = period_ms as f32 / 1000.0;
+    let min_sample_dt: f32 = dt * 0.5;
     let fc_hz: f32 = 3.0; // -> tau = 53 ms, quite heavy smoothing
     let tau: f32 = 1.0 / (2.0 * core::f32::consts::PI * fc_hz);
     let alpha: f32 = dt / (tau + dt);
 
-    // shift inner controller ticker half a period, so it won't collide with outer controller ticker
+    // Shift inner controller ticker half a period, so it won't collide with outer controller ticker.
     Timer::after(Duration::from_micros(period_ms * 500)).await;
     let mut ticker = Ticker::every(Duration::from_millis(period_ms));
 
@@ -54,7 +55,11 @@ pub async fn wheel_speed_inner_loop(
     };
 
     loop {
-        match select3(STOP_WHEEL_INNER_SIG.wait(), TRAJ_PAUSE_SIG.wait(), ticker.next()).await {
+        match select3(
+            STOP_WHEEL_INNER_SIG.wait(),
+            TRAJ_PAUSE_SIG.wait(),
+            ticker.next(),
+        ).await {
             Either3::First(_) => {
                 motor.set_speed(0.0, 0.0).await;
                 defmt::warn!("STOP inner loop -> exit");
@@ -94,6 +99,12 @@ pub async fn wheel_speed_inner_loop(
             let elapsed_s = (sample_now - last_sample).as_micros() as f32 / 1_000_000.0;
             if elapsed_s > 0.0 { elapsed_s } else { dt }
         };
+        if dt_sample < min_sample_dt {
+            // Ticker::every catches up after stalls by yielding missed ticks quickly.
+            // Skip these tiny intervals so a single encoder count is not divided by
+            // an unrealistically small dt; keep prev counts for the next real sample.
+            continue;
+        }
 
         // raw angular velocity of the wheel
         let ((omega_l_raw, omega_r_raw), (ln, rn)) = wheel_speed_from_counts_now(
