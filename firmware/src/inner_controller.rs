@@ -103,6 +103,7 @@ pub async fn wheel_speed_inner_loop(
             // Ticker::every catches up after stalls by yielding missed ticks quickly.
             // Skip these tiny intervals so a single encoder count is not divided by
             // an unrealistically small dt; keep prev counts for the next real sample.
+            embassy_futures::yield_now().await;
             continue;
         }
 
