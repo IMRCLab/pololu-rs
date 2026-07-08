@@ -6,7 +6,7 @@ import math
 
 CSV_HEADER = "ts,x,y,yaw,x_des,y_des,yaw_des,v_ff,w_ff,v_actual,w_actual,omega_l_cmd,omega_r_cmd,omega_l_meas,omega_r_meas,duty_l,duty_r,x_err,y_err,yaw_err,x_raw,y_raw,yaw_raw,acc_x,acc_y,acc_z,gyro_x,gyro_y,gyro_z\n"
 MAGIC_HEADER = b"\xaa\xbb\xcc\xdd"
-FLOAT_COUNTS = {1: 6, 2: 5, 3: 2, 4: 3, 5: 2, 6: 2, 7: 6, 8: 2, 9: 1}
+FLOAT_COUNTS = {1: 6, 2: 5, 3: 2, 4: 3, 5: 2, 6: 2, 7: 6, 8: 2, 9: 6}
 
 
 def format_value(val):
@@ -47,8 +47,13 @@ def map_tag_to_row(tag, unpacked, row):
     elif tag == 8:  # Odom (v, w)
         row[9] = format_value(unpacked[0])  # v_actual
         row[10] = format_value(unpacked[1])  # w_actual
-    elif tag == 9:  # Imu (gyro_z)
-        row[28] = format_value(unpacked[0])  # gyro_z
+    elif tag == 9:  # Imu (acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z)
+        row[23] = format_value(unpacked[0])  # acc_x
+        row[24] = format_value(unpacked[1])  # acc_y
+        row[25] = format_value(unpacked[2])  # acc_z
+        row[26] = format_value(unpacked[3])  # gyro_x
+        row[27] = format_value(unpacked[4])  # gyro_y
+        row[28] = format_value(unpacked[5])  # gyro_z
 
 
 def new_csv_row(t_ms):

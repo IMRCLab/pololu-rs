@@ -381,7 +381,7 @@ impl SdLogger {
             }
             LogEvent::Imu(i) => {
                 self.write_buffered(&[9]);
-                self.write_floats(&[i.gyro_z]);
+                self.write_floats(&[i.acc_x, i.acc_y, i.acc_z, i.gyro_x, i.gyro_y, i.gyro_z]);
             }
         }
     }
