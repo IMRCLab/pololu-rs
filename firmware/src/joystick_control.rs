@@ -149,7 +149,7 @@ pub async fn teleop_uart_task(cfg: UartCfg) {
 
     loop {
         let len = match receive_packet(&mut frame, &STOP_TELEOP_UART_SIG).await {
-            RecvResult::Packet { len } => len,
+            RecvResult::Packet { len, .. } => len,
             RecvResult::Stop => return,
         };
 
@@ -217,7 +217,7 @@ pub async fn control_action_uart_task(cfg: UartCfg) {
 
     loop {
         let len = match receive_packet(&mut frame, &STOP_TELEOP_UART_SIG).await {
-            RecvResult::Packet { len } => len,
+            RecvResult::Packet { len, .. } => len,
             RecvResult::Stop => return,
         };
 

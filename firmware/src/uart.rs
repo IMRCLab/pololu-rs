@@ -1,10 +1,11 @@
 #[allow(unused_imports)]
 use crate::packet::StateLoopBackPacketF32;
-use embassy_futures::select::{Either, select};
+use embassy_rp::{interrupt::typelevel::{Handler, UART0_IRQ}, pac};
 use embassy_rp::uart::{Async, Uart};
-use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
+use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, ThreadModeRawMutex};
 use embassy_sync::channel::Channel;
 use embassy_sync::mutex::Mutex;
+use embassy_time::Instant;
 use heapless::Vec;
 
 use crate::packet::{
@@ -13,39 +14,82 @@ use crate::packet::{
 
 pub type SharedUart<'a> = &'a Mutex<ThreadModeRawMutex, Uart<'a, Async>>;
 
+#[derive(Clone, Copy, Debug)]
+pub struct TimestampedUartByte {
+    pub byte: u8,
+    pub stamp: Instant,
+}
+
 // ===================== Channels =====================
 // TX: Other Task -> Low level UART HW Task
 pub static UART_TX_CHANNEL: Channel<ThreadModeRawMutex, Vec<u8, 64>, 128> = Channel::new();
-// RX: UART HW Task -> decode Task
-pub static UART_RX_CHANNEL: Channel<ThreadModeRawMutex, u8, 512> = Channel::new();
+// RX: UART IRQ -> decode Task
+pub static UART_RX_CHANNEL: Channel<CriticalSectionRawMutex, TimestampedUartByte, 1024> =
+    Channel::new();
+
+pub struct UartRxIrqHandler;
+
+impl Handler<UART0_IRQ> for UartRxIrqHandler {
+    unsafe fn on_interrupt() {
+        let uart = pac::UART0;
+
+        while !uart.uartfr().read().rxfe() {
+            let stamp = Instant::now();
+            let dr = uart.uartdr().read();
+            let _ = UART_RX_CHANNEL.try_send(TimestampedUartByte {
+                byte: dr.data(),
+                stamp,
+            });
+        }
+
+        uart.uarticr().write(|w| {
+            w.set_rxic(true);
+            w.set_rtic(true);
+            w.set_oeic(true);
+            w.set_beic(true);
+            w.set_peic(true);
+            w.set_feic(true);
+        });
+    }
+}
+
+pub fn init_uart_rx_irq() {
+    let uart = pac::UART0;
+    uart.uarticr().write(|w| {
+        w.set_rxic(true);
+        w.set_rtic(true);
+        w.set_oeic(true);
+        w.set_beic(true);
+        w.set_peic(true);
+        w.set_feic(true);
+    });
+    uart.uartifls().modify(|w| {
+        w.set_rxiflsel(0b000);
+        w.set_txiflsel(0b000);
+    });
+    uart.uartimsc().modify(|w| {
+        w.set_rxim(true);
+        w.set_rtim(true);
+        w.set_oeim(true);
+        w.set_beim(true);
+        w.set_peim(true);
+        w.set_feim(true);
+    });
+}
 
 //
 // ===================== Low level UART HW Task =====================
 #[embassy_executor::task]
 pub async fn uart_hw_task(uart: &'static Mutex<ThreadModeRawMutex, Uart<'static, Async>>) {
     // defmt::info!("uart_hw_task started");
-    let mut rx_buf = [0u8; 1];
 
     loop {
-        let tx_future = UART_TX_CHANNEL.receive();
-        let rx_future = async {
-            let mut u = uart.lock().await;
-            let _ = u.read(&mut rx_buf).await;
-            rx_buf[0]
-        };
-
-        match select(tx_future, rx_future).await {
-            Either::First(tx) => {
-                let mut u = uart.lock().await;
-                if let Err(_) = u.write(&tx).await {
-                    defmt::error!("UART TX failed");
-                } else {
-                    // defmt::info!("UART TX: sent {} bytes", tx.len());
-                }
-            }
-            Either::Second(b) => {
-                let _ = UART_RX_CHANNEL.send(b).await;
-            }
+        let tx = UART_TX_CHANNEL.receive().await;
+        let mut u = uart.lock().await;
+        if let Err(_) = u.write(&tx).await {
+            defmt::error!("UART TX failed");
+        } else {
+            // defmt::info!("UART TX: sent {} bytes", tx.len());
         }
     }
 }
@@ -59,7 +103,7 @@ pub async fn uart_receive_task() {
 
     loop {
         // Read 1 byte from UART_RX_Channel
-        let byte: u8 = UART_RX_CHANNEL.receive().await;
+        let byte: u8 = UART_RX_CHANNEL.receive().await.byte;
 
         // The first byte ( seems to be the length of data packet)
         if buffer.is_empty() {
