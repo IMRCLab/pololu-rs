@@ -137,7 +137,7 @@ pub async fn functionality_mode_selection_uart_task(cfg: UartCfg) {
 
     loop {
         let len = match pololu3pi2040_rs::uart_parser::receive_packet(&mut frame, &STOP_MENU_UART_SIG).await {
-            pololu3pi2040_rs::uart_parser::RecvResult::Packet { len, .. } => len,
+            pololu3pi2040_rs::uart_parser::RecvResult::Packet { len } => len,
             pololu3pi2040_rs::uart_parser::RecvResult::Stop => break,
         };
 

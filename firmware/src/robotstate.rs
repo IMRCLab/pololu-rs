@@ -593,10 +593,8 @@ pub async fn write_pose(pose: MocapPose) {
         let mut guard = POSE.lock().await;
         *guard = pose;
     }
-    if is_sd_logging_active() {
-        let t_ms = pose.stamp.as_millis() as u32;
-        let _ = LOG_EVENT_CH.try_send(LogEventWithTime { t_ms, event: LogEvent::Mocap(pose) });
-    }
+    // Keep mocap out of the robot SD log; ROS bags provide better timestamps
+    // without adding SD-card load to the firmware control path.
 }
 
 /// Read latest raw mocap pose

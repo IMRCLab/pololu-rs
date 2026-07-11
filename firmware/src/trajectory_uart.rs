@@ -28,8 +28,8 @@ pub async fn uart_motioncap_receiving_task(cfg: UartCfg) {
     let mut frame: HVec<u8, FRAME_MAX> = HVec::new();
 
     loop {
-        let (len, packet_stamp) = match receive_packet(&mut frame, &STOP_MOCAP_UART_SIG).await {
-            RecvResult::Packet { len, stamp } => (len, stamp),
+        let len = match receive_packet(&mut frame, &STOP_MOCAP_UART_SIG).await {
+            RecvResult::Packet { len } => len,
             RecvResult::Stop => {
                 info!("mocap uart: stop signal -> exit");
                 return;
@@ -73,7 +73,7 @@ pub async fn uart_motioncap_receiving_task(cfg: UartCfg) {
 
         if len == LEN_POSE {
             if let Some(pose) = decode_abs_pose(&frame, cfg.robot_id) {
-                let stamped = MocapPose { stamp: packet_stamp, ..pose };
+                let stamped = MocapPose { stamp: Instant::now(), ..pose };
                 STATE_SIG.signal(stamped);
                 if !seen_first {
                     seen_first = true;
