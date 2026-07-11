@@ -139,11 +139,7 @@ pub async fn mocap_update_task() {
             crate::orchestrator_signal::STOP_MOCAP_UPDATE_SIG.wait()
         ).await {
             embassy_futures::select::Either::First(new_pose) => {
-                let stamped = crate::robotstate::MocapPose {
-                    stamp: embassy_time::Instant::now(),
-                    ..new_pose
-                };
-                crate::robotstate::write_pose(stamped).await;
+                crate::robotstate::write_pose(new_pose).await;
                 crate::robotstate::set_pose_fresh(true);
             }
 
