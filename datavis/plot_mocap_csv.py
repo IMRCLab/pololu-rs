@@ -17,10 +17,6 @@ EXPECTED_COLUMNS = {
     "x",
     "y",
     "z",
-    "qx",
-    "qy",
-    "qz",
-    "qw",
 }
 
 
@@ -51,6 +47,15 @@ def load_mocap_csv(path: str | Path, max_time: float | None = 5.0) -> list[Mocap
         missing = EXPECTED_COLUMNS - columns
         if missing:
             raise ValueError(f"{path} is missing columns: {', '.join(sorted(missing))}")
+        has_theta = "theta" in columns
+        if not has_theta:
+            quaternion_columns = {"qx", "qy", "qz", "qw"}
+            missing_quaternion = quaternion_columns - columns
+            if missing_quaternion:
+                raise ValueError(
+                    f"{path} needs either theta or quaternion columns; missing: "
+                    f"{', '.join(sorted(missing_quaternion))}"
+                )
 
         for row in reader:
             try:
@@ -58,11 +63,15 @@ def load_mocap_csv(path: str | Path, max_time: float | None = 5.0) -> list[Mocap
                 name = row["name"].strip()
                 x = float(row["x"])
                 y = float(row["y"])
-                theta = yaw_from_quaternion(
-                    float(row["qx"]),
-                    float(row["qy"]),
-                    float(row["qz"]),
-                    float(row["qw"]),
+                theta = (
+                    float(row["theta"])
+                    if has_theta
+                    else yaw_from_quaternion(
+                        float(row["qx"]),
+                        float(row["qy"]),
+                        float(row["qz"]),
+                        float(row["qw"]),
+                    )
                 )
             except (KeyError, TypeError, ValueError):
                 continue

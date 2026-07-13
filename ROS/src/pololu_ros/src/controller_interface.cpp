@@ -5,7 +5,6 @@
 #include <unistd.h>
 #include <fstream>
 #include <filesystem>
-#include <map>
 #include <csignal>
 #include <iomanip>
 #include <sstream>
@@ -34,7 +33,6 @@ class TeleopNode : public rclcpp::Node
 public:
     ~TeleopNode() {
         stopBagRecording();
-        stopLogging();
     }
 
     TeleopNode()
@@ -133,10 +131,7 @@ public:
             timer_ = this->create_wall_timer(std::chrono::milliseconds(1000/frequency_), std::bind(&TeleopNode::publish, this));
         }
 
-        // Initialize logging: scan logs/ for highest session ID, set up 50Hz timer
-        findLastSessionId();
         findLastBagId();
-        logging_timer_ = this->create_wall_timer(20ms, std::bind(&TeleopNode::performLogging, this));
 
         RCLCPP_INFO(logger_, "Controller Interface started. Robot %d selected.", selected_robot_ + 1);
         printRobotStatus();
@@ -500,7 +495,6 @@ private:
             RCLCPP_INFO(logger_, "Button START pressed"); //send quit command to go back to orchestrator interface
             RCLCPP_INFO(logger_, "START: Starting ALL robots");
             sendGlobalStart();
-            if (logging_standby_ && !logging_active_) startLogging();
         }
         
         // BACK button (6) - Emergency stop ALL robots
@@ -509,7 +503,6 @@ private:
             RCLCPP_WARN(logger_, "STOP: Stopping ALL robots");
             sendGlobalStop();
             stopBagRecording();
-            if (logging_active_) stopLogging();
         }
 
         // Y button (3): Demo mode: configure all robots and start
@@ -523,7 +516,6 @@ private:
             RCLCPP_INFO(logger_, "A: Starting robot %d", selected_robot_ + 1);  // Add +1
             sendIndividualStart(selected_robot_);
             startBagRecordingIfNeeded(selected_robot_);
-            if (logging_standby_ && !logging_active_) startLogging();
         }
         
         // B button (1) - Stop selected robot
@@ -548,7 +540,6 @@ private:
                 control_action_active[selected_robot_] = false; //deactivate control action when quitting
                 
                 stopBagRecording();
-                if (logging_active_) stopLogging();
             }
             else
             {
@@ -558,11 +549,6 @@ private:
                 sendProgramCommand(selected_robot_, available_programs_[selected_program_[selected_robot_]].command);
                 robot_running[selected_robot_] = true;
             }
-        }
-
-        // LB button (4) - Toggle mocap logging
-        if (getButton(msg, 4) && !prev_buttons_[4]) {
-            toggleLogging();
         }
 
         // RB button (5) - Toggle ROS bag recording standby
@@ -603,12 +589,6 @@ private:
                 RCLCPP_INFO(logger_, "%d: %s", j, available_programs_[j].name.c_str());
             }
         }
-
-        std::string log_status;
-        if (logging_active_) log_status = "\xF0\x9F\x94\xB4 RECORDING";
-        else if (logging_standby_) log_status = "\xF0\x9F\x9F\xA1 STANDBY";
-        else log_status = "\xE2\x9A\xAA OFF";
-        RCLCPP_INFO(logger_, "Logging: %s (LB to toggle standby)", log_status.c_str());
 
         std::string bag_status;
         if (bag_recording_active_) bag_status = "RECORDING";
@@ -885,7 +865,7 @@ private:
             RCLCPP_ERROR(logger_, "Failed to open mocap CSV: %s", csv_path.string().c_str());
             return;
         }
-        bag_csv_file_ << "stamp_sec,stamp_nsec,stamp_ns,name,x,y,z,qx,qy,qz,qw\n";
+        bag_csv_file_ << "stamp_sec,stamp_nsec,stamp_ns,name,x,y,z,theta,qx,qy,qz,qw\n";
         bag_csv_file_ << std::setprecision(10);
 
         pid_t pid = fork();
@@ -938,6 +918,10 @@ private:
         const int64_t stamp_nsec = stamp_ns % 1000000000LL;
 
         for (const auto& pose : msg.poses) {
+            const auto& orientation = pose.pose.orientation;
+            const double theta = std::atan2(
+                2.0 * (orientation.w * orientation.z + orientation.x * orientation.y),
+                1.0 - 2.0 * (orientation.y * orientation.y + orientation.z * orientation.z));
             bag_csv_file_
                 << stamp_sec << ","
                 << stamp_nsec << ","
@@ -946,88 +930,11 @@ private:
                 << pose.pose.position.x << ","
                 << pose.pose.position.y << ","
                 << pose.pose.position.z << ","
-                << pose.pose.orientation.x << ","
-                << pose.pose.orientation.y << ","
-                << pose.pose.orientation.z << ","
-                << pose.pose.orientation.w << "\n";
-        }
-    }
-
-    // ---- Mocap Logging ----
-
-    void findLastSessionId() {
-        session_id_ = 0;
-        if (!std::filesystem::exists("logs")) return;
-
-        for (const auto& entry : std::filesystem::directory_iterator("logs")) {
-            if (!entry.is_regular_file()) continue;
-            std::string stem = entry.path().stem().string(); // e.g. "Pololu10_log_5"
-            auto pos = stem.rfind("_log_");
-            if (pos == std::string::npos) continue;
-            try {
-                int n = std::stoi(stem.substr(pos + 5));
-                if (n > session_id_) session_id_ = n;
-            } catch (...) {
-                // ignore malformed filenames
-            }
-        }
-        RCLCPP_INFO(logger_, "Logging: last session ID found = %d, next session will be %d", session_id_, session_id_ + 1);
-    }
-
-    void toggleLogging() {
-        logging_standby_ = !logging_standby_;
-        if (!logging_standby_ && logging_active_) {
-            stopLogging();
-        }
-        printRobotStatus();
-    }
-
-    void startLogging() {
-        session_id_++;
-        std::filesystem::create_directories("logs");
-        logging_active_ = true;
-        RCLCPP_INFO(logger_, "\xF0\x9F\x94\xB4 Logging STARTED (session %d)", session_id_);
-    }
-
-    void stopLogging() {
-        if (!logging_active_) return;
-        logging_active_ = false;
-
-        for (auto& pair : log_files_) {
-            if (pair.second && pair.second->is_open()) {
-                pair.second->close();
-            }
-        }
-        log_files_.clear();
-        RCLCPP_INFO(logger_, "\xE2\x9A\xAA Logging STOPPED (session %d)", session_id_);
-    }
-
-    void performLogging() {
-        if (!logging_active_) return;
-
-        for (const auto& pose : latest_poses_.poses) {
-            const std::string& name = pose.name;
-
-            // Lazily open a file for this robot if not yet open in this session
-            if (log_files_.find(name) == log_files_.end()) {
-                std::string filename = "logs/" + name + "_log_" + std::to_string(session_id_) + ".csv";
-                auto file = std::make_unique<std::ofstream>(filename);
-                if (file->is_open()) {
-                    *file << "x,y,z,theta" << std::endl;
-                    log_files_[name] = std::move(file);
-                    RCLCPP_INFO(logger_, "Opened log file: %s", filename.c_str());
-                } else {
-                    RCLCPP_ERROR(logger_, "Failed to open log file: %s", filename.c_str());
-                    continue;
-                }
-            }
-
-            // Write x, y, z, orientation.z directly
-            auto& f = *log_files_[name];
-            f << pose.pose.position.x << ","
-              << pose.pose.position.y << ","
-              << pose.pose.position.z << ","
-              << pose.pose.orientation.z << std::endl;
+                << theta << ","
+                << orientation.x << ","
+                << orientation.y << ","
+                << orientation.z << ","
+                << orientation.w << "\n";
         }
     }
 
@@ -1046,13 +953,6 @@ private:
     int frequency_;
     float dt_;
     std::shared_ptr<Connection> connection_[4];
-
-    // Logging state
-    bool logging_active_ = false;
-    bool logging_standby_ = false;
-    int session_id_ = 0;
-    std::map<std::string, std::unique_ptr<std::ofstream>> log_files_;
-    rclcpp::TimerBase::SharedPtr logging_timer_;
 
     // ROS bag recording state
     bool bag_recording_enabled_ = false;
