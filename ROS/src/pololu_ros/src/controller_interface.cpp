@@ -6,6 +6,10 @@
 #include <fstream>
 #include <filesystem>
 #include <map>
+#include <csignal>
+#include <iomanip>
+#include <sstream>
+#include <sys/wait.h>
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/joy.hpp"
 #include "geometry_msgs/msg/twist.hpp"
@@ -29,6 +33,7 @@ class TeleopNode : public rclcpp::Node
 {
 public:
     ~TeleopNode() {
+        stopBagRecording();
         stopLogging();
     }
 
@@ -130,6 +135,7 @@ public:
 
         // Initialize logging: scan logs/ for highest session ID, set up 50Hz timer
         findLastSessionId();
+        findLastBagId();
         logging_timer_ = this->create_wall_timer(20ms, std::bind(&TeleopNode::performLogging, this));
 
         RCLCPP_INFO(logger_, "Controller Interface started. Robot %d selected.", selected_robot_ + 1);
@@ -300,6 +306,9 @@ private:
     //mocap related functionality
     void posesChanged(const motion_capture_tracking_interfaces::msg::NamedPoseArray::SharedPtr msg)
      {
+        const auto receive_stamp = this->now();
+        writeMocapBagCsv(*msg, receive_stamp);
+
         // --- EASY CONTROL SETTINGS ---
         // 0 = Disable broadcasting mocap completely
         // 1 = Broadcast every message (Original behavior)
@@ -499,6 +508,7 @@ private:
             RCLCPP_INFO(logger_, "Button BACK pressed");
             RCLCPP_WARN(logger_, "STOP: Stopping ALL robots");
             sendGlobalStop();
+            stopBagRecording();
             if (logging_active_) stopLogging();
         }
 
@@ -512,13 +522,16 @@ private:
         if (getButton(msg, 0) && !prev_buttons_[0]) {
             RCLCPP_INFO(logger_, "A: Starting robot %d", selected_robot_ + 1);  // Add +1
             sendIndividualStart(selected_robot_);
+            startBagRecordingIfNeeded(selected_robot_);
             if (logging_standby_ && !logging_active_) startLogging();
         }
         
         // B button (1) - Stop selected robot
         if (getButton(msg, 1) && !prev_buttons_[1]) {
             RCLCPP_INFO(logger_, "B: Stopping robot %d", selected_robot_ + 1);  // Add +1
-            sendIndividualStop(selected_robot_);}
+            sendIndividualStop(selected_robot_);
+            stopBagRecording();
+        }
         
         // X button (2) - Send/Confirm program to selected robot
         if (getButton(msg, 2) && !prev_buttons_[2]) {
@@ -534,6 +547,7 @@ private:
                 teleop_activated[selected_robot_] = false; //deactivate teleop always when stopping
                 control_action_active[selected_robot_] = false; //deactivate control action when quitting
                 
+                stopBagRecording();
                 if (logging_active_) stopLogging();
             }
             else
@@ -549,6 +563,11 @@ private:
         // LB button (4) - Toggle mocap logging
         if (getButton(msg, 4) && !prev_buttons_[4]) {
             toggleLogging();
+        }
+
+        // RB button (5) - Toggle ROS bag recording standby
+        if (getButton(msg, 5) && !prev_buttons_[5]) {
+            toggleBagRecording();
         }
         
         //update all button states for edge detection
@@ -590,6 +609,12 @@ private:
         else if (logging_standby_) log_status = "\xF0\x9F\x9F\xA1 STANDBY";
         else log_status = "\xE2\x9A\xAA OFF";
         RCLCPP_INFO(logger_, "Logging: %s (LB to toggle standby)", log_status.c_str());
+
+        std::string bag_status;
+        if (bag_recording_active_) bag_status = "RECORDING";
+        else if (bag_recording_enabled_) bag_status = "STANDBY";
+        else bag_status = "OFF";
+        RCLCPP_INFO(logger_, "ROS bag recording: %s (RB to toggle)", bag_status.c_str());
     }
 
     //handle the sub robot interface
@@ -795,8 +820,137 @@ private:
         RCLCPP_INFO(logger_, "  BACK button - Emergency stop ALL robots");
         RCLCPP_INFO(logger_, "  A button - Start selected robot");
         RCLCPP_INFO(logger_, "  B button - Stop selected robot");
+        RCLCPP_INFO(logger_, "  RB button - Toggle ROS bag recording standby");
         RCLCPP_INFO(logger_, "  D-Pad Left/Right - Select robot (1-4)");
         RCLCPP_INFO(logger_, "  Left Stick - Control selected robot");
+    }
+
+    // ---- ROS Bag Recording ----
+
+    void findLastBagId() {
+        bag_session_id_ = -1;
+        if (!std::filesystem::exists(bag_root_)) return;
+
+        for (const auto& entry : std::filesystem::directory_iterator(bag_root_)) {
+            if (!entry.is_directory()) continue;
+            std::string name = entry.path().filename().string();
+            if (name.rfind("TR", 0) != 0 || name.length() < 4) continue;
+            try {
+                int n = std::stoi(name.substr(2));
+                if (n > bag_session_id_) bag_session_id_ = n;
+            } catch (...) {
+                // ignore directories that only look similar
+            }
+        }
+        RCLCPP_INFO(logger_, "ROS bags: last TR id found = %d, next bag will be TR%02d",
+                    bag_session_id_, bag_session_id_ + 1);
+    }
+
+    void toggleBagRecording() {
+        bag_recording_enabled_ = !bag_recording_enabled_;
+        if (!bag_recording_enabled_ && bag_recording_active_) {
+            stopBagRecording();
+        }
+        printRobotStatus();
+    }
+
+    bool selectedProgramIsMocapTrajectory(int robot_id) const {
+        return available_programs_[selected_program_[robot_id]].command == 1;
+    }
+
+    std::filesystem::path nextBagPath() {
+        std::filesystem::create_directories(bag_root_);
+        do {
+            bag_session_id_++;
+            std::ostringstream name;
+            name << "TR" << std::setw(2) << std::setfill('0') << bag_session_id_;
+            auto candidate = bag_root_ / name.str();
+            if (!std::filesystem::exists(candidate)) {
+                return candidate;
+            }
+        } while (true);
+    }
+
+    void startBagRecordingIfNeeded(int robot_id) {
+        if (!bag_recording_enabled_ || bag_recording_active_) return;
+        if (!selectedProgramIsMocapTrajectory(robot_id)) return;
+
+        auto bag_path = nextBagPath();
+        std::string bag_path_string = bag_path.string();
+        auto csv_path = bag_path;
+        csv_path += "_mocap.csv";
+
+        bag_csv_file_.open(csv_path);
+        if (!bag_csv_file_.is_open()) {
+            RCLCPP_ERROR(logger_, "Failed to open mocap CSV: %s", csv_path.string().c_str());
+            return;
+        }
+        bag_csv_file_ << "stamp_sec,stamp_nsec,stamp_ns,name,x,y,z,qx,qy,qz,qw\n";
+        bag_csv_file_ << std::setprecision(10);
+
+        pid_t pid = fork();
+        if (pid < 0) {
+            RCLCPP_ERROR(logger_, "Failed to fork ros2 bag recorder");
+            bag_csv_file_.close();
+            return;
+        }
+
+        if (pid == 0) {
+            setpgid(0, 0);
+            execlp("ros2", "ros2", "bag", "record", "-o", bag_path_string.c_str(), "/poses", static_cast<char*>(nullptr));
+            _exit(127);
+        }
+
+        setpgid(pid, pid);
+        bag_pid_ = pid;
+        bag_recording_active_ = true;
+        current_bag_path_ = bag_path;
+        current_csv_path_ = csv_path;
+        RCLCPP_INFO(logger_, "ROS bag recording STARTED: %s", current_bag_path_.string().c_str());
+        RCLCPP_INFO(logger_, "Mocap CSV recording STARTED: %s", current_csv_path_.string().c_str());
+    }
+
+    void stopBagRecording() {
+        if (!bag_recording_active_ || bag_pid_ <= 0) return;
+
+        RCLCPP_INFO(logger_, "Stopping ROS bag recording: %s", current_bag_path_.string().c_str());
+        kill(-bag_pid_, SIGINT);
+        int status = 0;
+        waitpid(bag_pid_, &status, 0);
+        bag_pid_ = -1;
+        bag_recording_active_ = false;
+        if (bag_csv_file_.is_open()) {
+            bag_csv_file_.close();
+        }
+        current_bag_path_.clear();
+        current_csv_path_.clear();
+        RCLCPP_INFO(logger_, "ROS bag recording STOPPED");
+    }
+
+    void writeMocapBagCsv(
+        const motion_capture_tracking_interfaces::msg::NamedPoseArray& msg,
+        const rclcpp::Time& stamp)
+    {
+        if (!bag_recording_active_ || !bag_csv_file_.is_open()) return;
+
+        const int64_t stamp_ns = stamp.nanoseconds();
+        const int64_t stamp_sec = stamp_ns / 1000000000LL;
+        const int64_t stamp_nsec = stamp_ns % 1000000000LL;
+
+        for (const auto& pose : msg.poses) {
+            bag_csv_file_
+                << stamp_sec << ","
+                << stamp_nsec << ","
+                << stamp_ns << ","
+                << pose.name << ","
+                << pose.pose.position.x << ","
+                << pose.pose.position.y << ","
+                << pose.pose.position.z << ","
+                << pose.pose.orientation.x << ","
+                << pose.pose.orientation.y << ","
+                << pose.pose.orientation.z << ","
+                << pose.pose.orientation.w << "\n";
+        }
     }
 
     // ---- Mocap Logging ----
@@ -899,6 +1053,16 @@ private:
     int session_id_ = 0;
     std::map<std::string, std::unique_ptr<std::ofstream>> log_files_;
     rclcpp::TimerBase::SharedPtr logging_timer_;
+
+    // ROS bag recording state
+    bool bag_recording_enabled_ = false;
+    bool bag_recording_active_ = false;
+    int bag_session_id_ = -1;
+    pid_t bag_pid_ = -1;
+    std::filesystem::path bag_root_ = "bags";
+    std::filesystem::path current_bag_path_;
+    std::filesystem::path current_csv_path_;
+    std::ofstream bag_csv_file_;
 };
 
 int main(int argc, char *argv[])
@@ -908,4 +1072,3 @@ int main(int argc, char *argv[])
     rclcpp::shutdown();
     return 0;
 }
-

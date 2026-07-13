@@ -49,7 +49,7 @@ pub static POSE: Mutex<ThreadModeRawMutex, MocapPose> = Mutex::new(MocapPose::DE
 /// EKF-fused pose (encoder-predicted + mocap-corrected)
 pub static EKF_STATE: Mutex<ThreadModeRawMutex, RobotPose> = Mutex::new(RobotPose::DEFAULT);
 
-/// Odometry state (pure dead-reckoning from wheel encoders)
+/// Measured body velocity from wheel encoders.
 pub static ODOM_STATE: Mutex<ThreadModeRawMutex, OdomPose> = Mutex::new(OdomPose::DEFAULT);
 
 /// Target unicycle velocity command
@@ -64,7 +64,7 @@ pub static ENCODER_COUNTS: Mutex<ThreadModeRawMutex, EncoderCounts> = Mutex::new
 pub static SETPOINT: Mutex<ThreadModeRawMutex, Setpoint> = Mutex::new(Setpoint::DEFAULT);
 
 /// Current encoder readings (measured wheel speeds)
-/// Writer: Inner Loop (after low-pass filtering) / odometry task
+/// Writer: Inner Loop (after optional low-pass filtering)
 /// Readers: Inner Loop (PI controller), Logger
 pub static ENCODER: Mutex<ThreadModeRawMutex, EncoderReading> = Mutex::new(EncoderReading::DEFAULT);
 
@@ -190,12 +190,9 @@ impl RobotPose {
 }
 impl Default for RobotPose { fn default() -> Self { Self::DEFAULT } }
 
-/// Dead-reckoning odometry state
+/// Wheel-derived body velocity used for EKF prediction.
 #[derive(Debug, Copy, Clone)]
 pub struct OdomPose {
-    pub x: f32,
-    pub y: f32,
-    pub theta: f32, // rad
     pub v: f32,     // m/s
     pub w: f32,     // rad/s
     pub stamp: Instant,
@@ -203,7 +200,7 @@ pub struct OdomPose {
 
 impl OdomPose {
     pub const DEFAULT: Self = Self {
-        x: 0.0, y: 0.0, theta: 0.0, v: 0.0, w: 0.0, stamp: Instant::MIN,
+        v: 0.0, w: 0.0, stamp: Instant::MIN,
     };
 }
 impl Default for OdomPose { fn default() -> Self { Self::DEFAULT } }

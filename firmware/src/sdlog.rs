@@ -377,7 +377,7 @@ impl SdLogger {
             }
             LogEvent::Odom(o) => {
                 self.write_buffered(&[8]);
-                self.write_floats(&[o.x, o.y, o.theta, o.v, o.w]);
+                self.write_floats(&[o.v, o.w]);
             }
             LogEvent::Imu(i) => {
                 self.write_buffered(&[9]);
