@@ -1024,9 +1024,9 @@ private:
 
             // Write x, y, z, orientation.z directly
             auto& f = *log_files_[name];
-            f << pose.timesfamp.sec << "." << std::setw(9) << std::setfill('0') << pose.timestamp.nanosec << "," 
-              << pose.pose.position.x << ","
+            f << pose.pose.position.x << ","
               << pose.pose.position.y << ","
+              << pose.pose.position.z << ","
               << pose.pose.orientation.z << std::endl;
         }
     }
