@@ -1,5 +1,6 @@
 use crate::math::SO2;
 use core::f32::consts::PI;
+use embassy_time::Instant;
 use libm::{atan2f, cosf, sinf, sqrtf};
 use micro_qp::{
     admm::{AdmmSettings, AdmmSolver},
@@ -45,7 +46,10 @@ pub struct DiffdriveControllerCascade {
     pub ky: f32,
     pub kth: f32,
     pub qp_solver: Option<AdmmSolver<2, 2>>,
+    pub prev_timestamp: Option<u64>,
+    pub prev_v: Option<f32>,
 }
+
 
 impl DiffdriveControllerCascade {
     pub fn new(kx: f32, ky: f32, kth: f32) -> Self {
@@ -72,6 +76,8 @@ impl DiffdriveControllerCascade {
             ky,
             kth,
             qp_solver: Some(solver),
+            prev_timestamp: None,
+            prev_v: None,
         }
     }
 
@@ -161,7 +167,57 @@ impl DiffdriveControllerCascade {
         // Return the action and the errors as a tuple
         (DiffdriveActionCascade { ul, ur }, xerror, yerror, therror)
     }
+
+    pub fn dynamic_feedback_control(
+        &mut self,
+        robot: &DiffdriveCascade,
+        setpoint: DiffdriveSetpointCascade,
+        stamp: u64,
+    ) -> (DiffdriveActionCascade, f32, f32, f32){
+        
+        let xerror: f32 = robot.s.theta.cos() * (setpoint.des.x - robot.s.x)
+            + robot.s.theta.sin() * (setpoint.des.y - robot.s.y);
+        let yerror: f32 = -robot.s.theta.sin() * (setpoint.des.x - robot.s.x)
+            + robot.s.theta.cos() * (setpoint.des.y - robot.s.y);
+        let therror: f32 = SO2::error(setpoint.des.theta, robot.s.theta);
+
+        
+        let dt: f32 = match self.prev_timestamp {
+            Some(prev) => (stamp - prev) as f32 / 1000.0,
+            None => 0.1,
+        };
+
+        let prev_v: f32 = match self.prev_v {
+            Some(v) => v,
+            None => 0.001,
+        };
+
+        let xd: f32 = (setpoint.des.x - robot.s.x) / dt;
+        let yd: f32 = (setpoint.des.y - robot.s.y) / dt;
+
+        let xd_d = setpoint.vdes * setpoint.des.theta.cos();
+        let yd_d = setpoint.vdes * setpoint.des.theta.sin();
+
+        let xdd_d = -setpoint.vdes * setpoint.des.theta.sin() * setpoint.wdes;
+        let ydd_d =  setpoint.vdes * setpoint.des.theta.cos() * setpoint.wdes;
+
+        let u1: f32 = xdd_d + self.kx*(setpoint.des.x - robot.s.x) + self.ky*(xd_d - xd);
+        let u2: f32 = ydd_d + self.kx*(setpoint.des.y - robot.s.y) + self.ky*(yd_d - yd);
+      
+        let a = robot.s.theta.cos()*u1 + robot.s.theta.sin()*u2;
+        let w = -robot.s.theta.sin()*u1 / self.prev_v + robot.s.theta.cos()*u2 / self.prev_v;
+        let v = self.prev_v + a*dt;
+
+        let ur = (2.0 * v + 1.0 * robot.l * w) / (2.0 * robot.r);
+        let ul = (2.0 * v - 1.0 * robot.l * w) / (2.0 * robot.r);
+
+        self.prev_v = v;
+        // output: ul, ur wheel speeds (rad/s), errors
+        (DiffdriveActionCascade { ul, ur }, xerror, yerror, therror)
+    }
+    
 }
+
 
 #[derive(Debug, Clone)]
 pub struct PointCascade {

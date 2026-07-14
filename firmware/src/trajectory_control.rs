@@ -123,20 +123,22 @@ async fn run_unified_loop(
                 t_sec, setpoint.des.x, setpoint.des.y, setpoint.des.theta.rad(), setpoint.vdes, setpoint.wdes);
         }
 
+        let stamp = Instant::now();
         robotstate::write_setpoint(robotstate::Setpoint {
             x_des: setpoint.des.x,
             y_des: setpoint.des.y,
             yaw_des: setpoint.des.theta.rad(),
             v_ff: setpoint.vdes,
             w_ff: setpoint.wdes,
-            stamp: Instant::now(),
+            stamp: stamp,
         }).await;
 
         // ---- 3. Control ----
         robot.s.x = fx;
         robot.s.y = fy;
         robot.s.theta = SO2::new(fth);
-        let (action, x_err, y_err, th_err) = controller.control(robot, setpoint);
+        // let (action, x_err, y_err, th_err) = controller.control(robot, setpoint);
+        let (action, x_err, y_err, th_err) = controller.dynamic_feedback_control(robot, setpoint, t.as_millis());
         let ul = action.ul;
         let ur = action.ur;
 
