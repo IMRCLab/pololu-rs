@@ -12,6 +12,7 @@ find_package(rclcpp REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(rclpy REQUIRED)
 find_package(std_srvs REQUIRED)
+find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(motion_capture_tracking_interfaces REQUIRED)
@@ -21,6 +22,7 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
 add_subdirectory(deps/crazyflie-link-cpp)
 
 include_directories(
+  include
   deps/crazyflie-link-cpp/include
   deps/crazyflie-link-cpp/examples
 )
@@ -35,6 +37,7 @@ add_executable(mocap_broadcast
 
 add_executable(controller_interface
   src/controller_interface.cpp
+  src/log_client.cpp
 )
 
 # ADD MISSING teleop dependencies:
@@ -52,10 +55,11 @@ ament_target_dependencies(teleop
 target_link_libraries(controller_interface
   crazyflieLinkCpp
 )
-ament_target_dependencies(controller_interface 
+ament_target_dependencies(controller_interface
   rclcpp
   sensor_msgs
   std_srvs
+  std_msgs
   geometry_msgs
   motion_capture_tracking_interfaces
 )

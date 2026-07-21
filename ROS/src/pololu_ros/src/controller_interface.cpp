@@ -18,6 +18,10 @@
 //includes for listening to the Motion Capture Tracking interface poses
 #include "motion_capture_tracking_interfaces/msg/named_pose_array.hpp"
 #include "std_msgs/msg/bool.hpp"
+#include "std_msgs/msg/float32_multi_array.hpp"
+
+//radio log client (pulls robot telemetry back over the radio)
+#include "pololu_ros/log_client.hpp"
 
 
 using namespace bitcraze::crazyflieLinkCpp;
@@ -128,7 +132,7 @@ public:
             timer_ = this->create_wall_timer(std::chrono::milliseconds(1000/frequency_), std::bind(&TeleopNode::publish, this));
         }
 
-        // Initialize logging: scan logs/ for highest session ID, set up 50Hz timer
+        //initialize logging: scan logs/ for highest session ID, set up 50Hz timer
         findLastSessionId();
         logging_timer_ = this->create_wall_timer(20ms, std::bind(&TeleopNode::performLogging, this));
 
@@ -832,12 +836,27 @@ private:
         session_id_++;
         std::filesystem::create_directories("logs");
         logging_active_ = true;
+
+        // Start the radio log client on the selected robot's connection
+        int r = selected_robot_;
+        std::string topic = "robot_log/pololu" + std::to_string(robot_ids_[r]);
+        robot_log_pub_ = this->create_publisher<std_msgs::msg::Float32MultiArray>(topic, 10);
+        log_client_ = std::make_unique<pololu_ros::LogClient>(connection_[r], robot_ids_[r]);
+        log_client_->on_snapshot =
+            [this](const pololu_ros::RobotLog& s) { publishRobotLog(s); };
+        log_client_->start(2);  // 2 x10ms = 50Hz
+
         RCLCPP_INFO(logger_, "\xF0\x9F\x94\xB4 Logging STARTED (session %d)", session_id_);
     }
 
     void stopLogging() {
         if (!logging_active_) return;
         logging_active_ = false;
+
+        if (log_client_) {
+            log_client_->stop();
+            log_client_.reset();
+        }
 
         for (auto& pair : log_files_) {
             if (pair.second && pair.second->is_open()) {
@@ -846,6 +865,21 @@ private:
         }
         log_files_.clear();
         RCLCPP_INFO(logger_, "\xE2\x9A\xAA Logging STOPPED (session %d)", session_id_);
+    }
+
+    void publishRobotLog(const pololu_ros::RobotLog& s) {
+        std_msgs::msg::Float32MultiArray msg;
+        // order: robot_id, t_ms, x,y,yaw, x_des,y_des,yaw_des,
+        //        x_err,y_err,yaw_err, v_ff,w_ff,
+        //        duty_l,duty_r, omega_l_cmd,omega_r_cmd, omega_l_meas,omega_r_meas,
+        //        mode, running
+        msg.data = {
+            static_cast<float>(s.robot_id), static_cast<float>(s.t_ms),
+            s.x, s.y, s.yaw, s.x_des, s.y_des, s.yaw_des,
+            s.x_err, s.y_err, s.yaw_err, s.v_ff, s.w_ff,
+            s.duty_l, s.duty_r, s.omega_l_cmd, s.omega_r_cmd,
+            s.omega_l_meas, s.omega_r_meas, s.mode, s.running};
+        robot_log_pub_->publish(msg);
     }
 
     void performLogging() {
@@ -899,6 +933,10 @@ private:
     int session_id_ = 0;
     std::map<std::string, std::unique_ptr<std::ofstream>> log_files_;
     rclcpp::TimerBase::SharedPtr logging_timer_;
+
+    // Radio telemetry log client (declared last: destroyed/joined first)
+    rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr robot_log_pub_;
+    std::unique_ptr<pololu_ros::LogClient> log_client_;
 };
 
 int main(int argc, char *argv[])
