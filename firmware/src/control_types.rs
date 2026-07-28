@@ -46,8 +46,8 @@ pub struct DiffdriveControllerCascade {
     pub ky: f32,
     pub kth: f32,
     pub qp_solver: Option<AdmmSolver<2, 2>>,
-    pub prev_timestamp: Option<u64>,
-    pub prev_v: Option<f32>,
+    pub prev_timestamp: Option<f32>,
+    pub prev_v: Option<f32>, // v in body frame
 }
 
 
@@ -172,7 +172,7 @@ impl DiffdriveControllerCascade {
         &mut self,
         robot: &DiffdriveCascade,
         setpoint: DiffdriveSetpointCascade,
-        stamp: u64,
+        dt: f32,
     ) -> (DiffdriveActionCascade, f32, f32, f32){
         
         let xerror: f32 = robot.s.theta.cos() * (setpoint.des.x - robot.s.x)
@@ -181,38 +181,54 @@ impl DiffdriveControllerCascade {
             + robot.s.theta.cos() * (setpoint.des.y - robot.s.y);
         let therror: f32 = SO2::error(setpoint.des.theta, robot.s.theta);
 
-        
-        let dt: f32 = match self.prev_timestamp {
-            Some(prev) => (stamp - prev) as f32 / 1000.0,
-            None => 0.1,
-        };
+        let x_d = setpoint.des.x;
+        let y_d = setpoint.des.y;
+        let theta_d = setpoint.des.theta;
+        // let epsilon = 0.01;
+        // // // correct theta with via point
+        // if cosf(therror) >= 0.0 && xerror.abs() < epsilon { // Epsilon
+        //     x_d = robot.s.x - (y_d - robot.s.y);
+        //     y_d = robot.s.y + (y_d - robot.s.y)/2.0;
+        // } else if cosf(therror) >= -1.0-epsilon && cosf(therror) <= -1.0+epsilon && yerror.abs() < epsilon {
+        //     x_d = robot.s.x + (x_d - robot.s.x)/2.0;
+        //     y_d = robot.s.y - (x_d - robot.s.x);
+        // } else if xerror < epsilon && yerror < epsilon {
 
+        // } 
         let prev_v: f32 = match self.prev_v {
-            Some(v) => v,
-            None => 0.001,
+            Some(v) if v.abs() > 0.01 => v,
+            Some(v) => v.signum() * 0.01,
+            None if setpoint.vdes.abs() > 0.01 => setpoint.vdes,
+            None => setpoint.vdes.signum() * 0.01,
         };
+        
+        let xd: f32 = prev_v * robot.s.theta.cos();
+        let yd: f32 = prev_v * robot.s.theta.sin();
 
-        let xd: f32 = (setpoint.des.x - robot.s.x) / dt;
-        let yd: f32 = (setpoint.des.y - robot.s.y) / dt;
+        let xd_d = setpoint.vdes * theta_d.cos();
+        let yd_d = setpoint.vdes * theta_d.sin();
 
-        let xd_d = setpoint.vdes * setpoint.des.theta.cos();
-        let yd_d = setpoint.vdes * setpoint.des.theta.sin();
-
-        let xdd_d = -setpoint.vdes * setpoint.des.theta.sin() * setpoint.wdes;
-        let ydd_d =  setpoint.vdes * setpoint.des.theta.cos() * setpoint.wdes;
-
-        let u1: f32 = xdd_d + self.kx*(setpoint.des.x - robot.s.x) + self.ky*(xd_d - xd);
-        let u2: f32 = ydd_d + self.kx*(setpoint.des.y - robot.s.y) + self.ky*(yd_d - yd);
-      
+        let xdd_d = -setpoint.vdes * theta_d.sin() * setpoint.wdes;
+        let ydd_d =  setpoint.vdes * theta_d.cos() * setpoint.wdes;
+    
+        // 3 TODO custom gains
+        let u1: f32 = xdd_d + 10.0*(x_d - robot.s.x) + 5.0*(xd_d - xd);
+        let u2: f32 = ydd_d + 12.0*(y_d - robot.s.y) + 7.0*(yd_d - yd);
+        
         let a = robot.s.theta.cos()*u1 + robot.s.theta.sin()*u2;
-        let w = -robot.s.theta.sin()*u1 / self.prev_v + robot.s.theta.cos()*u2 / self.prev_v;
-        let v = self.prev_v + a*dt;
-
+        // w = -robot.s.theta.sin()*u1 / prev_v + robot.s.theta.cos()*u2 / prev_v;
+        let eps_v: f32 = 0.05; 
+        let inv_v = prev_v / (prev_v * prev_v + eps_v * eps_v);
+        let raw_w = (-robot.s.theta.sin() * u1 + robot.s.theta.cos() * u2) * inv_v; // doesn't let w overshoot at small v
+        
+        let w = raw_w.clamp(-2.0, 2.0);
+        let v = prev_v + a*dt;
+        self.prev_v = Some(v);
+ 
         let ur = (2.0 * v + 1.0 * robot.l * w) / (2.0 * robot.r);
         let ul = (2.0 * v - 1.0 * robot.l * w) / (2.0 * robot.r);
 
-        self.prev_v = v;
-        // output: ul, ur wheel speeds (rad/s), errors
+        // output: ul, ur wheel speeds (rad/s), errors in body frame
         (DiffdriveActionCascade { ul, ur }, xerror, yerror, therror)
     }
     

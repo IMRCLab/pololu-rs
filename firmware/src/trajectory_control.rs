@@ -138,7 +138,7 @@ async fn run_unified_loop(
         robot.s.y = fy;
         robot.s.theta = SO2::new(fth);
         // let (action, x_err, y_err, th_err) = controller.control(robot, setpoint);
-        let (action, x_err, y_err, th_err) = controller.dynamic_feedback_control(robot, setpoint, t.as_millis());
+        let (action, x_err, y_err, th_err) = controller.dynamic_feedback_control(robot, setpoint, dt);
         let ul = action.ul;
         let ur = action.ur;
 
