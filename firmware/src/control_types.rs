@@ -1,6 +1,5 @@
 use crate::math::SO2;
 use core::f32::consts::PI;
-use embassy_time::Instant;
 use libm::{atan2f, cosf, sinf, sqrtf};
 use micro_qp::{
     admm::{AdmmSettings, AdmmSolver},
@@ -195,11 +194,15 @@ impl DiffdriveControllerCascade {
         // } else if xerror < epsilon && yerror < epsilon {
 
         // } 
+        // let prev_v: f32 = match self.prev_v {
+        //     Some(v) if v.abs() > 0.01 => v,
+        //     Some(v) => v.signum() * 0.01,
+        //     None if setpoint.vdes.abs() > 0.01 => setpoint.vdes,
+        //     None => setpoint.vdes.signum() * 0.01,
+        // };
         let prev_v: f32 = match self.prev_v {
-            Some(v) if v.abs() > 0.01 => v,
-            Some(v) => v.signum() * 0.01,
-            None if setpoint.vdes.abs() > 0.01 => setpoint.vdes,
-            None => setpoint.vdes.signum() * 0.01,
+            Some(v) => v,
+            None => setpoint.vdes,
         };
         
         let xd: f32 = prev_v * robot.s.theta.cos();
