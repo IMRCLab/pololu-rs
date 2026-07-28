@@ -221,7 +221,8 @@ impl DiffdriveControllerCascade {
         let inv_v = prev_v / (prev_v * prev_v + eps_v * eps_v);
         let raw_w = (-robot.s.theta.sin() * u1 + robot.s.theta.cos() * u2) * inv_v; // doesn't let w overshoot at small v
         
-        let w = raw_w.clamp(-2.0, 2.0);
+        // let w = raw_w.clamp(-2.0, 2.0);
+        let w = raw_w;
         let v = prev_v + a*dt;
         self.prev_v = Some(v);
  
