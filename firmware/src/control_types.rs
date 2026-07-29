@@ -183,26 +183,10 @@ impl DiffdriveControllerCascade {
         let x_d = setpoint.des.x;
         let y_d = setpoint.des.y;
         let theta_d = setpoint.des.theta;
-        // let epsilon = 0.01;
-        // // // correct theta with via point
-        // if cosf(therror) >= 0.0 && xerror.abs() < epsilon { // Epsilon
-        //     x_d = robot.s.x - (y_d - robot.s.y);
-        //     y_d = robot.s.y + (y_d - robot.s.y)/2.0;
-        // } else if cosf(therror) >= -1.0-epsilon && cosf(therror) <= -1.0+epsilon && yerror.abs() < epsilon {
-        //     x_d = robot.s.x + (x_d - robot.s.x)/2.0;
-        //     y_d = robot.s.y - (x_d - robot.s.x);
-        // } else if xerror < epsilon && yerror < epsilon {
 
-        // } 
-        // let prev_v: f32 = match self.prev_v {
-        //     Some(v) if v.abs() > 0.01 => v,
-        //     Some(v) => v.signum() * 0.01,
-        //     None if setpoint.vdes.abs() > 0.01 => setpoint.vdes,
-        //     None => setpoint.vdes.signum() * 0.01,
-        // };
         let prev_v: f32 = match self.prev_v {
             Some(v) => v,
-            None => setpoint.vdes,
+            None => 0.05 * xerror.signum(),
         };
         
         let xd: f32 = prev_v * robot.s.theta.cos();
@@ -224,7 +208,6 @@ impl DiffdriveControllerCascade {
         let inv_v = prev_v / (prev_v * prev_v + eps_v * eps_v);
         let raw_w = (-robot.s.theta.sin() * u1 + robot.s.theta.cos() * u2) * inv_v; // doesn't let w overshoot at small v
         
-        // let w = raw_w.clamp(-2.0, 2.0);
         let w = raw_w;
         let v = prev_v + a*dt;
         self.prev_v = Some(v);
