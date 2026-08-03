@@ -22,3 +22,7 @@
 	path = ROS/src/wmr_controller/external/ann-cmcgs
 	url = https://github.com/c-scherer/ann-cmcgs.git
 	branch = async
+[submodule "ROS/src/wmr_controller/external/realtime-dbastar"]
+	path = ROS/src/wmr_controller/external/realtime-dbastar
+	url = https://github.com/IMRCLab/realtime-dbastar.git
+	branch = hardware-ready

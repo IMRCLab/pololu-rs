@@ -55,6 +55,24 @@ def get_data_files():
             file_list = [os.path.join(root, f) for f in files if not f.endswith('.pyc')]
             if file_list:
                 data_files.append((install_path, file_list))
+
+    # Add external/dbastar recursively
+    base_install_path = os.path.join('share', package_name, 'external/dbastar')
+    base_source_path = 'external/ann-cmcgs-async'
+    if os.path.exists(base_source_path):
+        for root, dirs, files in os.walk(base_source_path):
+            if 'venv' in root or '.git' in root or '__pycache__' in root:
+                continue
+            # Get relative path from base source
+            rel_path = os.path.relpath(root, base_source_path)
+            if rel_path == '.':
+                install_path = base_install_path
+            else:
+                install_path = os.path.join(base_install_path, rel_path)
+                
+            file_list = [os.path.join(root, f) for f in files if not f.endswith('.pyc')]
+            if file_list:
+                data_files.append((install_path, file_list))
     
     return data_files
 
