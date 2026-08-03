@@ -44,8 +44,8 @@ if not mpc_path or not os.path.exists(mpc_path):
 if os.path.exists(mpc_path):
     sys.path.insert(0, mpc_path)
 
-    from scripts import QTO_MPC
-    from scripts import goal_reached
+    from mpcController import QTO_MPC
+    from simulator import goal_reached
 else:
     print(f"Error: Could not find scripts at {mpc_path}")
 
