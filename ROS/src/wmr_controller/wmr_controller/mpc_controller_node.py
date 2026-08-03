@@ -8,6 +8,15 @@ import numpy as np
 import sys
 import os
 import time
+import glob
+import yaml
+
+venv_pattern = os.path.expanduser('~/wmr-ros/ROS/.venv/lib/python3.*/site-packages')
+venv_matches = glob.glob(venv_pattern)
+if venv_matches:
+    venv_path = venv_matches[0]
+    if venv_path not in sys.path:
+        sys.path.insert(0, venv_path)
 
 # Add wmr-simulator scripts to path
 # When installed, the scripts should be in share/wmr_controller/deps/wmr-simulator/scripts
@@ -57,12 +66,14 @@ class MPCControllerNode(Node):
         # Parameters
         self.declare_parameter('robot_name', 'Pololu09')
         self.declare_parameter('frequency', 10)  # match control action frequency
-
         self.robot_name = self.get_parameter('robot_name').value
         frequency = self.get_parameter('frequency').value
         # self.dt = 1.0 / frequency # TODO check if estimator is needed / can run at 100Hz as in MPC config
+        self.declare_parameter('problem', None)
 
-        self.problem = self.get_parameter('problem').value
+        problem_path = self.get_parameter('problem').value
+        self.problem = yaml.safe_load(open(problem_path, 'r'))
+
         # Robot parameters for pololu robots
         self.robot_param = {
             'wheel_radius': 0.0165,      # 16.5mm wheel radius

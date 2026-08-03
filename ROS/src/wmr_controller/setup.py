@@ -14,7 +14,7 @@ class CustomInstallScripts(install_scripts):
 
         for script in self.get_outputs():
             # Only fix specific scripts to avoid over-patching
-            if os.path.basename(script) in ['cmcgs_plan', 'wmr_controller_node']:
+            if os.path.basename(script) in ['cmcgs_plan', 'wmr_controller_node', 'mpc_controller_node']:
                 print(f"Patching shebang for {script} to {target_python}")
                 try:
                     with open(script, 'r') as f:
@@ -59,7 +59,7 @@ def get_data_files():
 
     # Add external/dbastar recursively
     base_install_path = os.path.join('share', package_name, 'external/dbastar')
-    base_source_path = 'external/ann-cmcgs-async'
+    base_source_path = 'external/dbastar'
     if os.path.exists(base_source_path):
         for root, dirs, files in os.walk(base_source_path):
             if 'venv' in root or '.git' in root or '__pycache__' in root:

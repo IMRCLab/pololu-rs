@@ -1,3 +1,5 @@
+import os
+from ament_index_python import get_package_share_directory
 from launch import LaunchDescription
 from launch_ros.actions import Node
 from launch.actions import DeclareLaunchArgument
@@ -5,6 +7,9 @@ from launch.substitutions import LaunchConfiguration
 
 
 def generate_launch_description():
+    pkg_share = get_package_share_directory('wmr_controller')
+
+    default_problem_path = os.path.join(pkg_share, 'external/realtime-dbastar/baselines/wmr-simulator/problems/empty.yaml')
     return LaunchDescription([
         DeclareLaunchArgument(
             'robot_name',
@@ -32,7 +37,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             #problem
             'problem',
-            default_value='../external/realtime-dbastar/baselines/wmr-simulator/problems/empty.yaml',
+            default_value=default_problem_path,
             description='Problem'
         ),
         
