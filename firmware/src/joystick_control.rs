@@ -9,7 +9,7 @@ use crate::packet::CmdTeleopPacketMix;
 use crate::read_robot_config_from_sd::RobotConfig;
 use crate::trajectory_uart::UartCfg;
 use embassy_futures::select::{Either, select};
-use embassy_time::{Duration, Ticker};
+use embassy_time::{Duration, Instant, Ticker};
 use heapless::Vec as HVec;
 use portable_atomic::{AtomicI32, Ordering};
 
@@ -46,6 +46,14 @@ pub async fn teleop_motor_control_task(
         robot_cfg = RobotConfig::default();
     }
 
+    // Open new file if not already open
+    crate::sdlog::with_sdlogger(|logger| {
+        if logger.file.is_none() {
+            logger.open_new_file();
+        }
+    }).await;
+    robotstate::set_sd_logging_active(true);
+
     let mut ticker = Ticker::every(Duration::from_millis(robot_cfg.joystick_control_dt_ms));
 
     // PID state variables
@@ -72,6 +80,8 @@ pub async fn teleop_motor_control_task(
                 // Stop signal received - zero commands and motors, then exit
                 robotstate::write_unicycle_cmd(UnicycleCmd { v: 0.0, omega: 0.0, stamp: embassy_time::Instant::now() }).await;
                 motor.set_speed(0.0, 0.0).await;
+                robotstate::set_sd_logging_active(false);
+
                 return;
             }
             Either::Second(_) => {}
@@ -80,6 +90,16 @@ pub async fn teleop_motor_control_task(
         let cmd = robotstate::read_unicycle_cmd().await;
         let v = cmd.v; // m/s
         let omega = cmd.omega; //rad/s
+
+        robotstate::write_setpoint(robotstate::Setpoint {
+            x_des: 0.0,
+            y_des: 0.0,
+            yaw_des: 0.0,
+            v_ff: v,
+            w_ff: omega,
+            stamp: Instant::now(),
+        }).await;
+        // let odom = robotstate::read_odom().await;
 
         // Convert unicycle commands to differential drive wheel velocities
         let v_left = v - omega * robot_cfg.wheel_base / 2.0;
@@ -90,7 +110,7 @@ pub async fn teleop_motor_control_task(
         let omega_r_target = v_right / robot_cfg.wheel_radius;
 
         // Get raw angular velocity of the wheels using encoder counts
-        let ((omega_l_raw, omega_r_raw), (ln, rn)) = wheel_speed_from_counts_now(
+        let ((omega_l_raw, omega_r_raw),  (ln, rn)) = wheel_speed_from_counts_now(
             left_counter,
             right_counter,
             robot_cfg.encoder_cpr,
@@ -128,6 +148,7 @@ pub async fn teleop_motor_control_task(
         let duty_l = u_l * robot_cfg.motor_direction_left;
         let duty_r = u_r * robot_cfg.motor_direction_right;
 
+
         /*
         if v.abs() > 0.001 || omega.abs() > 0.001 {
             defmt::info!("Teleop: Cmd=(v:{}, ω:{}) -> TargetWheel=(L:{}, R:{}) -> Duty=(L:{}, R:{})", 
@@ -137,8 +158,21 @@ pub async fn teleop_motor_control_task(
 
         motor.set_speed(duty_l, duty_r).await;
 
+        robotstate::write_wheel_cmd(robotstate::WheelCmd::new(omega_l_target, omega_r_target)).await;
+        // Write motor duty and encoder readings to robotstate
+        robotstate::write_motor(robotstate::MotorDuty {
+            left: duty_l,
+            right: duty_r,
+        }).await;
+        robotstate::write_encoder(robotstate::EncoderReading {
+            omega_l: omega_l_lp,
+            omega_r: omega_r_lp,
+            stamp: Instant::now(),
+        }).await;
+
     //Timer::after(Duration::from_millis(robot_cfg.joystick_control_dt_ms)).await;
     }
+
 }
 /* ========================== Joy Stick Speed Control Task =============================== */
 

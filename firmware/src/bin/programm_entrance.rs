@@ -335,7 +335,9 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         if !uart_ok {
                             defmt::warn!("Teleop UART task already running or failed to spawn");
                         }
-
+                        with_sdlogger(|logger| {
+                            logger.open_new_file();
+                        }).await;
                         let motor_ok = spawner
                             .spawn(teleop_motor_control_task(
                                 devices.motor,
@@ -356,6 +358,9 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         }
                         if spawner.spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS)).is_err() {
                             defmt::warn!("Failed to spawn uart_log_sending_task");
+                        }
+                        if spawner.spawn(sd_logging_task(devices.config)).is_err() {
+                            defmt::warn!("Failed to spawn sd_logging_task");
                         }
                     }
                     Mode::TrajMocap => {
@@ -431,6 +436,10 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                                 "Control action UART task already running or failed to spawn"
                             );
                         }
+                        
+                        with_sdlogger(|logger| {
+                            logger.open_new_file();
+                        }).await;
 
                         let teleop_ok = spawner
                             .spawn(teleop_motor_control_task(
@@ -452,6 +461,9 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         }
                         if spawner.spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS)).is_err() {
                             defmt::warn!("Failed to spawn uart_log_sending_task");
+                        }
+                        if spawner.spawn(sd_logging_task(devices.config)).is_err() {
+                            defmt::warn!("Failed to spawn sd_logging_task");
                         }
                     }
                     Mode::TrajOnboard => {
