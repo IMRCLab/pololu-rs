@@ -175,57 +175,44 @@ class MPCControllerNode(Node):
         x_true = self.latest_pose.position.x
         y_true = self.latest_pose.position.y
         q = self.latest_pose.orientation
-        theta_true = np.arctan2(2*(q.w*q.z + q.x*q.y), 1 - 2*(q.y**2 + q.z**2))
+        theta_true = self.estimator._wrap_to_pi(np.arctan2(2*(q.w*q.z + q.x*q.y), 1 - 2*(q.y**2 + q.z**2)))
         pose_true = (x_true, y_true, theta_true)
         self.traj.append(pose_true)
 
-       
-        
-        # stop if goal reached 
-        if goal_reached(pose_true, self.goal, self.thr, float(self.problem["dbastar"]["goal_error_tolerance"])):
+    
+        self.reached = goal_reached(pose_true, self.goal, self.thr, float(self.problem["dbastar"]["goal_error_tolerance"]))
+        # stop if goal reached or max iterations reached
+        if self.reached or self.steps > self.steps_max:
             cmd = Vector3()
             self.cmd_pub.publish(cmd)
-            reached = True
-            self.get_logger().info(f'v={cmd.x:.3f}, w={cmd.y:.3f}')
-            cost_s = (len(self.traj) - 1) * self.dt if self.reached else None
-            controls = np.array(self.log_wheel_cmd)
-            # self.get_logger().info(
-            #     f"reached: {self.reached}, cost_s: {cost_s}, "
-            #     f"search_time_s: {self.t_compute}, traj: {self.traj}, "
-            #     f"controls: {controls}, dt: {self.dt}"
-            # )
-            return
-        
-         #   stop if max steps reached
-        if self.steps > self.steps_max:
-            cmd = Vector3()
-            self.cmd_pub.publish(cmd)
-            self.get_logger().info(f'v={cmd.x:.3f}, w={cmd.y:.3f}')
 
             cost_s = (len(self.traj) - 1) * self.dt if self.reached else None
             controls = np.array(self.log_wheel_cmd)
-            # self.get_logger().info(
-            #     f"reached: {self.reached}, cost_s: {cost_s}, "
-            #     f"search_time_s: {self.t_compute}, traj: {self.traj}, "
-            #     f"controls: {controls}, dt: {self.dt}"
-            # )
-            return
+            self.get_logger().info(
+                f"reached: {self.reached}, cost_s: {cost_s}, "
+                f"search_time_s: {self.t_compute}, traj: {self.traj}, "
+                f"controls: {controls}, dt: {self.dt}"
+            )
+
+            self.destroy_node()
+            rclpy.shutdown()
+        
         #get true wheel speeds (in simulator: robot.get_wheel_speeds())
         #TODO: get robot log data eventually to use encoder readings for real wheel speeds
         #for now: wheel speed command is assumed to be true
-        ur_true, ul_true = self.wheel_speeds
+        # ur_true, ul_true = self.wheel_speeds
         
         #self.estimator.update(ur_true, ul_true, pose_true)
         
         #pose_est = self.estimator.get_est_pose()  # (x_hat, y_hat, theta_hat)
-        ur_hat, ul_hat = self.estimator.get_est_wheel_speeds()
-        wheel_est = (ur_hat, ul_hat)
+        # ur_hat, ul_hat = self.estimator.get_est_wheel_speeds()
+        # wheel_est = (ur_hat, ul_hat)
 
         t0 = time.perf_counter()
         #compute control commands using estimated states, use mocap pose as "true" pose instead of estimating it
         ul_cmd, ur_cmd = self.controller.solve(list(pose_true), list(self.goal))
         self.t_compute += time.perf_counter() - t0
-
+        self.steps +=1
         
         #convert wheel speeds to (v, w) for publishing
         #TODO: is it maybe better to publish r & l for pololu?
@@ -244,7 +231,7 @@ class MPCControllerNode(Node):
         
         # Store commanded wheel speeds as "true" for next iteration
         # (in simulator, robot.step() updates these, i simply use commanded values here)
-        self.wheel_speeds = (ur_cmd, ul_cmd)
+        self.wheel_speeds = (ul_cmd, ur_cmd)
         self.log_wheel_cmd.append(self.wheel_speeds)
 
 
