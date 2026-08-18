@@ -159,7 +159,7 @@ class MPCControllerNode(Node):
                     y0 = pose.pose.position.y
                     # extract yaw from quaternion
                     q = pose.pose.orientation
-                    th0 = np.arctan2(2*(q.w*q.z + q.x*q.y), 1 - 2*(q.y**2 + q.z**2))
+                    th0 = self.estimator._wrap_to_pi(np.arctan2(2*(q.w*q.z + q.x*q.y), 1 - 2*(q.y**2 + q.z**2)))
                     self.estimator._init_state(x0, y0, th0)
                     self.initialized = True
                     self.get_logger().info(f'Initialized at x={x0:.3f}, y={y0:.3f}, theta={th0:.3f}')
