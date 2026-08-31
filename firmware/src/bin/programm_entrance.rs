@@ -26,7 +26,7 @@ use pololu3pi2040_rs::{
     encoder::start_encoder_irq,
     imu::read_imu_task,
     inner_controller::wheel_speed_inner_loop,
-    joystick_control::{control_action_uart_task, teleop_motor_control_task, teleop_uart_task},
+    joystick_control::{control_action_motor_control_task, control_action_uart_task, teleop_motor_control_task, teleop_uart_task},
     led::LED_SHARED,
     odometry::odometry_task,
     robotstate::TRAJECTORY_CONTROL_EVENT,
@@ -335,9 +335,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         if !uart_ok {
                             defmt::warn!("Teleop UART task already running or failed to spawn");
                         }
-                        with_sdlogger(|logger| {
-                            logger.open_new_file();
-                        }).await;
+
                         let motor_ok = spawner
                             .spawn(teleop_motor_control_task(
                                 devices.motor,
@@ -358,9 +356,6 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         }
                         if spawner.spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS)).is_err() {
                             defmt::warn!("Failed to spawn uart_log_sending_task");
-                        }
-                        if spawner.spawn(sd_logging_task(devices.config)).is_err() {
-                            defmt::warn!("Failed to spawn sd_logging_task");
                         }
                     }
                     Mode::TrajMocap => {
@@ -430,6 +425,8 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                     Mode::CtrlAction => {
                         defmt::info!("CONTROL-ACTION Mode is selected!!!!!");
                         pololu3pi2040_rs::parameter_sync::send_mode(4).await;
+                        // let mocap_uart_ok = spawner.spawn(uart_motioncap_receiving_task(cfg)).is_ok();
+
                         let uart_ok = spawner.spawn(control_action_uart_task(cfg)).is_ok();
                         if !uart_ok {
                             defmt::warn!(
@@ -442,7 +439,7 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         }).await;
 
                         let teleop_ok = spawner
-                            .spawn(teleop_motor_control_task(
+                            .spawn(control_action_motor_control_task(
                                 devices.motor,
                                 encoder_count_left,
                                 encoder_count_right,
@@ -454,7 +451,25 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                                 "Teleop motor control task already running or failed to spawn"
                             );
                         }
-
+                        // let odo_ok = spawner
+                        //     .spawn(odometry_task(
+                        //         encoder_count_left,
+                        //         encoder_count_right,
+                        //         devices.config,
+                        //         ODOM_PERIOD_MS,
+                        //     ))
+                        //     .is_ok();
+                        // let inner_ok = spawner
+                        //     .spawn(wheel_speed_inner_loop(
+                        //         devices.motor,
+                        //         encoder_count_left,
+                        //         encoder_count_right,
+                        //         devices.config,
+                        //         INNER_PERIOD_MS,
+                        //     ))
+                        //     .is_ok();
+                        // let mocap_ok = spawner.spawn(mocap_update_task()).is_ok();
+                        // if mocap_uart_ok && uart_ok && mocap_ok && odo_ok && inner_ok && teleop_ok {
                         if uart_ok && teleop_ok {
                             beep_signal(b'A');
                             defmt::info!("CtrlAction: UART and Motor tasks active");
