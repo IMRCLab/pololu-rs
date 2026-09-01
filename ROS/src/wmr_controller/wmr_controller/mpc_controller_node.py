@@ -10,7 +10,7 @@ import os
 import time
 import glob
 import yaml
-
+BENCHMARK_FILE = "/home/lndw/wmr-ros/ROS/src/wmr_controller/external/realtime-dbastar/baselines/wmr-simulator/problems/benchmark/benchmark.yaml"
 venv_pattern = os.path.expanduser('~/wmr-ros/ROS/.venv/lib/python3.*/site-packages')
 venv_matches = glob.glob(venv_pattern)
 if venv_matches:
@@ -54,7 +54,8 @@ if os.path.exists(mpc_path):
     sys.path.insert(0, mpc_path)
 
     from mpcController import QTO_MPC
-    from simulator import goal_reached
+    from benchmark import _deep_merge
+    from simulator import goal_reached, obstacles_of, dynamic_obstacles_of, vanishing_obstacles_of, displacements_of, _mpc_sized_for, triggered, displacement_triggered, in_collision
 else:
     print(f"Error: Could not find scripts at {mpc_path}")
 
@@ -69,11 +70,30 @@ class MPCControllerNode(Node):
         self.robot_name = self.get_parameter('robot_name').value
         frequency = self.get_parameter('frequency').value
         # self.dt = 1.0 / frequency # TODO check if estimator is needed / can run at 100Hz as in MPC config
-        self.declare_parameter('problem', None)
+        # self.declare_parameter('problem', None)
 
-        problem_path = self.get_parameter('problem').value
-        self.problem = yaml.safe_load(open(problem_path, 'r'))
-
+        # problem_path = self.get_parameter('problem').value
+        # print(problem_path)
+        # problem = yaml.safe_load(open(problem_path, 'r'))
+        cfg = yaml.safe_load(open(BENCHMARK_FILE, 'r'))
+        shared = {k: v for k, v in cfg.items() if k != "instances"}
+        out = {}
+        for inst in cfg.get("instances") or []:
+            inst = dict(inst)
+            name = str(inst.pop("name"))
+            # Environment tweaks written inline next to the goal (obstacles/min/max),
+            # or a full `environment:` dict, layered over the shared environment.
+            inline_env = dict(inst.pop("environment", {}) or {})
+            for k in ("min", "max", "obstacles", "dynamic_obstacles", "vanishing_obstacles",
+                    "displacements"):
+                if k in inst:
+                    inline_env[k] = inst.pop(k)
+            prob = _deep_merge(shared, inst)             # inst now carries goal (+ dbastar/etc overrides)
+            prob["environment"] = _deep_merge(cfg.get("environment") or {}, inline_env)
+            out[name] = prob
+        
+        problem = out["-1.5_-2.5_-0.7854_empty"]
+        print(problem)
         # Robot parameters for pololu robots
         self.robot_param = {
             'wheel_radius': 0.0165,      # 16.5mm wheel radius
@@ -81,17 +101,27 @@ class MPCControllerNode(Node):
         }
         
         # Initialize controller from mpcController
-        self.controller = QTO_MPC(robot_param=self.problem)
-        self.controller.initiaize_variables()
+        self.dt, self.thr = float(problem["dbastar"]["dt"]), float(problem["dbastar"]["goal_threshold"])
+        self.steps_max = int(problem["sim_time"] / self.dt)
+        static = obstacles_of(problem)
+        dyn, van = dynamic_obstacles_of(problem), vanishing_obstacles_of(problem)
+        self.shoves = list(displacements_of(problem))
+        print(self.shoves)
+        self.ctrl = QTO_MPC(robot_param=_mpc_sized_for(problem, len(static) + len(dyn) + len(van)))
+        self.ctrl.initiaize_variables()
+        self.known = list(static) + [v["box"] for v in van]
+        self.hidden, self.present = list(dyn), list(van)
+        self.obs_p = self.ctrl.pack_obstacles(self.known) if self.ctrl.M else None
+        self.t_compute, self.reached, self.reveals, self.vanishes = 0.0, False, [], []
+        self.shifts, self.jumps = [], []
+        
 
         self.start = list(self.problem["start"])
         self.goal = list(self.problem["goal"])
 
-        self.dt, self.thr = float(self.problem["dbastar"]["dt"]), float(self.problem["dbastar"]["goal_threshold"])
-        self.steps_max = int(self.problem["sim_time"] / self.dt)
-        self.steps = 0
+        self.problem = problem
+        self.step = 0
 
-        self.t_compute, self.reached = 0.0, False
         self.traj = []
         self.log_wheel_cmd = []
 
@@ -113,7 +143,7 @@ class MPCControllerNode(Node):
         mocap_qos = QoSProfile(
             reliability=QoSReliabilityPolicy.BEST_EFFORT,
             history=QoSHistoryPolicy.KEEP_LAST,
-            depth=10
+            depth=1
         )
         
         # QoS for control commands (BEST_EFFORT, depth=1)
@@ -178,11 +208,43 @@ class MPCControllerNode(Node):
         theta_true = self.estimator._wrap_to_pi(np.arctan2(2*(q.w*q.z + q.x*q.y), 1 - 2*(q.y**2 + q.z**2)))
         pose_true = (x_true, y_true, theta_true)
         self.traj.append(pose_true)
+        pose = pose_true
 
+        # Both events are just a write to the obstacle PARAMETER: MPC re-solves from
+        # scratch every step anyway, so the next solve is already the reaction -- no
+        # rebuild, no re-initialisation, nothing to re-warm. A vanishing box needs no
+        # decision here either: with its constraints gone the solver takes the
+        # shortcut on its own if the shortcut is actually better.
+        new = [d for d in self.hidden if triggered(d, pose, self.step * self.dt)]
+        gone = [v for v in self.present if triggered(v, pose, self.step * self.dt)]
+        if new or gone:
+            hidden = [d for d in hidden if d not in new]
+            present = [v for v in present if v not in gone]
+            known += [d["box"] for d in new]
+            known = [b for b in known if b not in [v["box"] for v in gone]]
+            obs_p = self.ctrl.pack_obstacles(known) if self.ctrl.M else None
+            reveals += [self.step] * bool(new)
+            vanishes += [self.step] * bool(gone)
+        # TODO check shove irl?
+        # A shove moves the ROBOT, not the map, so there is nothing to re-pack and
+        # nothing to re-solve on purpose: MPC starts every solve from the measured
+        # pose, so writing the new pose IS its replan. The logs are left alone --
+        # the displaced pose is not a pose it drove to, so the discontinuity sits
+        # between rows `step` and `step + 1` and `shifts` records it.
+        # moved = [x for x in self.shoves
+        #          if self.step > 0 and displacement_triggered(x, pose, self.step * self.dt, self.start, self.goal)]
+        # for x in moved:
+        #     self.shoves.remove(x)
+        #     self.jumps.append((list(pose), list(pose_true)))
+        #     self.shifts.append(self.step)
+        #     if in_collision(pose[0], pose[1], known):
+        #         print(f"[mpc] !! displacement puts the robot inside an obstacle at "
+        #               f"({pose[0]:.2f}, {pose[1]:.2f}).", flush=True)
+        
     
         self.reached = goal_reached(pose_true, self.goal, self.thr, float(self.problem["dbastar"]["goal_error_tolerance"]))
         # stop if goal reached or max iterations reached
-        if self.reached or self.steps > self.steps_max:
+        if self.reached or self.step > self.steps_max:
             cmd = Vector3()
             self.cmd_pub.publish(cmd)
 
@@ -210,9 +272,9 @@ class MPCControllerNode(Node):
 
         t0 = time.perf_counter()
         #compute control commands using estimated states, use mocap pose as "true" pose instead of estimating it
-        ul_cmd, ur_cmd = self.controller.solve(list(pose_true), list(self.goal))
+        ul_cmd, ur_cmd = self.ctrl.solve(list(pose), list(self.goal), obs=obs_p)      # timed: search only
         self.t_compute += time.perf_counter() - t0
-        self.steps +=1
+        self.step +=1
         
         #convert wheel speeds to (v, w) for publishing
         #TODO: is it maybe better to publish r & l for pololu?

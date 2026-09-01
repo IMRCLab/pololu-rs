@@ -4,27 +4,69 @@ import os
 import sys
 from glob import glob
 
+# class CustomInstallScripts(install_scripts):
+#     def run(self):
+#         install_scripts.run(self)
+#         target_python = "/home/lndw/wmr-ros/.venv/bin/python3"
+#         if not os.path.exists(target_python):
+#             print(f"Custom python path {target_python} not found. Skipping shebang fix.")
+#             return
+
+#         for script in self.get_outputs():
+#             # Only fix specific scripts to avoid over-patching
+#             if os.path.basename(script) in ['cmcgs_plan', 'wmr_controller_node', 'mpc_controller_node']:
+#                 print(f"Patching shebang for {script} to {target_python}")
+#                 try:
+#                     with open(script, 'r') as f:
+#                         lines = f.readlines()
+#                     if lines and lines[0].startswith('#!'):
+#                         lines[0] = f'#!{target_python}\n'
+#                         with open(script, 'w') as f:
+#                             f.writelines(lines)
+#                 except Exception as e:
+#                     print(f"Failed to patch shebang for {script}: {e}")
+
+
 class CustomInstallScripts(install_scripts):
     def run(self):
         install_scripts.run(self)
-        target_python = "/home/lndw/wmr-ros/.venv/bin/python3"
-        if not os.path.exists(target_python):
-            print(f"Custom python path {target_python} not found. Skipping shebang fix.")
-            return
+
+        default_python = "/home/lndw/wmr-ros/.venv/bin/python3"
 
         for script in self.get_outputs():
-            # Only fix specific scripts to avoid over-patching
-            if os.path.basename(script) in ['cmcgs_plan', 'wmr_controller_node', 'mpc_controller_node']:
-                print(f"Patching shebang for {script} to {target_python}")
-                try:
-                    with open(script, 'r') as f:
-                        lines = f.readlines()
-                    if lines and lines[0].startswith('#!'):
-                        lines[0] = f'#!{target_python}\n'
-                        with open(script, 'w') as f:
-                            f.writelines(lines)
-                except Exception as e:
-                    print(f"Failed to patch shebang for {script}: {e}")
+            script_name = os.path.basename(script)
+
+            if script_name == 'rl_controller_node':
+                target_python = (
+                    "/home/lndw/wmr-ros/ROS/src/wmr_controller/"
+                    "external/realtime-dbastar/baselines/"
+                    "rl-examples/.venv/bin/python3"
+                )
+            elif script_name in [
+                'cmcgs_plan',
+                'wmr_controller_node',
+                'mpc_controller_node',
+            ]:
+                target_python = default_python
+            else:
+                continue
+
+            if not os.path.exists(target_python):
+                print(
+                    f"Python {target_python} not found; "
+                    f"skipping {script_name}"
+                )
+                continue
+
+            with open(script, 'r', encoding='utf-8') as file:
+                lines = file.readlines()
+
+            if lines and lines[0].startswith('#!'):
+                lines[0] = f'#!{target_python}\n'
+
+            with open(script, 'w', encoding='utf-8') as file:
+                file.writelines(lines)
+                
 
 package_name = 'wmr_controller'
 
@@ -36,7 +78,7 @@ def get_data_files():
         (os.path.join('share', package_name, 'launch'), glob('launch/*launch.[pxy][yma]*')),
         (os.path.join('share', package_name, 'deps/wmr-simulator/scripts'), glob('deps/wmr-simulator/scripts/*.py')),
         (os.path.join('share', package_name, 'external/realtime-dbastar/baselines/wmr-simulator/scripts'), glob('external/realtime-dbastar/baselines/wmr-simulator/scripts/*.py')),
-        (os.path.join('share', package_name, 'external/realtime-dbastar/baselines/wmr-simulator/problems'), glob('external/realtime-dbastar/baselines/wmr-simulator/problems/*.yaml'))
+        (os.path.join('share', package_name, 'external/realtime-dbastar/baselines/wmr-simulator/problems/benchmark'), glob('external/realtime-dbastar/baselines/wmr-simulator/problems/benchmark/*.yaml'))
     ]
     
     # Add external/ann-cmcgs-async recursively
@@ -95,7 +137,8 @@ setup(
             'wmr_controller_node = wmr_controller.wmr_controller_node:main',
             'mpc_controller_node = wmr_controller.mpc_controller_node:main',
             'reference_publisher_node = wmr_controller.reference_publisher_example:main',
-            'timing_monitor = wmr_controller.timing_monitor:main'
+            'timing_monitor = wmr_controller.timing_monitor:main',
+            'rl_controller_node = wmr_controller.rl_controller_node:main',
         ],
     },
 )
