@@ -32,7 +32,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             #control loop execution frequency
             'control_dt',
-            default_value='0.1', #0.1s in controller simulation code
+            default_value='0.02', #0.02s in controller simulation code
             description='Control loop rate in s'
         ),
         DeclareLaunchArgument(
@@ -63,10 +63,25 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'displacement_thr',
-            default_value='0.2',
+            default_value='0.05',
             description='Difference between predicted and actual pose to trigger displacement replanning'
         ),
         
+
+        Node(
+            package='wmr_controller',
+            executable='obstacle_monitor',
+            name='obstacle_monitor',
+            output='screen',
+            parameters=[{
+                'obstacle_name': LaunchConfiguration('obstacle_name'),
+                'mocap_topic': LaunchConfiguration('mocap_topic'),
+                'obstacle_topic': LaunchConfiguration('obstacle_topic'),
+                'obstacle_change_tolerance': ParameterValue(
+                    LaunchConfiguration('obstacle_change_tolerance'), value_type=float
+                ),
+            }]
+        ), 
         Node(
             package='wmr_controller',
             executable='dbastar_controller_node',
@@ -91,18 +106,4 @@ def generate_launch_description():
             }]
         ),
 
-        Node(
-            package='wmr_controller',
-            executable='obstacle_monitor',
-            name='obstacle_monitor',
-            output='screen',
-            parameters=[{
-                'obstacle_name': LaunchConfiguration('obstacle_name'),
-                'mocap_topic': LaunchConfiguration('mocap_topic'),
-                'obstacle_topic': LaunchConfiguration('obstacle_topic'),
-                'obstacle_change_tolerance': ParameterValue(
-                    LaunchConfiguration('obstacle_change_tolerance'), value_type=float
-                ),
-            }]
-        )
     ])

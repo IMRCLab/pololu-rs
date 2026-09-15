@@ -5,7 +5,7 @@ from email import header
 
 import rclpy
 from rclpy.node import Node
-from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy, QoSDurabilityPolicy
 from geometry_msgs.msg import Twist, Vector3
 from motion_capture_tracking_interfaces.msg import NamedPoseArray
 from wmr_controller.dbastar_controller_node import dbastarControllerNode
@@ -35,27 +35,56 @@ class ObstacleMonitoringNode(Node):
         super().__init__('obstacle_monitoring_node')
         
         # Parameters
-        self.declare_parameter('obstacle_name', 'Obstacle01')
+        self.declare_parameter(
+            'obstacle_names', 
+            [
+                'Obstacle01',
+                'Obstacle02',
+                'Obstacle03',
+                'ObstacleDrone'
+            ])
         self.declare_parameter('mocap_topic', '/poses')
         self.declare_parameter('obstacle_topic', '/obstacles_aabb')
         self.declare_parameter('obstacle_change_tolerance', 0.02)
 
-        self.obstacle_name = str(self.get_parameter('obstacle_name').value)
+        # self.obstacle_name = str(self.get_parameter('obstacle_name').value)
+        self.obstacle_names = [
+            str(name)
+            for name in self.get_parameter('obstacle_names').value
+        ]
+        self.obstacle_name_set = set(self.obstacle_names)
+
+
         mocap_topic = str(self.get_parameter('mocap_topic').value)
         obstacle_topic = str(self.get_parameter('obstacle_topic').value)
         self.obstacle_change_tolerance = float(
             self.get_parameter('obstacle_change_tolerance').value
         )
 
-        self.latest_pose = None
-        self.initialized = False
+        # self.latest_pose = None
+        # self.initialized = False
 
         self.half_edge_length = 0.15
-        self.z_previous = 100000
-        self.replanning_flag = False
+        self.height_threshold = 0.2
+        # self.z_previous = 100000
+        # self.replanning_flag = False
 
         if self.obstacle_change_tolerance < 0.0:
             raise ValueError("obstacle_change_tolerance must be non-negative")
+        
+
+        # None: haven't receive mocap pose from this obstacle yet
+        # True: obstacle is added
+        # False: obstacle is removed
+        self.obstacle_present = {
+            name: None
+            for name in self.obstacle_names
+        }
+
+        self.first_time_published = False
+
+        self.active_boxes = {}
+        self.latest_pose = {}
 
         # QoS for mocap (BEST_EFFORT like controller_interface)
         mocap_qos = QoSProfile(
@@ -66,7 +95,8 @@ class ObstacleMonitoringNode(Node):
         
         # QoS for control commands (BEST_EFFORT, depth=1)
         obs_qos = QoSProfile(
-            reliability=QoSReliabilityPolicy.BEST_EFFORT,
+            reliability=QoSReliabilityPolicy.RELIABLE,
+            durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
             history=QoSHistoryPolicy.KEEP_LAST,
             depth=1
         )
@@ -81,113 +111,223 @@ class ObstacleMonitoringNode(Node):
         
         #publish velocity commands (v, w) on /cmd_unicycle topic 
         self.obs_pub = self.create_publisher(AABB2DArray, obstacle_topic, obs_qos)
+
+        self.get_logger().info(
+            'Obstacle monitoring node started; '
+            f'obstacles={self.obstacle_names}, '
+            f'mocap_topic={mocap_topic}, '
+            f'obstacle_topic={obstacle_topic}, '
+            f'height_threshold={self.height_threshold}'
+        )
+
+    
+    def make_box(self, obstacle_name, pose):
+        x = pose.position.x
+        y = pose.position.y
+
+        return AABB2D(
+            id=obstacle_name,
+            min_x=x - self.half_edge_length,
+            max_x=x + self.half_edge_length,
+            min_y=y - self.half_edge_length,
+            max_y=y + self.half_edge_length,
+        )
+
+    def publish_obstacle_snapshot(self):
+        snapshot = AABB2DArray()
+        snapshot.header.stamp = self.get_clock().now().to_msg()
+        snapshot.header.frame_id = 'world'
+
+        snapshot.boxes = [
+            self.active_boxes[name]
+            for name in self.obstacle_names
+            if name in self.active_boxes
+        ]
+
+        self.obs_pub.publish(snapshot)
+
+        self.get_logger().info(
+            'Published obstacles snapshot: '
+            f'{list(self.active_boxes.keys())}'
+        )
         
         
     def poses_callback(self, msg: NamedPoseArray):
         """Callback for motion capture poses"""
 
-        #idea: mocap publishes at its own rate. The last pose that was incoming is stored for usage at the defined control loop execution rate.
-        for pose in msg.poses:
-            if pose.name == self.obstacle_name:
-                self.latest_pose = pose.pose
+        # if self.first_time_published is False:
+        #     self.publish_obstacle_snapshot()
+        #     self.first_time_published = True
 
-                #init pose. Take zero if mocap doesn't have a pose yet.
-                if not self.initialized:
-                    x0 = pose.pose.position.x
-                    y0 = pose.pose.position.y
-                    z0 = pose.pose.position.z
+        snapshot_changed = False
 
-                    if self.z_previous <= 0.5 and z0 > 0.5 and not self.replanning_flag:
-                        self.get_logger().warn(f'obstacle is removed ')
+        for named_pose in msg.poses:
+            obstacle_name = named_pose.name
 
-                        x_min = pose.pose.position.x - self.half_edge_length
-                        x_max = pose.pose.position.x + self.half_edge_length
-                        y_min = pose.pose.position.y - self.half_edge_length
-                        y_max = pose.pose.position.y + self.half_edge_length
-                        box = AABB2D(
-                            id=self.obstacle_name,
-                            min_x=x_min,
-                            min_y=y_min,
-                            max_x=x_max,
-                            max_y=y_max,
-                        )
-                        snapshot = AABB2DArray()
-                        snapshot.header.stamp = self.get_clock().now().to_msg()
-                        snapshot.header.frame_id = 'world'
-                        snapshot.boxes = [] if box is None else [box]
-                        self.obs_pub.publish(snapshot)
-                        self.replanning_flag = True
-                    elif self.z_previous > 0.5 and z0 <= 0.5 and not self.replanning_flag:
-                        self.get_logger().warn(f'obstacle is added ')
+            if obstacle_name not in self.obstacle_name_set:
+                continue
 
-                        x_min = pose.pose.position.x - self.half_edge_length
-                        x_max = pose.pose.position.x + self.half_edge_length
-                        y_min = pose.pose.position.y - self.half_edge_length
-                        y_max = pose.pose.position.y + self.half_edge_length
-                        box = AABB2D(
-                            id=self.obstacle_name,
-                            min_x=x_min,
-                            min_y=y_min,
-                            max_x=x_max,
-                            max_y=y_max,
-                        )
-                        snapshot = AABB2DArray()
-                        snapshot.header.stamp = self.get_clock().now().to_msg()
-                        snapshot.header.frame_id = 'world'
-                        snapshot.boxes = [] if box is None else [box]
-                        self.obs_pub.publish(snapshot)
-                        self.replanning_flag = True
-                    
-                    self.z_previous = z0
-                    self.initialized = True
-                    self.get_logger().info(f'Initialized at x={x0:.3f}, y={y0:.3f}, z={z0:.3f}')
-                    continue
+            pose = named_pose.pose
+            self.latest_pose[obstacle_name] = pose
 
-                if self.z_previous <= 0.5 and pose.pose.position.z > 0.5 and not self.replanning_flag:
-                    self.get_logger().warn(f'obstacle is removed ')
+            z = pose.position.z
+            is_present = z <= self.height_threshold
+            was_present = self.obstacle_present[obstacle_name]
 
-                    x_min = pose.pose.position.x - self.half_edge_length
-                    x_max = pose.pose.position.x + self.half_edge_length
-                    y_min = pose.pose.position.y - self.half_edge_length
-                    y_max = pose.pose.position.y + self.half_edge_length
+            if was_present is None:
+                self.obstacle_present[obstacle_name] = is_present
 
-
-                    box = AABB2D(
-                        id=self.obstacle_name,
-                        min_x=x_min,
-                        min_y=y_min,
-                        max_x=x_max,
-                        max_y=y_max,
+                if is_present:
+                    self.active_boxes[obstacle_name] = self.make_box(
+                        obstacle_name,
+                        pose,
                     )
-                    snapshot = AABB2DArray()
-                    snapshot.header.stamp = self.get_clock().now().to_msg()
-                    snapshot.header.frame_id = 'world'
-                    snapshot.boxes = [] if box is None else [box]
-                    self.obs_pub.publish(snapshot)
-                    self.replanning_flag = True
-                elif self.z_previous > 0.5 and pose.pose.position.z <= 0.5 and not self.replanning_flag:
-                    self.get_logger().warn(f'obstacle is added ')
-                        
-                    x_min = pose.pose.position.x - self.half_edge_length
-                    x_max = pose.pose.position.x + self.half_edge_length
-                    y_min = pose.pose.position.y - self.half_edge_length
-                    y_max = pose.pose.position.y + self.half_edge_length
-                    box = AABB2D(
-                            id=self.obstacle_name,
-                            min_x=x_min,
-                            min_y=y_min,
-                            max_x=x_max,
-                            max_y=y_max,
-                        )
-                    snapshot = AABB2DArray()
-                    snapshot.header.stamp = self.get_clock().now().to_msg()
-                    snapshot.header.frame_id = 'world'
-                    snapshot.boxes = [] if box is None else [box]
-                    self.obs_pub.publish(snapshot)
-                    self.replanning_flag = True
-                self.z_previous = pose.pose.position.z
-                break
 
+                    self.get_logger().info(
+                        f'Initialized obstacle {obstacle_name}: present; '
+                        f'pose=({pose.position.x:.3f}, {pose.position.y:.3f}, {pose.position.z:.3f})'
+                    )
+                else:
+                    self.active_boxes.pop(obstacle_name, None)
+
+                    self.get_logger().info(
+                        f'Initialized obstacle {obstacle_name}: removed; '
+                        f'pose=({pose.position.x:.3f}, {pose.position.y:.3f}, {pose.position.z:.3f})'
+                    )
+
+                snapshot_changed = True
+                continue
+
+            if is_present == was_present:
+                continue
+
+            self.obstacle_present[obstacle_name] = is_present
+            snapshot_changed = True
+
+
+            if is_present:
+                self.active_boxes[obstacle_name] = self.make_box(
+                    obstacle_name,
+                    pose,
+                )
+
+                self.get_logger().info(
+                    f'Obstacle {obstacle_name} added; '
+                    f'pose=({pose.position.x:.3f}, {pose.position.y:.3f}, {pose.position.z:.3f})'
+                )
+            else:
+                self.active_boxes.pop(obstacle_name, None)
+
+                self.get_logger().info(
+                    f'Obstacle {obstacle_name} removed; '
+                    f'pose=({pose.position.x:.3f}, {pose.position.y:.3f}, {pose.position.z:.3f})'
+                )
+
+        if snapshot_changed or not self.first_time_published:
+            self.publish_obstacle_snapshot()
+            self.first_time_published = True
+
+            # region legacy
+            # if pose.name == self.obstacle_name:
+            #     self.latest_pose = pose.pose
+
+            #     #init pose. Take zero if mocap doesn't have a pose yet.
+            #     if not self.initialized:
+            #         x0 = pose.pose.position.x
+            #         y0 = pose.pose.position.y
+            #         z0 = pose.pose.position.z
+
+            #         if self.z_previous <= 0.5 and z0 > 0.5 and not self.replanning_flag:
+            #             self.get_logger().warn(f'obstacle is removed ')
+
+            #             x_min = pose.pose.position.x - self.half_edge_length
+            #             x_max = pose.pose.position.x + self.half_edge_length
+            #             y_min = pose.pose.position.y - self.half_edge_length
+            #             y_max = pose.pose.position.y + self.half_edge_length
+            #             box = AABB2D(
+            #                 id=self.obstacle_name,
+            #                 min_x=x_min,
+            #                 min_y=y_min,
+            #                 max_x=x_max,
+            #                 max_y=y_max,
+            #             )
+            #             snapshot = AABB2DArray()
+            #             snapshot.header.stamp = self.get_clock().now().to_msg()
+            #             snapshot.header.frame_id = 'world'
+            #             snapshot.boxes = [] if box is None else [box]
+            #             self.obs_pub.publish(snapshot)
+            #             self.replanning_flag = True
+            #         elif self.z_previous > 0.5 and z0 <= 0.5 and not self.replanning_flag:
+            #             self.get_logger().warn(f'obstacle is added ')
+
+            #             x_min = pose.pose.position.x - self.half_edge_length
+            #             x_max = pose.pose.position.x + self.half_edge_length
+            #             y_min = pose.pose.position.y - self.half_edge_length
+            #             y_max = pose.pose.position.y + self.half_edge_length
+            #             box = AABB2D(
+            #                 id=self.obstacle_name,
+            #                 min_x=x_min,
+            #                 min_y=y_min,
+            #                 max_x=x_max,
+            #                 max_y=y_max,
+            #             )
+            #             snapshot = AABB2DArray()
+            #             snapshot.header.stamp = self.get_clock().now().to_msg()
+            #             snapshot.header.frame_id = 'world'
+            #             snapshot.boxes = [] if box is None else [box]
+            #             self.obs_pub.publish(snapshot)
+            #             self.replanning_flag = True
+                    
+            #         self.z_previous = z0
+            #         self.initialized = True
+            #         self.get_logger().info(f'Initialized at x={x0:.3f}, y={y0:.3f}, z={z0:.3f}')
+            #         continue
+
+            #     if self.z_previous <= 0.5 and pose.pose.position.z > 0.5 and not self.replanning_flag:
+            #         self.get_logger().warn(f'obstacle is removed ')
+
+            #         x_min = pose.pose.position.x - self.half_edge_length
+            #         x_max = pose.pose.position.x + self.half_edge_length
+            #         y_min = pose.pose.position.y - self.half_edge_length
+            #         y_max = pose.pose.position.y + self.half_edge_length
+
+
+            #         box = AABB2D(
+            #             id=self.obstacle_name,
+            #             min_x=x_min,
+            #             min_y=y_min,
+            #             max_x=x_max,
+            #             max_y=y_max,
+            #         )
+            #         snapshot = AABB2DArray()
+            #         snapshot.header.stamp = self.get_clock().now().to_msg()
+            #         snapshot.header.frame_id = 'world'
+            #         snapshot.boxes = [] if box is None else [box]
+            #         self.obs_pub.publish(snapshot)
+            #         self.replanning_flag = True
+            #     elif self.z_previous > 0.5 and pose.pose.position.z <= 0.5 and not self.replanning_flag:
+            #         self.get_logger().warn(f'obstacle is added ')
+                        
+            #         x_min = pose.pose.position.x - self.half_edge_length
+            #         x_max = pose.pose.position.x + self.half_edge_length
+            #         y_min = pose.pose.position.y - self.half_edge_length
+            #         y_max = pose.pose.position.y + self.half_edge_length
+            #         box = AABB2D(
+            #                 id=self.obstacle_name,
+            #                 min_x=x_min,
+            #                 min_y=y_min,
+            #                 max_x=x_max,
+            #                 max_y=y_max,
+            #             )
+            #         snapshot = AABB2DArray()
+            #         snapshot.header.stamp = self.get_clock().now().to_msg()
+            #         snapshot.header.frame_id = 'world'
+            #         snapshot.boxes = [] if box is None else [box]
+            #         self.obs_pub.publish(snapshot)
+            #         self.replanning_flag = True
+            #     self.z_previous = pose.pose.position.z
+            #     break
+            # endregion
 
     
    
@@ -201,7 +341,9 @@ def main(args=None):
         pass
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == '__main__':

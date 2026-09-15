@@ -29,8 +29,8 @@ def generate_launch_description():
             description='AABB coordinate change required to trigger replanning'
         ),
         DeclareLaunchArgument(
-            'obstacle_name',
-            default_value='Obstacle01',
+            'obstacle_names',
+            default_value="['Obstacle01', 'Obstacle02', 'Obstacle03','ObstacleDrone']",
             description='Name of the obstacle in motion capture system'
         ),
         
@@ -40,7 +40,7 @@ def generate_launch_description():
             name='obstacle_monitor',
             output='screen',
             parameters=[{
-                'obstacle_name': LaunchConfiguration('obstacle_name'),
+                'obstacle_names': LaunchConfiguration('obstacle_names'),
                 'mocap_topic': LaunchConfiguration('mocap_topic'),
                 'obstacle_topic': LaunchConfiguration('obstacle_topic'),
                 'obstacle_change_tolerance': ParameterValue(

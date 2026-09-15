@@ -9,7 +9,7 @@ from launch.substitutions import LaunchConfiguration
 def generate_launch_description():
     pkg_share = get_package_share_directory('wmr_controller')
 
-    default_problem_path = os.path.join(pkg_share, 'external/realtime-dbastar/baselines/wmr-simulator/problems/empty.yaml')
+    default_problem_path = os.path.join(pkg_share, 'external/realtime-dbastar/baselines/wmr-simulator/problems/benchmark/benchmark.yaml')
     return LaunchDescription([
         DeclareLaunchArgument(
             'robot_name',
@@ -40,6 +40,11 @@ def generate_launch_description():
             default_value=default_problem_path,
             description='Problem'
         ),
+         DeclareLaunchArgument(
+            'instance',
+            default_value='-1_2.2_0.7854_empty',
+            description='Name of the benchmark instance to run'
+        ),
         
         Node(
             package='wmr_controller',
@@ -52,6 +57,7 @@ def generate_launch_description():
                 'cmd_vel_topic': LaunchConfiguration('cmd_unicycle_topic'),
                 'control_rate': LaunchConfiguration('control_rate'),
                 'problem': LaunchConfiguration('problem'),
+                'instance': LaunchConfiguration('instance'),
             }]
         ),
     ])

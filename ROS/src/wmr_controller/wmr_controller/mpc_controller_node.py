@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from pathlib import Path
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
@@ -41,6 +42,21 @@ else:
     print(f"Error: Could not find wmr-simulator scripts at {wmr_sim_path}")
 
 mpc_path = None
+default_problem_path = None
+try:
+    package_share_directory = ament_index_python.packages.get_package_share_directory('wmr_controller')
+    mpc_path = os.path.join(package_share_directory, 'external/realtime-dbastar/baselines/wmr-simulator/scripts')
+    default_problem_path = os.path.join(package_share_directory, 'external/realtime-dbastar/baselines/wmr-simulator/problems/benchmark/benchmark.yaml')
+except Exception:
+    pass
+
+if not mpc_path or not os.path.exists(mpc_path):
+    mpc_path = os.path.join(os.path.dirname(__file__), '../external/realtime-dbastar/baselines/wmr-simulator/scripts')
+if not default_problem_path or not os.path.exists(default_problem_path):
+    default_problem_path = os.path.join(os.path.dirname(__file__), '../external/realtime-dbastar/baselines/wmr-simulator/problems/benchmark/benchmark.yaml')
+
+if not os.path.exists(default_problem_path):
+    print(f"Error: Could not find problem file at {default_problem_path}")
 try:
     package_share_directory = ament_index_python.packages.get_package_share_directory('wmr_controller')
     mpc_path = os.path.join(package_share_directory, 'external/realtime-dbastar/baselines/wmr-simulator/scripts')
@@ -59,7 +75,7 @@ if os.path.exists(mpc_path):
 else:
     print(f"Error: Could not find scripts at {mpc_path}")
 
-
+traj_out_path = '/home/lndw/wmr-ros/ROS/src/wmr_controller/wmr_controller/results/mpc/'
 class MPCControllerNode(Node):
     def __init__(self):
         super().__init__('mpc_controller_node')
@@ -67,15 +83,20 @@ class MPCControllerNode(Node):
         # Parameters
         self.declare_parameter('robot_name', 'Pololu09')
         self.declare_parameter('frequency', 10)  # match control action frequency
+        self.declare_parameter('problem', default_problem_path)
+        self.declare_parameter('instance', '-1_2.2_0.7854_empty')
+
         self.robot_name = self.get_parameter('robot_name').value
         frequency = self.get_parameter('frequency').value
+        problem_path = str(self.get_parameter('problem').value)
+        instance_name = str(self.get_parameter('instance').value)
         # self.dt = 1.0 / frequency # TODO check if estimator is needed / can run at 100Hz as in MPC config
         # self.declare_parameter('problem', None)
 
         # problem_path = self.get_parameter('problem').value
         # print(problem_path)
-        # problem = yaml.safe_load(open(problem_path, 'r'))
-        cfg = yaml.safe_load(open(BENCHMARK_FILE, 'r'))
+        with open(problem_path, 'r') as f:
+            cfg = yaml.safe_load(f)
         shared = {k: v for k, v in cfg.items() if k != "instances"}
         out = {}
         for inst in cfg.get("instances") or []:
@@ -91,9 +112,12 @@ class MPCControllerNode(Node):
             prob = _deep_merge(shared, inst)             # inst now carries goal (+ dbastar/etc overrides)
             prob["environment"] = _deep_merge(cfg.get("environment") or {}, inline_env)
             out[name] = prob
-        
-        problem = out["-1.5_-2.5_-0.7854_empty"]
-        print(problem)
+        if instance_name not in out:
+            available = ", ".join(out.keys())
+            raise ValueError(
+                f"Unknown benchmark instance '{instance_name}'. Available: {available}"
+            )
+        problem = out[instance_name]
         # Robot parameters for pololu robots
         self.robot_param = {
             'wheel_radius': 0.0165,      # 16.5mm wheel radius
@@ -116,10 +140,10 @@ class MPCControllerNode(Node):
         self.shifts, self.jumps = [], []
         
 
+        self.problem = problem
         self.start = list(self.problem["start"])
         self.goal = list(self.problem["goal"])
 
-        self.problem = problem
         self.step = 0
 
         self.traj = []
@@ -171,7 +195,7 @@ class MPCControllerNode(Node):
         self.latest_pose = None
         self.initialized = False
         self.wheel_speeds = (0.0, 0.0)  # Estimated wheel speeds (ur, ul)
-        
+        self.traj_out_path = os.path.join(traj_out_path, f'traj_{instance_name}.csv')
         self.get_logger().info(f'WMR Controller started for robot: {self.robot_name} @ {frequency} Hz')
     
     
@@ -222,9 +246,9 @@ class MPCControllerNode(Node):
             present = [v for v in present if v not in gone]
             known += [d["box"] for d in new]
             known = [b for b in known if b not in [v["box"] for v in gone]]
-            obs_p = self.ctrl.pack_obstacles(known) if self.ctrl.M else None
-            reveals += [self.step] * bool(new)
-            vanishes += [self.step] * bool(gone)
+            self.obs_p = self.ctrl.pack_obstacles(known) if self.ctrl.M else None
+            self.reveals += [self.step] * bool(new)
+            self.vanishes += [self.step] * bool(gone)
         # TODO check shove irl?
         # A shove moves the ROBOT, not the map, so there is nothing to re-pack and
         # nothing to re-solve on purpose: MPC starts every solve from the measured
@@ -255,8 +279,6 @@ class MPCControllerNode(Node):
                 f"search_time_s: {self.t_compute}, traj: {self.traj}, "
                 f"controls: {controls}, dt: {self.dt}"
             )
-
-            self.destroy_node()
             rclpy.shutdown()
         
         #get true wheel speeds (in simulator: robot.get_wheel_speeds())
@@ -272,7 +294,7 @@ class MPCControllerNode(Node):
 
         t0 = time.perf_counter()
         #compute control commands using estimated states, use mocap pose as "true" pose instead of estimating it
-        ul_cmd, ur_cmd = self.ctrl.solve(list(pose), list(self.goal), obs=obs_p)      # timed: search only
+        ul_cmd, ur_cmd = self.ctrl.solve(list(pose), list(self.goal), obs=self.obs_p)      # timed: search only
         self.t_compute += time.perf_counter() - t0
         self.step +=1
         
@@ -306,6 +328,10 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
     finally:
+        with open(node.traj_out_path, 'w') as f:
+            f.write("x,y,theta\n")
+            for pose in node.traj:
+                f.write(f"{pose[0]:.6f},{pose[1]:.6f},{pose[2]:.6f}\n")
         node.destroy_node()
         rclpy.shutdown()
 
