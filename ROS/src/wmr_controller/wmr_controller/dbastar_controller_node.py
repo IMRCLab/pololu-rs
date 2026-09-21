@@ -685,10 +685,10 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
     finally:
-        with open(node.traj_out_path, 'w') as f:
-            f.write("x,y,theta\n")
-            for pose in node.traj:
-                f.write(f"{pose[0]:.6f},{pose[1]:.6f},{pose[2]:.6f}\n")
+        # with open(node.traj_out_path, 'w') as f:
+        #     f.write("x,y,theta\n")
+        #     for pose in node.traj:
+        #         f.write(f"{pose[0]:.6f},{pose[1]:.6f},{pose[2]:.6f}\n")
         node.destroy_node()
         rclpy.shutdown()
 

@@ -63,8 +63,13 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'displacement_thr',
-            default_value='0.05',
+            default_value='0.1',
             description='Difference between predicted and actual pose to trigger displacement replanning'
+        ),
+        DeclareLaunchArgument(
+            'bug_trap',
+            default_value='False',
+            description='Enable bug trap obstacles'
         ),
         
 
@@ -80,6 +85,9 @@ def generate_launch_description():
                 'obstacle_change_tolerance': ParameterValue(
                     LaunchConfiguration('obstacle_change_tolerance'), value_type=float
                 ),
+                'bug_trap': ParameterValue(
+                    LaunchConfiguration('bug_trap'), value_type=bool
+                )
             }]
         ), 
         Node(

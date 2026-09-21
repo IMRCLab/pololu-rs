@@ -33,6 +33,11 @@ def generate_launch_description():
             default_value="['Obstacle01', 'Obstacle02', 'Obstacle03','ObstacleDrone']",
             description='Name of the obstacle in motion capture system'
         ),
+        DeclareLaunchArgument(
+            'bug_trap',
+            default_value='False',
+            description='Enable bug trap obstacles'
+        ),
         
         Node(
             package='wmr_controller',
@@ -46,6 +51,9 @@ def generate_launch_description():
                 'obstacle_change_tolerance': ParameterValue(
                     LaunchConfiguration('obstacle_change_tolerance'), value_type=float
                 ),
+                'bug_trap': ParameterValue(
+                    LaunchConfiguration('bug_trap'), value_type=bool
+                )
             }]
         )
     ])

@@ -46,6 +46,9 @@ class ObstacleMonitoringNode(Node):
         self.declare_parameter('mocap_topic', '/poses')
         self.declare_parameter('obstacle_topic', '/obstacles_aabb')
         self.declare_parameter('obstacle_change_tolerance', 0.02)
+        self.declare_parameter('bug_trap', False)
+
+        self.bug_trap = bool(self.get_parameter('bug_trap').value)
 
         # self.obstacle_name = str(self.get_parameter('obstacle_name').value)
         self.obstacle_names = [
@@ -112,6 +115,7 @@ class ObstacleMonitoringNode(Node):
         #publish velocity commands (v, w) on /cmd_unicycle topic 
         self.obs_pub = self.create_publisher(AABB2DArray, obstacle_topic, obs_qos)
 
+
         self.get_logger().info(
             'Obstacle monitoring node started; '
             f'obstacles={self.obstacle_names}, '
@@ -131,6 +135,32 @@ class ObstacleMonitoringNode(Node):
             max_x=x + self.half_edge_length,
             min_y=y - self.half_edge_length,
             max_y=y + self.half_edge_length,
+        )
+    
+    def make_bug_trap(self):
+        # [min_x, min_y, max_x, max_y]
+        obstacles = [[-0.25, 0.2475, 0.25, 0.2525], [-0.2525, -0.25, -0.2475, 0.25], [0.2475, -0.25, 0.2525, 0.25], [0.16, -0.2525, 0.25, -0.2475], [-0.25, -0.2525, -0.16, -0.2475]]
+        return [AABB2D(
+            id=f'bug_trap_{i}',
+            min_x=obs[0],
+            min_y=obs[1],
+            max_x=obs[2],
+            max_y=obs[3],
+            ) for i, obs in enumerate(obstacles)
+        ]
+    
+    def publish_bug_trap(self):
+        boxes = self.make_bug_trap()
+        snapshot = AABB2DArray()
+        snapshot.header.stamp = self.get_clock().now().to_msg()
+        snapshot.header.frame_id = 'world'
+        snapshot.boxes = boxes
+
+        self.obs_pub.publish(snapshot)
+
+        self.get_logger().info(
+            'Published bug trap obstacles snapshot: '
+            f'{[box.id for box in boxes]}'
         )
 
     def publish_obstacle_snapshot(self):
@@ -224,6 +254,10 @@ class ObstacleMonitoringNode(Node):
                 )
 
         if snapshot_changed or not self.first_time_published:
+            if self.bug_trap:
+                self.publish_bug_trap()
+                self.first_time_published = True
+                return
             self.publish_obstacle_snapshot()
             self.first_time_published = True
 

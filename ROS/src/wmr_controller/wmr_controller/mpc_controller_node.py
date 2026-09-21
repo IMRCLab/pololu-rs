@@ -1,17 +1,24 @@
 #!/usr/bin/env python3
-from pathlib import Path
+import copy
+from concurrent.futures import ThreadPoolExecutor
+
 import rclpy
 from rclpy.node import Node
-from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy, QoSDurabilityPolicy
 from geometry_msgs.msg import Twist, Vector3
 from motion_capture_tracking_interfaces.msg import NamedPoseArray
+from wmr_interfaces.msg import AABB2DArray
+from wmr_controller.aabb_utils import (
+    aabb_map_from_messages,
+    compare_aabb_maps,
+    planner_obstacles,
+)
 import numpy as np
 import sys
 import os
 import time
 import glob
 import yaml
-BENCHMARK_FILE = "/home/lndw/wmr-ros/ROS/src/wmr_controller/external/realtime-dbastar/baselines/wmr-simulator/problems/benchmark/benchmark.yaml"
 venv_pattern = os.path.expanduser('~/wmr-ros/ROS/.venv/lib/python3.*/site-packages')
 venv_matches = glob.glob(venv_pattern)
 if venv_matches:
@@ -25,6 +32,7 @@ import ament_index_python.packages
 try:
     package_share_directory = ament_index_python.packages.get_package_share_directory('wmr_controller')
     wmr_sim_path = os.path.join(package_share_directory, 'deps/wmr-simulator/scripts')
+
 except Exception:
     wmr_sim_path = None
 
@@ -36,65 +44,72 @@ if not wmr_sim_path or not os.path.exists(wmr_sim_path):
 
 if os.path.exists(wmr_sim_path):
     sys.path.insert(0, wmr_sim_path)
-    # from controller import Controller
+    from controller import Controller
     from estimator import DiffDriveEstimator
 else:
     print(f"Error: Could not find wmr-simulator scripts at {wmr_sim_path}")
 
-mpc_path = None
+mpc_dbastar_path = None
 default_problem_path = None
 try:
     package_share_directory = ament_index_python.packages.get_package_share_directory('wmr_controller')
-    mpc_path = os.path.join(package_share_directory, 'external/realtime-dbastar/baselines/wmr-simulator/scripts')
+    mpc_dbastar_path = os.path.join(package_share_directory, 'external/realtime-dbastar/baselines/wmr-simulator/scripts')
     default_problem_path = os.path.join(package_share_directory, 'external/realtime-dbastar/baselines/wmr-simulator/problems/benchmark/benchmark.yaml')
 except Exception:
     pass
 
-if not mpc_path or not os.path.exists(mpc_path):
-    mpc_path = os.path.join(os.path.dirname(__file__), '../external/realtime-dbastar/baselines/wmr-simulator/scripts')
+if not mpc_dbastar_path or not os.path.exists(mpc_dbastar_path):
+    mpc_dbastar_path = os.path.join(os.path.dirname(__file__), '../external/realtime-dbastar/baselines/wmr-simulator/scripts')
 if not default_problem_path or not os.path.exists(default_problem_path):
     default_problem_path = os.path.join(os.path.dirname(__file__), '../external/realtime-dbastar/baselines/wmr-simulator/problems/benchmark/benchmark.yaml')
 
 if not os.path.exists(default_problem_path):
     print(f"Error: Could not find problem file at {default_problem_path}")
-try:
-    package_share_directory = ament_index_python.packages.get_package_share_directory('wmr_controller')
-    mpc_path = os.path.join(package_share_directory, 'external/realtime-dbastar/baselines/wmr-simulator/scripts')
-except Exception:
-    pass
 
-if not mpc_path or not os.path.exists(mpc_path):
-    mpc_path = os.path.join(os.path.dirname(__file__), '../external/realtime-dbastar/baselines/wmr-simulator/scripts')
-
-if os.path.exists(mpc_path):
-    sys.path.insert(0, mpc_path)
-
-    from mpcController import QTO_MPC
+if os.path.exists(mpc_dbastar_path):
+    sys.path.insert(0, mpc_dbastar_path)
     from benchmark import _deep_merge
-    from simulator import goal_reached, obstacles_of, dynamic_obstacles_of, vanishing_obstacles_of, displacements_of, _mpc_sized_for, triggered, displacement_triggered, in_collision
+    from simulator import goal_reached, obstacles_of, dynamic_obstacles_of, vanishing_obstacles_of, displacements_of, _mpc_sized_for
+    from mpcController import QTO_MPC
 else:
-    print(f"Error: Could not find scripts at {mpc_path}")
+    print(f"Error: Could not find scripts at {mpc_dbastar_path}")
 
 traj_out_path = '/home/lndw/wmr-ros/ROS/src/wmr_controller/wmr_controller/results/mpc/'
-class MPCControllerNode(Node):
+class mpcControllerNode(Node):
     def __init__(self):
         super().__init__('mpc_controller_node')
         
         # Parameters
         self.declare_parameter('robot_name', 'Pololu09')
-        self.declare_parameter('frequency', 10)  # match control action frequency
+        self.declare_parameter('mocap_topic', '/poses')
+        self.declare_parameter('cmd_unicycle_topic', '/cmd_unicycle')
+        self.declare_parameter('control_dt', 0.02)
         self.declare_parameter('problem', default_problem_path)
-        self.declare_parameter('instance', '-1_2.2_0.7854_empty')
+        self.declare_parameter('instance', '1.3_0.5_2.3562_empty')
+        self.declare_parameter('obstacle_topic', '/obstacles_aabb')
+        self.declare_parameter('obstacle_change_tolerance', 0.02)
+        self.declare_parameter('max_obstacles', 15)  # Maximum number of obstacles for MPC
 
-        self.robot_name = self.get_parameter('robot_name').value
-        frequency = self.get_parameter('frequency').value
+        self.robot_name = str(self.get_parameter('robot_name').value)
+        mocap_topic = str(self.get_parameter('mocap_topic').value)
+        cmd_unicycle_topic = str(self.get_parameter('cmd_unicycle_topic').value)
+        control_dt = float(self.get_parameter('control_dt').value)
         problem_path = str(self.get_parameter('problem').value)
         instance_name = str(self.get_parameter('instance').value)
-        # self.dt = 1.0 / frequency # TODO check if estimator is needed / can run at 100Hz as in MPC config
-        # self.declare_parameter('problem', None)
+        obstacle_topic = str(self.get_parameter('obstacle_topic').value)
+        self.obstacle_change_tolerance = float(
+            self.get_parameter('obstacle_change_tolerance').value
+        )
+        self.max_obstacles = int(self.get_parameter('max_obstacles').value)
 
-        # problem_path = self.get_parameter('problem').value
-        # print(problem_path)
+
+        if control_dt <= 0.0:
+            raise ValueError("ROS parameter 'control_dt' must be greater than zero")
+        if not os.path.isfile(problem_path):
+            raise FileNotFoundError(f"Problem file does not exist: {problem_path}")
+        if self.obstacle_change_tolerance < 0.0:
+            raise ValueError("obstacle_change_tolerance must be non-negative")
+
         with open(problem_path, 'r') as f:
             cfg = yaml.safe_load(f)
         shared = {k: v for k, v in cfg.items() if k != "instances"}
@@ -112,58 +127,36 @@ class MPCControllerNode(Node):
             prob = _deep_merge(shared, inst)             # inst now carries goal (+ dbastar/etc overrides)
             prob["environment"] = _deep_merge(cfg.get("environment") or {}, inline_env)
             out[name] = prob
+        
         if instance_name not in out:
             available = ", ".join(out.keys())
             raise ValueError(
                 f"Unknown benchmark instance '{instance_name}'. Available: {available}"
             )
         problem = out[instance_name]
-        # Robot parameters for pololu robots
-        self.robot_param = {
-            'wheel_radius': 0.0165,      # 16.5mm wheel radius
-            'base_diameter': 0.085        # 85mm wheelbase
-        }
         
-        # Initialize controller from mpcController
-        self.dt, self.thr = float(problem["dbastar"]["dt"]), float(problem["dbastar"]["goal_threshold"])
-        self.steps_max = int(problem["sim_time"] / self.dt)
-        static = obstacles_of(problem)
-        dyn, van = dynamic_obstacles_of(problem), vanishing_obstacles_of(problem)
-        self.shoves = list(displacements_of(problem))
-        print(self.shoves)
-        self.ctrl = QTO_MPC(robot_param=_mpc_sized_for(problem, len(static) + len(dyn) + len(van)))
-        self.ctrl.initiaize_variables()
-        self.known = list(static) + [v["box"] for v in van]
-        self.hidden, self.present = list(dyn), list(van)
-        self.obs_p = self.ctrl.pack_obstacles(self.known) if self.ctrl.M else None
-        self.t_compute, self.reached, self.reveals, self.vanishes = 0.0, False, [], []
-        self.shifts, self.jumps = [], []
-        
+        self.controller_dt = float(problem["dbastar"]["dt"])
+        if self.controller_dt <= 0.0:
+            raise ValueError(
+                "dbastar.dt must be greater than zero"
+            )
 
+        self.thr = float(problem["dbastar"]["goal_threshold"])
+        self.steps_max = int(problem["sim_time"] / self.controller_dt)
+
+        
         self.problem = problem
         self.start = list(self.problem["start"])
         self.goal = list(self.problem["goal"])
 
-        self.step = 0
+        self.setpoints = np.asarray([], dtype=float).reshape(0, 6)  # [x, y, theta, vx, vy, w]
+
+        self.i = 0
 
         self.traj = []
         self.log_wheel_cmd = []
 
-        #init estimator from wmr-simulator
-        estimator_cfg = {
-            "type": "dr",  # Dead reckoning for now (or "kf" for Kalman filter)
-            "wheel_radius": self.robot_param['wheel_radius'],
-            "base_diameter": self.robot_param['base_diameter'],
-            "start": [0.0, 0.0, 0.0],  # Will be updated from first mocap pose
-            "noise_pos": 0.001,
-            "noise_angle": 0.01,
-            "enc_angle_noise": 0.0,
-            "proc_pos_std": 0.01,
-            "proc_theta_std": 0.01
-        }
-        self.estimator = DiffDriveEstimator(estimator_cfg, self.dt)
-        
-        # QoS for mocap (BEST_EFFORT like controller_interface)
+         # QoS for mocap (BEST_EFFORT like controller_interface)
         mocap_qos = QoSProfile(
             reliability=QoSReliabilityPolicy.BEST_EFFORT,
             history=QoSHistoryPolicy.KEEP_LAST,
@@ -180,28 +173,88 @@ class MPCControllerNode(Node):
         # Subscribe to mocap poses
         self.mocap_sub = self.create_subscription(
             NamedPoseArray,
-            '/poses',
+            mocap_topic,
             self.poses_callback,
             mocap_qos
         )
+
+        obs_qos = QoSProfile(
+            reliability=QoSReliabilityPolicy.RELIABLE,
+            durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
+            history=QoSHistoryPolicy.KEEP_LAST,
+            depth=1
+        )
+
+        self.obstacle_sub = self.create_subscription(
+            AABB2DArray,
+            obstacle_topic,
+            self.obstacles_callback,
+            obs_qos
+        )
         
         #publish velocity commands (v, w) on /cmd_unicycle topic 
-        self.cmd_pub = self.create_publisher(Vector3, '/cmd_unicycle', cmd_qos)
+        self.cmd_pub = self.create_publisher(Vector3, cmd_unicycle_topic, cmd_qos)
         
         # Timer for control loop
-        self.timer = self.create_timer(self.dt, self.control_loop)
-        
+        self.timer = self.create_timer(self.controller_dt, self.control_loop)     
+
+        # Robot parameters for pololu robots
+        robot_cfg = self.problem["robotcfg"]
+        self.robot_param = {
+            'wheel_radius':
+                float(robot_cfg["wheel_radius"]),
+            'base_diameter':
+                float(robot_cfg["base_diameter"]),
+        }
+
+        self.get_logger().info("Initializing MPC controller...")
+        self.ctrl = QTO_MPC(robot_param=_mpc_sized_for(problem, self.max_obstacles))
+        self.ctrl.initiaize_variables()
+
+        #init estimator from wmr-simulator
+        estimator_cfg = {
+            "type": "dr",  # Dead reckoning for now (or "kf" for Kalman filter)
+            "wheel_radius": self.robot_param['wheel_radius'],
+            "base_diameter": self.robot_param['base_diameter'],
+            "start": [0.0, 0.0, 0.0],  # Will be updated from first mocap pose
+            "noise_pos": 0.001,
+            "noise_angle": 0.01,
+            "enc_angle_noise": 0.0,
+            "proc_pos_std": 0.01,
+            "proc_theta_std": 0.01
+        }
+        self.estimator = DiffDriveEstimator(estimator_cfg, self.controller_dt)
+
+        # AABB snapshots are reusable ROS inputs.  Planning stays single-threaded
+        # because every SMAG invocation writes the same traj/*.csv files.
+        self.obstacles_initialized = False
+        self.observed_obstacles = {}
+        # self.observed_obstacles = {
+        #     f"yaml_{index}": tuple(box)
+        #     for index, box in enumerate(obstacles_of(self.problem))
+        # }
+       
         # State
         self.latest_pose = None
         self.initialized = False
         self.wheel_speeds = (0.0, 0.0)  # Estimated wheel speeds (ur, ul)
+        
         self.traj_out_path = os.path.join(traj_out_path, f'traj_{instance_name}.csv')
-        self.get_logger().info(f'WMR Controller started for robot: {self.robot_name} @ {frequency} Hz')
+
+        self.get_logger().info(
+            f'MPC controller started for robot: {self.robot_name} @ {1.0/self.controller_dt:g} Hz; '
+            f'mocap={mocap_topic}, obstacles={obstacle_topic}, '
+            f'cmd={cmd_unicycle_topic}, instance={instance_name}'
+        )
     
+
+    def stop_robot(self):
+        self.cmd_pub.publish(Vector3())
+        self.timer.cancel()
+        self.stopped = True
     
     def poses_callback(self, msg: NamedPoseArray):
         """Callback for motion capture poses"""
-
         #idea: mocap publishes at its own rate. The last pose that was incoming is stored for usage at the defined control loop execution rate.
         for pose in msg.poses:
             if pose.name == self.robot_name:
@@ -217,12 +270,65 @@ class MPCControllerNode(Node):
                     self.estimator._init_state(x0, y0, th0)
                     self.initialized = True
                     self.get_logger().info(f'Initialized at x={x0:.3f}, y={y0:.3f}, theta={th0:.3f}')
+                    # self.get_logger().info(f'Initialized_Flag_Pose_Callback: {self.initialized}')
                 break
+
+
+    def current_robot_pose(self):
+        if self.latest_pose is None:
+            return None
+
+        pose = self.latest_pose
+        q = pose.orientation
+        theta = self.estimator._wrap_to_pi(
+            np.arctan2(
+                2.0 * (q.w * q.z + q.x * q.y),
+                1.0 - 2.0 * (q.y ** 2 + q.z ** 2),
+            )
+        )
+        return [float(pose.position.x), float(pose.position.y), float(theta)]
+
+    def obstacles_callback(self, msg: AABB2DArray):
+        """Consume a complete, current AABB snapshot."""
+        self.get_logger().warn('obstacle_callback is called')
+        if not self.obstacles_initialized:
+            self.observed_obstacles = aabb_map_from_messages(msg.boxes)
+            self.obstacles_initialized = True
+        else:
+            try:
+                new_obstacles = aabb_map_from_messages(msg.boxes)
+                changes = compare_aabb_maps(
+                    self.observed_obstacles,
+                    new_obstacles,
+                    self.obstacle_change_tolerance,
+                )
+            except ValueError as error:
+                self.get_logger().warn(f"Ignoring invalid AABB snapshot: {error}")
+                return
+
+            if not changes.changed:
+                self.get_logger().info("AABB map unchanged")
+                return
+
+            self.observed_obstacles = new_obstacles
+            self.cmd_pub.publish(Vector3())
+            self.get_logger().info(
+                f"AABB map changed: added={list(changes.added)}, "
+                f"removed={list(changes.removed)}, moved={list(changes.moved)}"
+            )
+
     
     def control_loop(self):
         """copied from simulator.py and adapted to run inside a ros2 node """
+        # self.get_logger().info(f'Initialized_Flag_Control_Loop: {self.initialized}')
         if not self.initialized or self.latest_pose is None:
             self.get_logger().warn('Waiting for first mocap pose...', throttle_duration_sec=2.0)
+            self.cmd_pub.publish(Vector3())
+            return
+        
+        if not self.obstacles_initialized:
+            self.get_logger().warn('Waiting for first obstacle map...', throttle_duration_sec=2.0)
+            self.cmd_pub.publish(Vector3())
             return
         
         #get true pose from mocap (replaces robot.get_pose() in simulator)
@@ -232,54 +338,20 @@ class MPCControllerNode(Node):
         theta_true = self.estimator._wrap_to_pi(np.arctan2(2*(q.w*q.z + q.x*q.y), 1 - 2*(q.y**2 + q.z**2)))
         pose_true = (x_true, y_true, theta_true)
         self.traj.append(pose_true)
-        pose = pose_true
 
-        # Both events are just a write to the obstacle PARAMETER: MPC re-solves from
-        # scratch every step anyway, so the next solve is already the reaction -- no
-        # rebuild, no re-initialisation, nothing to re-warm. A vanishing box needs no
-        # decision here either: with its constraints gone the solver takes the
-        # shortcut on its own if the shortcut is actually better.
-        new = [d for d in self.hidden if triggered(d, pose, self.step * self.dt)]
-        gone = [v for v in self.present if triggered(v, pose, self.step * self.dt)]
-        if new or gone:
-            hidden = [d for d in hidden if d not in new]
-            present = [v for v in present if v not in gone]
-            known += [d["box"] for d in new]
-            known = [b for b in known if b not in [v["box"] for v in gone]]
-            self.obs_p = self.ctrl.pack_obstacles(known) if self.ctrl.M else None
-            self.reveals += [self.step] * bool(new)
-            self.vanishes += [self.step] * bool(gone)
-        # TODO check shove irl?
-        # A shove moves the ROBOT, not the map, so there is nothing to re-pack and
-        # nothing to re-solve on purpose: MPC starts every solve from the measured
-        # pose, so writing the new pose IS its replan. The logs are left alone --
-        # the displaced pose is not a pose it drove to, so the discontinuity sits
-        # between rows `step` and `step + 1` and `shifts` records it.
-        # moved = [x for x in self.shoves
-        #          if self.step > 0 and displacement_triggered(x, pose, self.step * self.dt, self.start, self.goal)]
-        # for x in moved:
-        #     self.shoves.remove(x)
-        #     self.jumps.append((list(pose), list(pose_true)))
-        #     self.shifts.append(self.step)
-        #     if in_collision(pose[0], pose[1], known):
-        #         print(f"[mpc] !! displacement puts the robot inside an obstacle at "
-        #               f"({pose[0]:.2f}, {pose[1]:.2f}).", flush=True)
-        
-    
         self.reached = goal_reached(pose_true, self.goal, self.thr, float(self.problem["dbastar"]["goal_error_tolerance"]))
-        # stop if goal reached or max iterations reached
-        if self.reached or self.step > self.steps_max:
-            cmd = Vector3()
-            self.cmd_pub.publish(cmd)
+        # stop if goal reached
+        if self.reached:
+            self.get_logger().info("Goal reached")
+            self.stop_robot()
+            return
 
-            cost_s = (len(self.traj) - 1) * self.dt if self.reached else None
-            controls = np.array(self.log_wheel_cmd)
-            self.get_logger().info(
-                f"reached: {self.reached}, cost_s: {cost_s}, "
-                f"search_time_s: {self.t_compute}, traj: {self.traj}, "
-                f"controls: {controls}, dt: {self.dt}"
+        if self.i >= self.steps_max:
+            self.get_logger().warn(
+                "Maximum control duration reached"
             )
-            rclpy.shutdown()
+            self.stop_robot()
+            return
         
         #get true wheel speeds (in simulator: robot.get_wheel_speeds())
         #TODO: get robot log data eventually to use encoder readings for real wheel speeds
@@ -292,11 +364,19 @@ class MPCControllerNode(Node):
         # ur_hat, ul_hat = self.estimator.get_est_wheel_speeds()
         # wheel_est = (ur_hat, ul_hat)
 
-        t0 = time.perf_counter()
         #compute control commands using estimated states, use mocap pose as "true" pose instead of estimating it
-        ul_cmd, ur_cmd = self.ctrl.solve(list(pose), list(self.goal), obs=self.obs_p)      # timed: search only
-        self.t_compute += time.perf_counter() - t0
-        self.step +=1
+        # ref_state = self.setpoints[self.i]
+        # self.get_logger().info('Solving MPC...')
+        boxes = planner_obstacles(self.observed_obstacles)
+        obs_p = self.ctrl.pack_obstacles(boxes)
+
+        ul_cmd, ur_cmd = self.ctrl.solve(
+            list(pose_true),
+            list(self.goal),
+            obs=obs_p,
+)
+        ul_cmd, ur_cmd = self.ctrl.solve(list(pose_true), list(self.goal), obs=obs_p) 
+        self.i += 1
         
         #convert wheel speeds to (v, w) for publishing
         #TODO: is it maybe better to publish r & l for pololu?
@@ -305,6 +385,8 @@ class MPCControllerNode(Node):
         v = r * (ur_cmd + ul_cmd) / 2.0
         w = r * (ur_cmd - ul_cmd) / L
         # self.get_logger().info(f'v={v:.3f}, w={w:.3f}')
+        # self.get_logger().info(f'x={ref_state[0]:.3f}, y={ref_state[1]:.3f}, theta={ref_state[2]:.3f}')
+        # self.get_logger().info(f'ur={ur_cmd:.3f}, ul={ul_cmd:.3f}')
 
         #publish control actions --> controller interface expects (v, w) and sends it to pololu like x box controller inputs
         cmd = Vector3()
@@ -321,17 +403,17 @@ class MPCControllerNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = MPCControllerNode()
+    node = mpcControllerNode()
     
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
         pass
     finally:
-        with open(node.traj_out_path, 'w') as f:
-            f.write("x,y,theta\n")
-            for pose in node.traj:
-                f.write(f"{pose[0]:.6f},{pose[1]:.6f},{pose[2]:.6f}\n")
+        # with open(node.traj_out_path, 'w') as f:
+        #     f.write("x,y,theta\n")
+        #     for pose in node.traj:
+        #         f.write(f"{pose[0]:.6f},{pose[1]:.6f},{pose[2]:.6f}\n")
         node.destroy_node()
         rclpy.shutdown()
 

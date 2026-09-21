@@ -4,6 +4,7 @@ from launch import LaunchDescription
 from launch_ros.actions import Node
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
@@ -30,9 +31,9 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             #control loop execution frequency
-            'control_rate',
-            default_value='10', #0.1s in controller simulation code
-            description='Control loop rate in Hz'
+            'control_dt',
+            default_value='0.02', #0.02s in controller simulation code
+            description='Control loop rate in s'
         ),
         DeclareLaunchArgument(
             #problem
@@ -40,12 +41,57 @@ def generate_launch_description():
             default_value=default_problem_path,
             description='Problem'
         ),
-         DeclareLaunchArgument(
+        DeclareLaunchArgument(
             'instance',
             default_value='-1_2.2_0.7854_empty',
             description='Name of the benchmark instance to run'
         ),
+        DeclareLaunchArgument(
+            'obstacle_topic',
+            default_value='/obstacles_aabb',
+            description='Topic containing the complete current AABB obstacle set'
+        ),
+        DeclareLaunchArgument(
+            'obstacle_change_tolerance',
+            default_value='0.02',
+            description='AABB coordinate change required to trigger replanning'
+        ),
+        DeclareLaunchArgument(
+            'obstacle_name',
+            default_value='Obstacle01',
+            description='Name of the obstacle in motion capture system'
+        ),
+        DeclareLaunchArgument(
+            'max_obstacles',
+            default_value='1',
+            description='Maximum number of obstacles for MPC'
+        ),
+
+        DeclareLaunchArgument(
+            'bug_trap',
+            default_value='False',
+            description='Enable bug trap obstacles'
+        ),
         
+        
+
+        Node(
+            package='wmr_controller',
+            executable='obstacle_monitor',
+            name='obstacle_monitor',
+            output='screen',
+            parameters=[{
+                'obstacle_name': LaunchConfiguration('obstacle_name'),
+                'mocap_topic': LaunchConfiguration('mocap_topic'),
+                'obstacle_topic': LaunchConfiguration('obstacle_topic'),
+                'obstacle_change_tolerance': ParameterValue(
+                    LaunchConfiguration('obstacle_change_tolerance'), value_type=float
+                ),
+                'bug_trap': ParameterValue(
+                    LaunchConfiguration('bug_trap'), value_type=bool
+                )
+            }]
+        ), 
         Node(
             package='wmr_controller',
             executable='mpc_controller_node',
@@ -54,10 +100,20 @@ def generate_launch_description():
             parameters=[{
                 'robot_name': LaunchConfiguration('robot_name'),
                 'mocap_topic': LaunchConfiguration('mocap_topic'),
-                'cmd_vel_topic': LaunchConfiguration('cmd_unicycle_topic'),
-                'control_rate': LaunchConfiguration('control_rate'),
+                'cmd_unicycle_topic': LaunchConfiguration('cmd_unicycle_topic'),
+                'control_dt': ParameterValue(
+                    LaunchConfiguration('control_dt'), value_type=float
+                ),
                 'problem': LaunchConfiguration('problem'),
                 'instance': LaunchConfiguration('instance'),
+                'obstacle_topic': LaunchConfiguration('obstacle_topic'),
+                'obstacle_change_tolerance': ParameterValue(
+                    LaunchConfiguration('obstacle_change_tolerance'), value_type=float
+                ),
+                'max_obstacles': ParameterValue(
+                    LaunchConfiguration('max_obstacles'), value_type=int
+                ),
             }]
         ),
+
     ])
