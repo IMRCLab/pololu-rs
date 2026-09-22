@@ -21,7 +21,6 @@ import os
 import time
 import glob
 import yaml
-BENCHMARK_FILE = "/home/lndw/wmr-ros/ROS/src/wmr_controller/external/realtime-dbastar/baselines/wmr-simulator/problems/benchmark/benchmark.yaml"
 venv_pattern = os.path.expanduser('~/wmr-ros/ROS/.venv/lib/python3.*/site-packages')
 venv_matches = glob.glob(venv_pattern)
 if venv_matches:
@@ -68,6 +67,8 @@ class ObstacleMonitoringNode(Node):
         # self.initialized = False
 
         self.half_edge_length = 0.15
+        self.wall_long_edge_length = 0.5
+        self.wall_short_edge_length = 0.3
         self.height_threshold = 0.2
         # self.z_previous = 100000
         # self.replanning_flag = False
@@ -128,14 +129,42 @@ class ObstacleMonitoringNode(Node):
     def make_box(self, obstacle_name, pose):
         x = pose.position.x
         y = pose.position.y
-
-        return AABB2D(
+        q = pose.orientation
+        theta = np.arctan2(2*(q.w*q.z + q.x*q.y), 1 - 2*(q.y**2 + q.z**2))
+        if "WallLong" in obstacle_name:
+            length = self.wall_long_edge_length
+        elif "WallShort" in obstacle_name:
+            length = self.wall_short_edge_length
+        else:
+            # square obstacle
+            return AABB2D(
             id=obstacle_name,
             min_x=x - self.half_edge_length,
             max_x=x + self.half_edge_length,
             min_y=y - self.half_edge_length,
             max_y=y + self.half_edge_length,
         )
+        dx = length * np.abs(np.cos(theta)).astype(float)
+        dy = length * np.abs(np.sin(theta)).astype(float)
+        min_x = x - dx
+        max_x = x + dx
+        min_y = y - dy
+        max_y = y + dy
+        # 10cm thickness if the wall is aligned with x or y axis
+        if np.isclose(min_x, max_x, atol=0.1):
+            min_y -= 0.05
+            max_y += 0.05
+        elif np.isclose(min_y, max_y, atol=0.1):
+            min_x -= 0.05
+            max_x += 0.05
+        return AABB2D(
+            id=obstacle_name,
+            min_x=min_x,
+            max_x=max_x,
+            min_y=min_y,
+            max_y=max_y
+         )
+        
     
     def make_bug_trap(self):
         # [min_x, min_y, max_x, max_y]
@@ -168,10 +197,13 @@ class ObstacleMonitoringNode(Node):
         snapshot.header.stamp = self.get_clock().now().to_msg()
         snapshot.header.frame_id = 'world'
 
+        # snapshot.boxes = [
+        #     self.active_boxes[name]
+        #     for name in self.obstacle_names
+        #     if name in self.active_boxes
+        # ]
         snapshot.boxes = [
-            self.active_boxes[name]
-            for name in self.obstacle_names
-            if name in self.active_boxes
+            self.active_boxes[name] for name in self.active_boxes
         ]
 
         self.obs_pub.publish(snapshot)
@@ -194,7 +226,9 @@ class ObstacleMonitoringNode(Node):
         for named_pose in msg.poses:
             obstacle_name = named_pose.name
 
-            if obstacle_name not in self.obstacle_name_set:
+            # if obstacle_name not in self.obstacle_name_set:
+            #     continue
+            if not obstacle_name.startswith('Obstacle'):
                 continue
 
             pose = named_pose.pose
@@ -202,7 +236,7 @@ class ObstacleMonitoringNode(Node):
 
             z = pose.position.z
             is_present = z <= self.height_threshold
-            was_present = self.obstacle_present[obstacle_name]
+            was_present = self.obstacle_present[obstacle_name] if obstacle_name in self.obstacle_present else None
 
             if was_present is None:
                 self.obstacle_present[obstacle_name] = is_present
