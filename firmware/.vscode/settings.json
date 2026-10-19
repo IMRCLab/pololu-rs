@@ -1,5 +1,6 @@
 {
     "rust-analyzer.cargo.target": "thumbv6m-none-eabi",
+    "rust-analyzer.cargo.features": ["three-pi"],
     "rust-analyzer.check.allTargets": false,
     "editor.formatOnSave": true,
     "python-envs.defaultEnvManager": "ms-python.python:conda",

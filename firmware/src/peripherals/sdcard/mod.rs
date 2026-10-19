@@ -1,0 +1,449 @@
+//! Core 1 SD card and filesystem driver.
+//!
+//! This module contains no Embassy logging task and no mode logic. The
+//! `SdLogger` object is moved into and exclusively owned by the permanent
+//! Core 1 logging task.
+
+mod config;
+
+use embassy_rp::{
+    Peri,
+    gpio::{
+        Level,
+        Output,
+    },
+    peripherals::{
+        PIN_18,
+        PIN_19,
+        PIN_20,
+        PIN_21,
+        SPI0,
+    },
+    spi::{
+        self,
+        Spi,
+    },
+};
+use embassy_time::Delay;
+use embedded_hal_bus::spi::{
+    ExclusiveDevice,
+    NoDelay,
+};
+use embedded_sdmmc::{
+    Directory,
+    File,
+    Mode,
+    SdCard,
+    ShortFileName,
+    TimeSource,
+    Timestamp,
+    Volume,
+    VolumeIdx,
+    VolumeManager,
+};
+use heapless::String;
+use static_cell::StaticCell;
+
+pub use config::RobotConfig;
+
+use config::load_robot_config_with_dir;
+
+/* ================= Filesystem types ================= */
+
+pub type SpiDevice<'a> = ExclusiveDevice<
+    Spi<'a, SPI0, spi::Blocking>,
+    Output<'a>,
+    NoDelay,
+>;
+
+pub type SdCardDevice<'a> =
+    SdCard<SpiDevice<'a>, Delay>;
+
+pub type Clock = DummyClock;
+
+const MAX_DIRS: usize = 4;
+const MAX_FILES: usize = 4;
+const MAX_VOLUMES: usize = 1;
+
+/// Robot configuration files are currently much smaller than this.
+const CONFIG_SCRATCH_SIZE: usize = 4096;
+
+pub type SdDir = Directory<
+    'static,
+    SdCardDevice<'static>,
+    Clock,
+    MAX_DIRS,
+    MAX_FILES,
+    MAX_VOLUMES,
+>;
+
+pub type SdFile = File<
+    'static,
+    SdCardDevice<'static>,
+    Clock,
+    MAX_DIRS,
+    MAX_FILES,
+    MAX_VOLUMES,
+>;
+
+/* ================= Clock ================= */
+
+pub struct DummyClock;
+
+impl TimeSource for DummyClock {
+    fn get_timestamp(&self) -> Timestamp {
+        Timestamp {
+            year_since_1970: 0,
+            zero_indexed_month: 0,
+            zero_indexed_day: 0,
+            hours: 0,
+            minutes: 0,
+            seconds: 0,
+        }
+    }
+}
+
+/* ================= Static filesystem storage ================= */
+
+static VOLUME_MANAGER: StaticCell<
+    VolumeManager<
+        SdCardDevice<'static>,
+        Clock,
+        MAX_DIRS,
+        MAX_FILES,
+        MAX_VOLUMES,
+    >,
+> = StaticCell::new();
+
+static VOLUME: StaticCell<
+    Volume<
+        'static,
+        SdCardDevice<'static>,
+        Clock,
+        MAX_DIRS,
+        MAX_FILES,
+        MAX_VOLUMES,
+    >,
+> = StaticCell::new();
+
+static ROOT_DIRECTORY: StaticCell<SdDir> =
+    StaticCell::new();
+
+static CONFIG_SCRATCH: StaticCell<
+    [u8; CONFIG_SCRATCH_SIZE],
+> = StaticCell::new();
+
+/* ================= Error type ================= */
+
+#[derive(Debug, defmt::Format)]
+pub enum SdError {
+    NoCardOrInitFail,
+    OpenRoot,
+}
+
+/* ================= Buffered logger ================= */
+
+pub struct SdLogger {
+    file: Option<SdFile>,
+    directory: &'static mut SdDir,
+
+    write_buffer: [u8; 512],
+    write_length: usize,
+}
+
+impl SdLogger {
+    pub fn open_new_file(&mut self) {
+        // Safely finish a previous session first.
+        self.close_file();
+
+        // embedded-sdmmc ties the opened file lifetime to this directory
+        // borrow. The directory itself is stored for the complete firmware
+        // lifetime.
+        let directory: &'static mut SdDir = unsafe {
+            core::mem::transmute(
+                &mut *self.directory
+            )
+        };
+
+        let mut new_file = None;
+
+        for index in 0..100 {
+            let tens =
+                b'0' + (index / 10) as u8;
+
+            let ones =
+                b'0' + (index % 10) as u8;
+
+            let mut name = String::<8>::new();
+
+            let _ = name.push('T');
+            let _ = name.push('R');
+            let _ = name.push(char::from(tens));
+            let _ = name.push(char::from(ones));
+
+            if let Ok(short_name) =
+                ShortFileName::create_from_str(&name)
+            {
+                let already_exists = directory
+                    .open_file_in_dir(
+                        &short_name,
+                        Mode::ReadOnly,
+                    )
+                    .is_ok();
+
+                if !already_exists {
+                    let file = directory
+                        .open_file_in_dir(
+                            &short_name,
+                            Mode::ReadWriteCreateOrAppend,
+                        )
+                        .unwrap();
+
+                    new_file = Some(file);
+                    break;
+                }
+            }
+        }
+
+        let Some(mut file) = new_file else {
+            defmt::error!(
+                "SD logger: no free log file slot"
+            );
+            return;
+        };
+
+        // Legacy file magic retained so existing tools can still identify a
+        // Pololu binary log. The dual-core logger appends its own schema header.
+        let magic = [
+            0xAA,
+            0xBB,
+            0xCC,
+            0xDD,
+        ];
+
+        if let Err(error) = file.write(&magic) {
+            defmt::error!(
+                "Failed to write log magic: {:?}",
+                defmt::Debug2Format(&error),
+            );
+
+            return;
+        }
+
+        let _ = file.flush();
+
+        self.file = Some(file);
+        self.write_length = 0;
+
+        defmt::info!(
+            "SD logger: opened new binary log file"
+        );
+    }
+
+    pub fn write_buffered(
+        &mut self,
+        data: &[u8],
+    ) {
+        let mut input_offset = 0usize;
+
+        while input_offset < data.len() {
+            let available =
+                self.write_buffer.len()
+                    - self.write_length;
+
+            let amount = core::cmp::min(
+                available,
+                data.len() - input_offset,
+            );
+
+            self.write_buffer[
+                self.write_length
+                    ..self.write_length + amount
+            ]
+            .copy_from_slice(
+                &data[
+                    input_offset
+                        ..input_offset + amount
+                ],
+            );
+
+            self.write_length += amount;
+            input_offset += amount;
+
+            if self.write_length
+                == self.write_buffer.len()
+            {
+                self.flush_buffer();
+            }
+        }
+    }
+
+    pub fn flush_buffer(&mut self) {
+        if self.write_length == 0 {
+            return;
+        }
+
+        if let Some(file) = self.file.as_mut() {
+            if let Err(error) = file.write(
+                &self.write_buffer[
+                    ..self.write_length
+                ],
+            ) {
+                defmt::error!(
+                    "SD buffered write failed: {:?}",
+                    defmt::Debug2Format(&error),
+                );
+            }
+        }
+
+        self.write_length = 0;
+    }
+
+    pub fn flush(&mut self) {
+        self.flush_buffer();
+
+        if let Some(file) = self.file.as_mut() {
+            if let Err(error) = file.flush() {
+                defmt::error!(
+                    "SD flush failed: {:?}",
+                    defmt::Debug2Format(&error),
+                );
+            }
+        }
+    }
+
+    pub fn close_file(&mut self) {
+        self.flush();
+
+        if let Some(file) = self.file.take() {
+            drop(file);
+
+            defmt::info!(
+                "SD logger: file closed"
+            );
+        }
+
+        self.write_length = 0;
+    }
+
+    pub fn is_open(&self) -> bool {
+        self.file.is_some()
+    }
+}
+
+/* ================= Initialization ================= */
+
+#[allow(clippy::too_many_arguments)]
+pub fn init_sd_card(
+    spi: Peri<'static, SPI0>,
+    clock_pin: Peri<'static, PIN_18>,
+    mosi_pin: Peri<'static, PIN_19>,
+    miso_pin: Peri<'static, PIN_20>,
+    chip_select_pin: Peri<'static, PIN_21>,
+) -> Result<(SdLogger, RobotConfig), SdError> {
+    // SD cards must be initialized at no more than 400 kHz.
+    let mut slow_config =
+        spi::Config::default();
+
+    slow_config.frequency = 400_000;
+
+    let spi = Spi::new_blocking(
+        spi,
+        clock_pin,
+        mosi_pin,
+        miso_pin,
+        slow_config,
+    );
+
+    let chip_select = Output::new(
+        chip_select_pin,
+        Level::High,
+    );
+
+    let volume_manager =
+        VOLUME_MANAGER.init_with(|| {
+            let spi_device =
+                ExclusiveDevice::new_no_delay(
+                    spi,
+                    chip_select,
+                );
+
+            let sd_card = SdCard::new(
+                spi_device,
+                Delay,
+            );
+
+            let mut fast_config =
+                spi::Config::default();
+
+            fast_config.frequency = 16_000_000;
+
+            sd_card.spi(|device| {
+                device
+                    .bus_mut()
+                    .set_config(&fast_config)
+            });
+
+            VolumeManager::new(
+                sd_card,
+                DummyClock,
+            )
+        });
+
+    let volume = match volume_manager
+        .open_volume(VolumeIdx(0))
+    {
+        Ok(volume) => volume,
+
+        Err(_) => {
+            defmt::warn!(
+                "SD open_volume failed"
+            );
+
+            return Err(
+                SdError::NoCardOrInitFail,
+            );
+        }
+    };
+
+    let volume = VOLUME.init(volume);
+
+    let root_directory =
+        match volume.open_root_dir() {
+            Ok(directory) => directory,
+
+            Err(_) => {
+                defmt::warn!(
+                    "SD open_root_dir failed"
+                );
+
+                return Err(SdError::OpenRoot);
+            }
+        };
+
+    let root_directory =
+        ROOT_DIRECTORY.init(root_directory);
+
+    let scratch = CONFIG_SCRATCH.init(
+        [0u8; CONFIG_SCRATCH_SIZE],
+    );
+
+    let config = load_robot_config_with_dir(
+        root_directory,
+        scratch,
+    );
+
+    defmt::info!(
+        "Core 1 SD card initialized"
+    );
+
+    Ok((
+        SdLogger {
+            file: None,
+            directory: root_directory,
+            write_buffer: [0u8; 512],
+            write_length: 0,
+        },
+        config,
+    ))
+}

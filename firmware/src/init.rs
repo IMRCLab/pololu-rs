@@ -27,11 +27,22 @@ use crate::imu::ImuPack;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::mutex::Mutex;
 
-bind_interrupts!(struct Irqs {
-    PIO0_IRQ_0 => PIO_INT_HDL<PIO0>, crate::encoder::EncoderPioIrqHandler;
-    I2C0_IRQ => I2C_INT_HDL<I2C0>;
-    UART0_IRQ => UART_INT_HDL<UART0>, crate::uart::UartRxIrqHandler;
+#[cfg(not(feature = "dual-core"))]
+bind_interrupts!(pub struct Irqs {
+    PIO0_IRQ_0 =>
+        PIO_INT_HDL<PIO0>,
+        crate::encoder::EncoderPioIrqHandler;
+
+    I2C0_IRQ =>
+        I2C_INT_HDL<I2C0>;
+
+    UART0_IRQ =>
+        UART_INT_HDL<UART0>,
+        crate::uart::UartRxIrqHandler;
 });
+
+#[cfg(feature = "dual-core")]
+pub use crate::peripherals::board::DualCoreIrqs as Irqs;
 
 static UART_CELL: StaticCell<Mutex<ThreadModeRawMutex, Uart<'static, Async>>> = StaticCell::new();
 static I2C_CELL: StaticCell<Mutex<ThreadModeRawMutex, I2c<'static, I2C0, i2c::Async>>> =

@@ -5,6 +5,18 @@ version = "0.1.0"
 authors = ["Wolfgang Hoenig <hoenig@tu-berlin.de>"]
 resolver = "2"
 
+[lib]
+path = "src/lib.rs"
+test = false
+bench = false
+doctest = false
+
+[[bin]]
+name = "pololu3pi2040-rs"
+path = "src/main.rs"
+test = false
+bench = false
+
 [[bin]]
 name = "teleop_control"
 path = "src/bin/teleop_control.rs"
@@ -22,6 +34,26 @@ name = "programm_entrance"
 path = "src/bin/programm_entrance.rs"
 test = false
 bench = false
+
+[[bin]]
+name = "multicore_test"
+path = "src/bin/multicore_test.rs"
+test = false
+bench = false
+
+[[bin]]
+name = "multicore_teleop_test"
+path = "src/bin/multicore_teleop_test.rs"
+test = false
+bench = false
+
+
+[[bin]]
+name = "dual_core_teleop_test"
+path = "src/bin/dual_core_teleop_test.rs"
+test = false
+bench = false
+required-features = ["dual-core"]
 
 
 [dependencies]
@@ -79,3 +111,4 @@ three-pi = []
 v0 = []  # Silent mode
 v1 = []  # Basic control info (RPM, targets, control inputs)
 v2 = []  # Full debug mode for everything you might want to print
+dual-core = []

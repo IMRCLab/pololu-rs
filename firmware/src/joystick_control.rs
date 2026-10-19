@@ -4,10 +4,10 @@ use crate::orchestrator_signal::{
     LEN_FUNC_SELECT_CMD, Mode, ORCH_CH, OrchestratorMsg, STOP_MOTOR_CTRL_SIG, STOP_TELEOP_UART_SIG,
     decode_functionality_select_command,
 };
-use crate::uart_parser::{RecvResult, receive_packet};
 use crate::packet::CmdTeleopPacketMix;
 use crate::read_robot_config_from_sd::RobotConfig;
 use crate::trajectory_uart::UartCfg;
+use crate::uart_parser::{RecvResult, receive_packet};
 use embassy_futures::select::{Either, select};
 use embassy_time::{Duration, Instant, Ticker};
 use heapless::Vec as HVec;
@@ -15,7 +15,8 @@ use portable_atomic::{AtomicI32, Ordering};
 
 const PI: f32 = core::f32::consts::PI;
 const TELEOP_PACK_LEN: u8 = 9;
-const CONTROL_ACTION_PERIOD_MS: u64 = 5;     // 100 Hz
+const TELEOP_STOP_TARGET_RAD_S: f32 = 0.1;
+
 // Import the selected constants into the module scope
 use crate::robot_parameters_default::robot_constants::*;
 
@@ -46,6 +47,15 @@ pub async fn teleop_motor_control_task(
         robot_cfg = RobotConfig::default();
     }
 
+    // Open new file if not already open
+    crate::sdlog::with_sdlogger(|logger| {
+        if logger.file.is_none() {
+            logger.open_new_file();
+        }
+    })
+    .await;
+    robotstate::set_sd_logging_active(true);
+
     let mut ticker = Ticker::every(Duration::from_millis(robot_cfg.joystick_control_dt_ms));
 
     // PID state variables
@@ -66,20 +76,92 @@ pub async fn teleop_motor_control_task(
     let mut omega_l_lp: f32 = 0.0;
     let mut omega_r_lp: f32 = 0.0;
 
+    let expected_period_us =
+        robot_cfg.joystick_control_dt_ms * 1_000;
+
+    let mut previous_tick = Instant::now();
+    let mut report_start = previous_tick;
+
+    let mut sample_count = 0u64;
+    let mut gap_sum_us = 0u64;
+    let mut min_gap_us = u64::MAX;
+    let mut max_gap_us = 0u64;
+    let mut deadline_misses = 0u32;
+
     loop {
         match select(STOP_MOTOR_CTRL_SIG.wait(), ticker.next()).await {
             Either::First(_) => {
                 // Stop signal received - zero commands and motors, then exit
-                robotstate::write_unicycle_cmd(UnicycleCmd { v: 0.0, omega: 0.0, stamp: embassy_time::Instant::now() }).await;
+                robotstate::write_unicycle_cmd(UnicycleCmd {
+                    v: 0.0,
+                    omega: 0.0,
+                    stamp: embassy_time::Instant::now(),
+                })
+                .await;
                 motor.set_speed(0.0, 0.0).await;
+                robotstate::set_sd_logging_active(false);
+
                 return;
             }
             Either::Second(_) => {}
+        }
+        let now = Instant::now();
+
+        let gap_us = now
+            .duration_since(previous_tick)
+            .as_micros();
+
+        previous_tick = now;
+
+        sample_count += 1;
+        gap_sum_us += gap_us;
+        min_gap_us = min_gap_us.min(gap_us);
+        max_gap_us = max_gap_us.max(gap_us);
+
+        if gap_us > expected_period_us * 3 / 2 {
+            deadline_misses += 1;
+        }
+
+        if now.duration_since(report_start).as_millis() >= 1_000 {
+            let average_gap_us = if sample_count > 0 {
+                gap_sum_us / sample_count
+            } else {
+                0
+            };
+
+            defmt::info!(
+                "CTRL_TIMING samples={} avg={}us min={}us max={}us misses={}",
+                sample_count,
+                average_gap_us,
+                min_gap_us,
+                max_gap_us,
+                deadline_misses,
+            );
+
+            report_start = Instant::now();
+            previous_tick = report_start;
+
+            sample_count = 0;
+            gap_sum_us = 0;
+            min_gap_us = u64::MAX;
+            max_gap_us = 0;
+            deadline_misses = 0;
         }
 
         let cmd = robotstate::read_unicycle_cmd().await;
         let v = cmd.v; // m/s
         let omega = cmd.omega; //rad/s
+
+        robotstate::write_setpoint(robotstate::Setpoint {
+            x_des: 0.0,
+            y_des: 0.0,
+            yaw_des: 0.0,
+            v_ff: v,
+            w_ff: omega,
+            stamp: Instant::now(),
+        })
+        .await;
+        // let odom = robotstate::read_odom().await;
 
         // Convert unicycle commands to differential drive wheel velocities
         let v_left = v - omega * robot_cfg.wheel_base / 2.0;
@@ -97,7 +179,8 @@ pub async fn teleop_motor_control_task(
             prev_l,
             prev_r,
             dt,
-        ).await;
+        )
+        .await;
         prev_l = ln;
         prev_r = rn;
 
@@ -109,20 +192,36 @@ pub async fn teleop_motor_control_task(
         let el = omega_l_target - omega_l_lp;
         let er = omega_r_target - omega_r_lp;
 
-        // Error integration with anti-windup (helps smooth encoder quantization)
-        il = (il + ki * dt * el).clamp(-2.0, 2.0);
-        ir = (ir + ki * dt * er).clamp(-2.0, 2.0);
+        // A centred joystick is an explicit stop command. Do not let stored
+        // integral action or the filtered residual wheel speed drive the
+        // motors again after the command has returned to zero.
+        let stop_requested = omega_l_target.abs() < TELEOP_STOP_TARGET_RAD_S
+            && omega_r_target.abs() < TELEOP_STOP_TARGET_RAD_S;
 
-        // Error differentiation
-        let dl = (el - prev_el) / dt;
-        let dr = (er - prev_er) / dt;
+        let (u_l, u_r) = if stop_requested {
+            il = 0.0;
+            ir = 0.0;
+            prev_el = 0.0;
+            prev_er = 0.0;
+            (0.0, 0.0)
+        } else {
+            // Error integration with anti-windup (helps smooth encoder quantization)
+            il = (il + ki * dt * el).clamp(-2.0, 2.0);
+            ir = (ir + ki * dt * er).clamp(-2.0, 2.0);
 
-        prev_el = el;
-        prev_er = er;
+            // Error differentiation
+            let dl = (el - prev_el) / dt;
+            let dr = (er - prev_er) / dt;
 
-        // PID control (normally the D term is disabled, kd = 0.0)
-        let u_l = (kp * el + il + kd * dl).clamp(-1.0, 1.0);
-        let u_r = (kp * er + ir + kd * dr).clamp(-1.0, 1.0);
+            prev_el = el;
+            prev_er = er;
+
+            // PID control (normally the D term is disabled, kd = 0.0)
+            (
+                (kp * el + il + kd * dl).clamp(-1.0, 1.0),
+                (kp * er + ir + kd * dr).clamp(-1.0, 1.0),
+            )
+        };
 
         //apply robot-specific motor direction corrections
         let duty_l = u_l * robot_cfg.motor_direction_left;
@@ -130,160 +229,32 @@ pub async fn teleop_motor_control_task(
 
         /*
         if v.abs() > 0.001 || omega.abs() > 0.001 {
-            defmt::info!("Teleop: Cmd=(v:{}, ω:{}) -> TargetWheel=(L:{}, R:{}) -> Duty=(L:{}, R:{})", 
+            defmt::info!("Teleop: Cmd=(v:{}, ω:{}) -> TargetWheel=(L:{}, R:{}) -> Duty=(L:{}, R:{})",
                 v, omega, omega_l_target, omega_r_target, duty_l, duty_r);
         }
         */
 
         motor.set_speed(duty_l, duty_r).await;
 
-    //Timer::after(Duration::from_millis(robot_cfg.joystick_control_dt_ms)).await;
-    }
-}
-/* ========================== Joy Stick Speed Control Task =============================== */
-
-/* ========================== Control Action Speed Control Task =============================== */
-#[embassy_executor::task]
-pub async fn control_action_motor_control_task(
-    //adapted from inner loop
-    motor: MotorController,
-    left_counter: &'static AtomicI32,
-    right_counter: &'static AtomicI32,
-    cfg: Option<RobotConfig>,
-) {
-    let robot_cfg: RobotConfig;
-    if let Some(_) = cfg {
-        defmt::info!("Load Robot Params from SD CARD!");
-        robot_cfg = cfg.unwrap();
-    } else {
-        defmt::info!("Load Robot Params from DEFAULT!");
-        robot_cfg = RobotConfig::default();
-    }
-
-    // Open new file if not already open
-    crate::sdlog::with_sdlogger(|logger| {
-        if logger.file.is_none() {
-            logger.open_new_file();
-        }
-    }).await;
-    robotstate::set_sd_logging_active(true);
-
-    let mut ticker = Ticker::every(Duration::from_millis(CONTROL_ACTION_PERIOD_MS));
-
-    // PID state variables
-    let (mut il, mut ir) = (0.0f32, 0.0f32);
-    let (mut prev_el, mut prev_er) = (0.0f32, 0.0f32);
-    let (kp, ki, kd) = (robot_cfg.kp_inner, robot_cfg.ki_inner, robot_cfg.kd_inner);
-
-    // =========== Filter Parameters ==============
-    let dt: f32 = CONTROL_ACTION_PERIOD_MS as f32 / 1000.0; 
-    let fc_hz: f32 = 10.0; // Match trajectory control - integral term helps smooth quantization noise
-    let tau: f32 = 1.0 / (2.0 * PI * fc_hz);
-    let alpha: f32 = dt / (tau + dt);
-
-    // CRITICAL: Initialize prev encoder counts with CURRENT values to avoid velocity spike
-    let mut prev_l = left_counter.load(Ordering::Relaxed);
-    let mut prev_r = right_counter.load(Ordering::Relaxed);
-
-    let mut omega_l_lp: f32 = 0.0;
-    let mut omega_r_lp: f32 = 0.0;
-
-    loop {
-        match select(STOP_MOTOR_CTRL_SIG.wait(), ticker.next()).await {
-            Either::First(_) => {
-                // Stop signal received - zero commands and motors, then exit
-                robotstate::write_unicycle_cmd(UnicycleCmd { v: 0.0, omega: 0.0, stamp: embassy_time::Instant::now() }).await;
-                motor.set_speed(0.0, 0.0).await;
-                robotstate::set_sd_logging_active(false);
-                return;
-            }
-            Either::Second(_) => {}
-        }
-
-        let cmd = robotstate::read_unicycle_cmd().await;
-        let v = cmd.v; // m/s
-        let omega = cmd.omega; //rad/s
-
- 
-        // let odom = robotstate::read_odom().await;
-
-        // Convert unicycle commands to differential drive wheel velocities
-        let v_left = v - omega * robot_cfg.wheel_base / 2.0;
-        let v_right = v + omega * robot_cfg.wheel_base / 2.0;
-
-        // Convert linear wheel velocity to angular velocity (rad/s)
-        let omega_l_target = v_left / robot_cfg.wheel_radius;
-        let omega_r_target = v_right / robot_cfg.wheel_radius;
-
-        // Get raw angular velocity of the wheels using encoder counts
-        let ((omega_l_raw, omega_r_raw),  (ln, rn)) = wheel_speed_from_counts_now(
-            left_counter,
-            right_counter,
-            robot_cfg.encoder_cpr,
-            prev_l,
-            prev_r,
-            dt,
-        ).await;
-        prev_l = ln;
-        prev_r = rn;
-
-        // =========== Low Pass Filter ==============
-        omega_l_lp = omega_l_lp + alpha * (omega_l_raw - omega_l_lp);
-        omega_r_lp = omega_r_lp + alpha * (omega_r_raw - omega_r_lp);
-
-        // Error calculation
-        let el = omega_l_target - omega_l_lp;
-        let er = omega_r_target - omega_r_lp;
-
-        // Error integration with anti-windup (helps smooth encoder quantization)
-        il = (il + ki * dt * el).clamp(-2.0, 2.0);
-        ir = (ir + ki * dt * er).clamp(-2.0, 2.0);
-
-        // Error differentiation
-        let dl = (el - prev_el) / dt;
-        let dr = (er - prev_er) / dt;
-
-        prev_el = el;
-        prev_er = er;
-
-        // PID control (normally the D term is disabled, kd = 0.0)
-        let u_l = (kp * el + il + kd * dl).clamp(-1.0, 1.0);
-        let u_r = (kp * er + ir + kd * dr).clamp(-1.0, 1.0);
-
-        //apply robot-specific motor direction corrections
-        let duty_l = u_l * robot_cfg.motor_direction_left;
-        let duty_r = u_r * robot_cfg.motor_direction_right;
-
-        // let duty_l = (omega_l_target / 50.0).clamp(-1.0, 1.0);
-        // let duty_r = (omega_r_target / 50.0).clamp(-1.0, 1.0);
-
-        /*
-        if v.abs() > 0.001 || omega.abs() > 0.001 {
-            defmt::info!("Teleop: Cmd=(v:{}, ω:{}) -> TargetWheel=(L:{}, R:{}) -> Duty=(L:{}, R:{})", 
-                v, omega, omega_l_target, omega_r_target, duty_l, duty_r);
-        }
-        */
-
-        motor.set_speed(duty_l, duty_r).await;
-
-        robotstate::write_wheel_cmd(robotstate::WheelCmd::new(omega_l_target, omega_r_target)).await;
-
+        robotstate::write_wheel_cmd(robotstate::WheelCmd::new(omega_l_target, omega_r_target))
+            .await;
         // Write motor duty and encoder readings to robotstate
         robotstate::write_motor(robotstate::MotorDuty {
             left: duty_l,
             right: duty_r,
-        }).await;
+        })
+        .await;
         robotstate::write_encoder(robotstate::EncoderReading {
             omega_l: omega_l_lp,
             omega_r: omega_r_lp,
             stamp: Instant::now(),
-        }).await;
+        })
+        .await;
 
-    //Timer::after(Duration::from_millis(robot_cfg.joystick_control_dt_ms)).await;
+        //Timer::after(Duration::from_millis(robot_cfg.joystick_control_dt_ms)).await;
     }
-
 }
-/* ========================== Control Action Speed Control Task =============================== */
+/* ========================== Joy Stick Speed Control Task =============================== */
 
 /* ============== uart teleop command receiving task with nonlinear mapping ============== */
 #[embassy_executor::task]
@@ -311,7 +282,7 @@ pub async fn teleop_uart_task(cfg: UartCfg) {
                 let cmd = UnicycleCmd {
                     v,
                     omega: {
-                        let raw_omega = pkt.steering_angle * PI / (180.0 * 0.1);
+                        let raw_omega = pkt.steering_angle * PI / (180.0 * 0.15);
                         let sign = if raw_omega >= 0.0 { 1.0 } else { -1.0 };
                         let abs_omega = raw_omega.abs();
                         let scaled_omega = MAX_OMEGA * (libm::expf(abs_omega / MAX_OMEGA) - 1.0)

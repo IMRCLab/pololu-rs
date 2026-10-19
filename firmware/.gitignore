@@ -1,4 +1,7 @@
 /target
+/build
+/install
+/log
 *.log
 *.csv
 /Debug

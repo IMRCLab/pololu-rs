@@ -12,6 +12,7 @@ use embassy_time::{Duration, Timer};
 use heapless::Vec as HVec;
 
 use pololu3pi2040_rs::init::{self, init_all};
+use pololu3pi2040_rs::joystick_control::teleop_motor_control_task;
 use pololu3pi2040_rs::orchestrator_signal::{
     FRAME_MAX, LEN_FUNC_SELECT_CMD, Mode, ORCH_CH, OrchestratorMsg, STOP_IMU_SIG,
     STOP_LOG_SENDING_SIG, STOP_MENU_UART_SIG, STOP_MOCAP_UART_SIG, STOP_MOCAP_UPDATE_SIG,
@@ -26,7 +27,7 @@ use pololu3pi2040_rs::{
     encoder::start_encoder_irq,
     imu::read_imu_task,
     inner_controller::wheel_speed_inner_loop,
-    joystick_control::{control_action_motor_control_task, control_action_uart_task, teleop_motor_control_task, teleop_uart_task},
+    joystick_control::{control_action_uart_task, teleop_uart_task},
     led::LED_SHARED,
     odometry::odometry_task,
     robotstate::TRAJECTORY_CONTROL_EVENT,
@@ -83,9 +84,7 @@ async fn wait_for_ekf_init() -> robotstate::EkfInitMsg {
             }
         }
         Either::Second(_) => {
-            if let Some((x, y, yaw)) =
-                pololu3pi2040_rs::setpoint::trajectory_start_pose().await
-            {
+            if let Some((x, y, yaw)) = pololu3pi2040_rs::setpoint::trajectory_start_pose().await {
                 defmt::info!(
                     "EKF init from trajectory start: ({}, {}, {}) (no mocap)",
                     x,
@@ -137,10 +136,13 @@ pub async fn functionality_mode_selection_uart_task(cfg: UartCfg) {
     let mut frame: HVec<u8, FRAME_MAX> = HVec::new();
 
     loop {
-        let len = match pololu3pi2040_rs::uart_parser::receive_packet(&mut frame, &STOP_MENU_UART_SIG).await {
-            pololu3pi2040_rs::uart_parser::RecvResult::Packet { len, .. } => len,
-            pololu3pi2040_rs::uart_parser::RecvResult::Stop => break,
-        };
+        let len =
+            match pololu3pi2040_rs::uart_parser::receive_packet(&mut frame, &STOP_MENU_UART_SIG)
+                .await
+            {
+                pololu3pi2040_rs::uart_parser::RecvResult::Packet { len, .. } => len,
+                pololu3pi2040_rs::uart_parser::RecvResult::Stop => break,
+            };
 
         if len == LEN_FUNC_SELECT_CMD {
             if let Some(cmd) = decode_functionality_select_command(&frame, cfg.robot_id) {
@@ -176,9 +178,9 @@ pub async fn functionality_mode_selection_uart_task(cfg: UartCfg) {
 /* ======================== Functionality Selection Task ============================ */
 
 // Task tick periods [ms] — single source of truth for all task frequencies
-const ODOM_PERIOD_MS: u64 = 10;      // 100 Hz
-const INNER_PERIOD_MS: u64 = 10;     // 100 Hz
-const LOG_PERIOD_MS: u64 = 50;       // 20 Hz (Menu), 50 (control modes)
+const ODOM_PERIOD_MS: u64 = 10; // 100 Hz
+const INNER_PERIOD_MS: u64 = 10; // 100 Hz
+const LOG_PERIOD_MS: u64 = 50; // 20 Hz (Menu), 50 (control modes)
 #[embassy_executor::task]
 pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'static>, cfg: UartCfg) {
     if let Some(led_dev) = devices.led.take() {
@@ -286,7 +288,8 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
 
                         with_sdlogger(|logger| {
                             logger.close_file();
-                        }).await;
+                        })
+                        .await;
                     }
                 }
 
@@ -318,7 +321,10 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         // Retry spawning if previous task is still cleaning up
                         let mut spawned = false;
                         for _ in 0..3 {
-                            if spawner.spawn(uart_log_sending_task(cfg.robot_id, 100)).is_ok() {
+                            if spawner
+                                .spawn(uart_log_sending_task(cfg.robot_id, 100))
+                                .is_ok()
+                            {
                                 spawned = true;
                                 break;
                             }
@@ -335,7 +341,10 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                         if !uart_ok {
                             defmt::warn!("Teleop UART task already running or failed to spawn");
                         }
-
+                        with_sdlogger(|logger| {
+                            logger.open_new_file();
+                        })
+                        .await;
                         let motor_ok = spawner
                             .spawn(teleop_motor_control_task(
                                 devices.motor,
@@ -344,6 +353,10 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                                 devices.config,
                             ))
                             .is_ok();
+                        let imu_ok = spawner.spawn(read_imu_task(devices.imu.i2c)).is_ok();
+                        if !imu_ok {
+                            defmt::warn!("TeleOp IMU task already running or failed to spawn");
+                        }
                         if !motor_ok {
                             defmt::warn!(
                                 "Teleop motor control task already running or failed to spawn"
@@ -354,8 +367,14 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             beep_signal(b'T');
                             defmt::info!("TeleOp: UART and Motor tasks active");
                         }
-                        if spawner.spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS)).is_err() {
+                        if spawner
+                            .spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS))
+                            .is_err()
+                        {
                             defmt::warn!("Failed to spawn uart_log_sending_task");
+                        }
+                        if spawner.spawn(sd_logging_task(devices.config)).is_err() {
+                            defmt::warn!("Failed to spawn sd_logging_task");
                         }
                     }
                     Mode::TrajMocap => {
@@ -364,7 +383,8 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
 
                         with_sdlogger(|logger| {
                             logger.open_new_file();
-                        }).await;
+                        })
+                        .await;
 
                         let uart_ok = spawner.spawn(uart_motioncap_receiving_task(cfg)).is_ok();
                         let mocap_ok = spawner.spawn(mocap_update_task()).is_ok();
@@ -398,7 +418,8 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             yaw: init_msg.yaw,
                             stamp: embassy_time::Instant::now(),
                             ..robotstate::RobotPose::DEFAULT
-                        }).await;
+                        })
+                        .await;
 
                         let outer_ok = spawner
                             .spawn(
@@ -414,13 +435,15 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                                 "TrajMocap: All tasks active (Uart, Mocap, Odo, Inner, Imu, Outer)"
                             );
                         }
-                        if spawner.spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS)).is_err() {
+                        if spawner
+                            .spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS))
+                            .is_err()
+                        {
                             defmt::warn!("Failed to spawn uart_log_sending_task");
                         }
                         if spawner.spawn(sd_logging_task(devices.config)).is_err() {
                             defmt::warn!("Failed to spawn sd_logging_task");
                         }
-
                     }
                     Mode::CtrlAction => {
                         defmt::info!("CONTROL-ACTION Mode is selected!!!!!");
@@ -433,48 +456,35 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                                 "Control action UART task already running or failed to spawn"
                             );
                         }
-                        
+
                         with_sdlogger(|logger| {
                             logger.open_new_file();
-                        }).await;
+                        })
+                        .await;
 
-                        let teleop_ok = spawner
-                            .spawn(control_action_motor_control_task(
+                        let motor_ok = spawner
+                            .spawn(teleop_motor_control_task(
                                 devices.motor,
                                 encoder_count_left,
                                 encoder_count_right,
                                 devices.config,
                             ))
                             .is_ok();
-                        if !teleop_ok {
+                        if !motor_ok {
                             defmt::warn!(
-                                "Teleop motor control task already running or failed to spawn"
+                                "CtrlAction feedforward + P motor task already running or failed to spawn"
                             );
                         }
-                        // let odo_ok = spawner
-                        //     .spawn(odometry_task(
-                        //         encoder_count_left,
-                        //         encoder_count_right,
-                        //         devices.config,
-                        //         ODOM_PERIOD_MS,
-                        //     ))
-                        //     .is_ok();
-                        // let inner_ok = spawner
-                        //     .spawn(wheel_speed_inner_loop(
-                        //         devices.motor,
-                        //         encoder_count_left,
-                        //         encoder_count_right,
-                        //         devices.config,
-                        //         INNER_PERIOD_MS,
-                        //     ))
-                        //     .is_ok();
-                        // let mocap_ok = spawner.spawn(mocap_update_task()).is_ok();
-                        // if mocap_uart_ok && uart_ok && mocap_ok && odo_ok && inner_ok && teleop_ok {
-                        if uart_ok && teleop_ok {
+                        if uart_ok && motor_ok {
                             beep_signal(b'A');
-                            defmt::info!("CtrlAction: UART and Motor tasks active");
+                            defmt::info!(
+                                "CtrlAction: UART and feedforward + PID motor tasks active"
+                            );
                         }
-                        if spawner.spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS)).is_err() {
+                        if spawner
+                            .spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS))
+                            .is_err()
+                        {
                             defmt::warn!("Failed to spawn uart_log_sending_task");
                         }
                         if spawner.spawn(sd_logging_task(devices.config)).is_err() {
@@ -487,7 +497,8 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
 
                         with_sdlogger(|logger| {
                             logger.open_new_file();
-                        }).await;
+                        })
+                        .await;
 
                         let uart_ok = spawner.spawn(uart_motioncap_receiving_task(cfg)).is_ok();
                         let mocap_ok = spawner.spawn(mocap_update_task()).is_ok();
@@ -520,7 +531,8 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             yaw: init_msg.yaw,
                             stamp: embassy_time::Instant::now(),
                             ..robotstate::RobotPose::DEFAULT
-                        }).await;
+                        })
+                        .await;
 
                         let outer_ok = spawner
                             .spawn(diffdrive_outer_loop_onboard_traj(devices.config))
@@ -531,13 +543,15 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                                 "TrajOnboard: All tasks active (Uart, Mocap, Odo, Inner, Imu, Outer)"
                             );
                         }
-                        if spawner.spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS)).is_err() {
+                        if spawner
+                            .spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS))
+                            .is_err()
+                        {
                             defmt::warn!("Failed to spawn uart_log_sending_task");
                         }
                         if spawner.spawn(sd_logging_task(devices.config)).is_err() {
                             defmt::warn!("Failed to spawn sd_logging_task");
                         }
-
                     }
                     Mode::TrajOnboard2 => {
                         defmt::info!("ONBOARD-TRAJ-2 Mode (demo) is selected!!!!!");
@@ -545,7 +559,8 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
 
                         with_sdlogger(|logger| {
                             logger.open_new_file();
-                        }).await;
+                        })
+                        .await;
 
                         let uart_ok = spawner.spawn(uart_motioncap_receiving_task(cfg)).is_ok();
                         let mocap_ok = spawner.spawn(mocap_update_task()).is_ok();
@@ -578,7 +593,8 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                             yaw: init_msg.yaw,
                             stamp: embassy_time::Instant::now(),
                             ..robotstate::RobotPose::DEFAULT
-                        }).await;
+                        })
+                        .await;
 
                         let outer_ok = spawner
                             .spawn(diffdrive_outer_loop_onboard_traj2(devices.config))
@@ -590,13 +606,15 @@ pub async fn orchestrator(spawner: Spawner, mut devices: init::InitDevices<'stat
                                 "TrajOnboard2: All tasks active (Uart, Mocap, Odo, Inner, Imu, Outer)"
                             );
                         }
-                        if spawner.spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS)).is_err() {
+                        if spawner
+                            .spawn(uart_log_sending_task(cfg.robot_id, LOG_PERIOD_MS))
+                            .is_err()
+                        {
                             defmt::warn!("Failed to spawn uart_log_sending_task");
                         }
                         if spawner.spawn(sd_logging_task(devices.config)).is_err() {
                             defmt::warn!("Failed to spawn sd_logging_task");
                         }
-
                     }
                 }
                 mode = target;

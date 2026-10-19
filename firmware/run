@@ -62,7 +62,7 @@ case $TARGET in
         $CARGO_CMD build --release $FEATURES
         ;;
     *)
-        echo "Error: Invalid target '$TARGET'. Use 'teleop', 'trajectory', 'build', or leave empty for main binary"
+        echo "Error: Invalid target '$TARGET'. Use 'teleop', 'trajectory_following', 'build', or leave empty for main binary"
         exit 1
         ;;
 esac

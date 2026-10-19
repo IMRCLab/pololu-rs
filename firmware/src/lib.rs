@@ -48,10 +48,12 @@ pub mod ekf;
 pub mod encoder;
 pub mod encoder_lib;
 pub mod goto;
-pub mod inner_controller;
 pub mod imu;
 pub mod init;
+pub mod init_dual_core;
+pub mod inner_controller;
 pub mod joystick_control;
+pub mod joystick_control_dual_core;
 pub mod led;
 pub mod math;
 pub mod motor;
@@ -69,3 +71,7 @@ pub mod trajectory_reading;
 pub mod trajectory_uart;
 pub mod uart;
 pub mod uart_parser;
+
+
+pub mod dual_core;
+pub mod peripherals;
