@@ -8,9 +8,10 @@ import sys
 CSV_HEADER = "ts,x,y,yaw,x_des,y_des,yaw_des,v_ff,w_ff,v_actual,w_actual,omega_l_cmd,omega_r_cmd,omega_l_meas,omega_r_meas,duty_l,duty_r,x_err,y_err,yaw_err,x_raw,y_raw,yaw_raw,acc_x,acc_y,acc_z,gyro_x,gyro_y,gyro_z\n"
 MAGIC_HEADER = b"\xaa\xbb\xcc\xdd"
 DUAL_CORE_MAGIC = b"DCLG"
-FORMAT_VERSION = 1
-RECORD_SIZE = 129
-RECORD = struct.Struct("<IQBI25f3I")
+RECORD_FORMATS = {
+    1: (129, struct.Struct("<IQBI25f3I")),
+    2: (141, struct.Struct("<IQBI28f3I")),
+}
 
 LOG_VALID_POSE = 1 << 1
 LOG_VALID_SETPOINT = 1 << 2
@@ -19,6 +20,7 @@ LOG_VALID_WHEEL_MEASUREMENT = 1 << 4
 LOG_VALID_MOTOR = 1 << 5
 LOG_VALID_TRACKING_ERROR = 1 << 6
 LOG_VALID_IMU = 1 << 7
+LOG_VALID_MOCAP = 1 << 9
 
 
 def format_value(value):
@@ -33,7 +35,7 @@ def new_csv_row(timestamp_ms):
     return row
 
 
-def map_frame_to_row(frame):
+def map_frame_to_row(frame, version):
     _, timestamp_us, _, valid_mask, *payload = frame
     row = new_csv_row(timestamp_us // 1000)
 
@@ -61,8 +63,13 @@ def map_frame_to_row(frame):
         for column, value in zip((17, 18, 19), payload[16:19]):
             row[column] = format_value(value)
 
+    if version >= 2 and valid_mask & LOG_VALID_MOCAP:
+        for column, value in zip((20, 21, 22), payload[19:22]):
+            row[column] = format_value(value)
+
     if valid_mask & LOG_VALID_IMU:
-        for column, value in zip(range(23, 29), payload[19:25]):
+        imu_offset = 22 if version >= 2 else 19
+        for column, value in zip(range(23, 29), payload[imu_offset : imu_offset + 6]):
             row[column] = format_value(value)
 
     return row
@@ -105,26 +112,27 @@ def decode_file(input_path, output_path=None):
             return False
 
         version, record_size = struct.unpack("<HH", header)
-        if version != FORMAT_VERSION:
+        if version not in RECORD_FORMATS:
             print(f"Error: Unsupported DCLG version {version}.")
             return False
-        if record_size != RECORD_SIZE:
+        expected_size, record_struct = RECORD_FORMATS[version]
+        if record_size != expected_size:
             print(
                 f"Error: Unexpected record size {record_size}; "
-                f"expected {RECORD_SIZE}."
+                f"expected {expected_size}."
             )
             return False
 
-        print("Detected DCLG v1 UnifiedLogFrame format")
+        print(f"Detected DCLG v{version} UnifiedLogFrame format")
         rows = []
         while True:
-            record_bytes = bin_file.read(RECORD_SIZE)
+            record_bytes = bin_file.read(record_size)
             if not record_bytes:
                 break
-            if len(record_bytes) != RECORD_SIZE:
+            if len(record_bytes) != record_size:
                 print("Warning: Trailing partial record ignored")
                 break
-            rows.append(map_frame_to_row(RECORD.unpack(record_bytes)))
+            rows.append(map_frame_to_row(record_struct.unpack(record_bytes), version))
 
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     print(f"Writing CSV data: {output_path}")
