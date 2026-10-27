@@ -55,6 +55,13 @@ test = false
 bench = false
 required-features = ["dual-core"]
 
+[[bin]]
+name = "multicore_entrance"
+path = "src/bin/multicore_entrance.rs"
+test = false
+bench = false
+required-features = ["dual-core"]
+
 
 [dependencies]
 cortex-m = { version = "0.7.6" }
