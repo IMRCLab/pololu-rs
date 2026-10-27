@@ -98,6 +98,7 @@ use super::{
         init_uart_rx_irq,
     },
 };
+use crate::trajectory_reading::Trajectory;
 
 #[cfg(feature = "dual-core")]
 bind_interrupts!(pub struct DualCoreIrqs {
@@ -128,6 +129,7 @@ pub struct Core1Devices {
 
     pub sd_logger: Option<SdLogger>,
     pub robot_config: RobotConfig,
+    pub trajectory: Option<Trajectory>,
 
     pub led: Led,
     pub buzzer: Buzzer,
@@ -257,11 +259,13 @@ pub fn init_core1_devices(
 ) -> Core1Devices {
     /* ---------- UART ---------- */
 
+    defmt::info!("Core 1 init: configuring UART");
     let mut uart_config =
         uart::Config::default();
 
     uart_config.baudrate = 115_200;
 
+    defmt::info!("Core 1 init: constructing UART");
     let uart = Uart::new(
         uart0,
         uart_tx,
@@ -271,13 +275,17 @@ pub fn init_core1_devices(
         uart_dma_rx,
         uart_config,
     );
+    defmt::info!("Core 1 init: UART constructed");
 
     // This function must execute from Core 1 so the UART IRQ is enabled for
     // the core that owns the receive path.
+    defmt::info!("Core 1 init: enabling UART RX IRQ");
     init_uart_rx_irq();
+    defmt::info!("Core 1 init: UART RX IRQ enabled");
 
     /* ---------- I2C / IMU ---------- */
 
+    defmt::info!("Core 1 init: constructing IMU I2C");
     let imu_i2c = I2c::new_async(
         i2c0,
         imu_scl,
@@ -285,10 +293,12 @@ pub fn init_core1_devices(
         DualCoreIrqs,
         i2c::Config::default(),
     );
+    defmt::info!("Core 1 init: IMU I2C constructed");
 
     /* ---------- SD card ---------- */
 
-    let (sd_logger, robot_config) =
+    defmt::info!("Core 1 init: initializing SD card");
+    let (sd_logger, robot_config, trajectory) =
         match init_sd_card(
             spi0,
             sd_clock,
@@ -296,7 +306,7 @@ pub fn init_core1_devices(
             sd_miso,
             sd_chip_select,
         ) {
-            Ok((logger, config)) => {
+            Ok((logger, config, trajectory)) => {
                 defmt::info!(
                     "Core 1 loaded robot configuration from SD"
                 );
@@ -304,6 +314,7 @@ pub fn init_core1_devices(
                 (
                     Some(logger),
                     config,
+                    trajectory,
                 )
             }
 
@@ -315,9 +326,11 @@ pub fn init_core1_devices(
                 (
                     None,
                     RobotConfig::default(),
+                    None,
                 )
             }
         };
+    defmt::info!("Core 1 init: SD card initialization returned");
 
     /* ---------- LED ---------- */
 
@@ -367,6 +380,7 @@ pub fn init_core1_devices(
 
         sd_logger,
         robot_config,
+        trajectory,
 
         led,
         buzzer,

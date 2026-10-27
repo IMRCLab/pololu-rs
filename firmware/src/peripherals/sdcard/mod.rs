@@ -47,6 +47,7 @@ use static_cell::StaticCell;
 pub use config::RobotConfig;
 
 use config::load_robot_config_with_dir;
+use crate::trajectory_reading::Trajectory;
 
 /* ================= Filesystem types ================= */
 
@@ -67,6 +68,7 @@ const MAX_VOLUMES: usize = 1;
 
 /// Robot configuration files are currently much smaller than this.
 const CONFIG_SCRATCH_SIZE: usize = 4096;
+const TRAJECTORY_SCRATCH_SIZE: usize = 24 * 1024;
 
 pub type SdDir = Directory<
     'static,
@@ -133,12 +135,61 @@ static CONFIG_SCRATCH: StaticCell<
     [u8; CONFIG_SCRATCH_SIZE],
 > = StaticCell::new();
 
+static TRAJECTORY_SCRATCH: StaticCell<
+    [u8; TRAJECTORY_SCRATCH_SIZE],
+> = StaticCell::new();
+
 /* ================= Error type ================= */
 
 #[derive(Debug, defmt::Format)]
 pub enum SdError {
     NoCardOrInitFail,
     OpenRoot,
+}
+
+/// Read and parse the onboard trajectory while the caller owns the SD directory.
+pub fn load_trajectory_with_dir(
+    directory: &mut SdDir,
+    scratch: &mut [u8],
+) -> Result<Trajectory, &'static str> {
+    defmt::info!("Entered load_trajectory_with_dir");
+    
+    let short_name = ShortFileName::create_from_str("TRJ0001.JSN")
+        .map_err(|_| "trajectory filename invalid")?;
+
+    let total = {
+        let mut file = directory
+            .open_file_in_dir(&short_name, Mode::ReadOnly)
+            .map_err(|_| "trajectory file open failed")?;
+
+        let file_length = file.length() as usize;
+        if file_length > scratch.len() {
+            return Err("trajectory exceeds scratch buffer");
+        }
+
+        let mut total = 0;
+        let mut chunk = [0; 512];
+
+        loop {
+            let count = file
+                .read(&mut chunk)
+                .map_err(|_| "trajectory file read failed")?;
+            if count == 0 {
+                break;
+            }
+
+            if total + count > scratch.len() {
+                return Err("trajectory exceeds scratch buffer");
+            }
+
+            scratch[total..total + count]
+                .copy_from_slice(&chunk[..count]);
+            total += count;
+        }
+
+        total
+    };
+    Trajectory::from_json(&scratch[..total])
 }
 
 /* ================= Buffered logger ================= */
@@ -340,11 +391,11 @@ pub fn init_sd_card(
     mosi_pin: Peri<'static, PIN_19>,
     miso_pin: Peri<'static, PIN_20>,
     chip_select_pin: Peri<'static, PIN_21>,
-) -> Result<(SdLogger, RobotConfig), SdError> {
+) -> Result<(SdLogger, RobotConfig, Option<Trajectory>), SdError> {
     // SD cards must be initialized at no more than 400 kHz.
     let mut slow_config =
         spi::Config::default();
-
+    defmt::info!("Initializing SD card at 400 kHz");
     slow_config.frequency = 400_000;
 
     let spi = Spi::new_blocking(
@@ -423,15 +474,38 @@ pub fn init_sd_card(
 
     let root_directory =
         ROOT_DIRECTORY.init(root_directory);
-
-    let scratch = CONFIG_SCRATCH.init(
-        [0u8; CONFIG_SCRATCH_SIZE],
-    );
-
+    defmt::info!("Initializing config scratch");
+    
+    let config_scratch =
+        CONFIG_SCRATCH.init_with(|| [0u8; CONFIG_SCRATCH_SIZE]);
     let config = load_robot_config_with_dir(
         root_directory,
-        scratch,
+        config_scratch,
     );
+    // TODO hangs here, investigate stack size issues
+    defmt::info!("Entering load_trajectory_with_dir");
+    
+    let traj_scratch =
+    TRAJECTORY_SCRATCH.init_with(|| [0; TRAJECTORY_SCRATCH_SIZE]);
+    
+    let trajectory = None;
+    // let trajectory = match load_trajectory_with_dir(root_directory, traj_scratch) {
+    //     Ok(trajectory) => {
+    //         defmt::info!(
+    //             "Core 1 loaded onboard trajectory: states={}, actions={}",
+    //             trajectory.states.len(),
+    //             trajectory.actions.len(),
+    //         );
+    //         Some(trajectory)
+    //     }
+    //     Err(error) => {
+    //         defmt::warn!(
+    //             "Core 1 could not load onboard trajectory: {}",
+    //             error,
+    //         );
+    //         None
+    //     }
+    // };
 
     defmt::info!(
         "Core 1 SD card initialized"
@@ -445,5 +519,6 @@ pub fn init_sd_card(
             write_length: 0,
         },
         config,
+        trajectory,
     ))
 }

@@ -5,15 +5,9 @@ use embassy_time::{Duration, Instant, Ticker};
 use crate::{
     dual_core::{
         logging::{
-            LOG_VALID_COMMAND, LOG_VALID_IMU, LOG_VALID_MOTOR, LOG_VALID_TIMING,
-            LOG_VALID_WHEEL_MEASUREMENT, LOG_VALID_WHEEL_TARGET, LogFramePublisher,
-            UnifiedLogFrame,
-        },
-        messages::RuntimeMode,
-        shared_state::{active_mode, latest_imu_sample, latest_teleop_command, try_receive_parameter_update,},
-        metrics::record_control_tick,
-    },
-    peripherals::{
+            LOG_VALID_COMMAND, LOG_VALID_IMU, LOG_VALID_MOCAP, LOG_VALID_MOTOR, LOG_VALID_POSE, LOG_VALID_SETPOINT, LOG_VALID_TIMING, LOG_VALID_TRACKING_ERROR, LOG_VALID_WHEEL_MEASUREMENT, LOG_VALID_WHEEL_TARGET, LogFramePublisher, UnifiedLogFrame,
+        }, messages::RuntimeMode, metrics::record_control_tick, shared_state::{active_mode, clear_trajectory_output, latest_imu_sample, latest_teleop_command, latest_traj_command, latest_trajectory_output, try_receive_parameter_update,},
+    }, peripherals::{
         encoder::{EncoderCounters, read_counts, sample_wheel_speed},
         motor::MotorController,
         sdcard::RobotConfig,
@@ -181,12 +175,12 @@ fn resolve_mode_reference(
         RuntimeMode::TeleOp | RuntimeMode::CtrlAction => {
             resolve_reference(mode, latest_teleop_command(), now_us, config)
         }
-
-        // Trajectory controllers will be connected here later.
-        RuntimeMode::TrajMocap
-        | RuntimeMode::TrajOnboard
-        | RuntimeMode::TrajOnboard2
-        | RuntimeMode::Menu => ControlReference::ZERO,
+        RuntimeMode::TrajMocap | RuntimeMode::TrajOnboard | RuntimeMode::TrajOnboard2 => {
+            latest_traj_command()
+        }
+        RuntimeMode::Menu => {
+            ControlReference::ZERO
+        }
     }
 }
 
@@ -204,6 +198,45 @@ fn fill_imu_log(frame: &mut UnifiedLogFrame, now_us: u64) {
     frame.gyro_x = imu.gyro_x;
     frame.gyro_y = imu.gyro_y;
     frame.gyro_z = imu.gyro_z;
+}
+
+fn fill_mocap_log(frame: &mut UnifiedLogFrame, now_us: u64) {
+    let mocap = crate::dual_core::shared_state::latest_mocap_sample();
+
+    if mocap.stamp_us == 0 || now_us.saturating_sub(mocap.stamp_us) > 100_000 {
+        return;
+    }
+
+    frame.valid_mask |= LOG_VALID_MOCAP;
+    frame.x_raw = mocap.x;
+    frame.y_raw = mocap.y;
+    frame.yaw_raw = mocap.yaw;
+}
+
+fn fill_traj_log(frame: &mut UnifiedLogFrame, now_us: u64) {
+    let traj = latest_trajectory_output();
+
+    if !traj.valid || now_us.saturating_sub(traj.stamp_us) > 100_000 {
+        return;
+    }
+
+    frame.valid_mask |= LOG_VALID_POSE | LOG_VALID_SETPOINT | LOG_VALID_TRACKING_ERROR;
+    frame.x = traj.x;
+    frame.y = traj.y;
+    frame.yaw = traj.yaw;
+
+    frame.x_des = traj.x_des;
+    frame.y_des = traj.y_des;
+    frame.yaw_des = traj.yaw_des;
+
+    frame.v_ff = traj.v_ff;
+    frame.omega_ff = traj.omega_ff;
+    
+    frame.x_error = traj.x_error;
+    frame.y_error = traj.y_error;
+    frame.yaw_error = traj.yaw_error;
+
+    clear_trajectory_output();
 }
 
 /// Shared high-frequency wheel-speed inner loop.
@@ -289,11 +322,12 @@ pub async fn core0_control_task(
         frame.control_misses = control_misses;
 
         fill_imu_log(&mut frame, now_us);
-
+        fill_mocap_log(&mut frame, now_us);
         log_elapsed_us = log_elapsed_us.saturating_add(period_us);
-
+        
         if log_elapsed_us >= LOG_PERIOD_US {
             log_elapsed_us -= LOG_PERIOD_US;
+            fill_traj_log(&mut frame, now_us);
             let _ = log_publisher.try_publish(frame, now_us);
         }
     }

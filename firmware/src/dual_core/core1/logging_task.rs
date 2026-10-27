@@ -21,7 +21,7 @@ use crate::{
 const DUAL_CORE_LOG_MAGIC: &[u8; 4] = b"DCLG";
 
 /// Binary schema version.
-const DUAL_CORE_LOG_VERSION: u16 = 1;
+const DUAL_CORE_LOG_VERSION: u16 = 2;
 
 /// Current serialized `UnifiedLogFrame` size:
 ///
@@ -29,11 +29,11 @@ const DUAL_CORE_LOG_VERSION: u16 = 1;
 /// timestamp:      8
 /// mode:           1
 /// valid mask:     4
-/// 25 f32 fields: 100
+/// 28 f32 fields: 112
 /// 3 u32 fields:  12
 ///
-/// Total:         129 bytes
-const DUAL_CORE_RECORD_SIZE: u16 = 129;
+/// Total:         141 bytes
+const DUAL_CORE_RECORD_SIZE: u16 = 141;
 
 /// At 50 Hz, flush approximately every five seconds.
 ///

@@ -14,13 +14,16 @@ use embassy_sync::{
         Channel,
         TryReceiveError,
         TrySendError,
-    }
+    },
+    signal::Signal,
 };
 use portable_atomic::{
     AtomicBool,
     AtomicU8,
     Ordering,
 };
+
+use crate::dual_core::core0::teleop::ControlReference;
 
 use super::messages::{
     ControlCommand,
@@ -34,9 +37,15 @@ use super::messages::{
 static ACTIVE_MODE: AtomicU8 =
     AtomicU8::new(RuntimeMode::Menu as u8);
 
+static TRAJECTORY_STATE_CHANGED: Signal<
+    CriticalSectionRawMutex,
+    (),
+> = Signal::new();
+
 /// Called by the Core 0 orchestrator after completing a safe mode transition.
 pub fn set_active_mode(mode: RuntimeMode) {
     ACTIVE_MODE.store(mode.as_u8(), Ordering::Release);
+    TRAJECTORY_STATE_CHANGED.signal(());
 }
 
 /// Can be read by tasks on either core.
@@ -93,6 +102,18 @@ impl MocapSample {
     };
 }
 
+struct MocapMailbox {
+    sample: MocapSample,
+    fresh: bool,
+}
+
+impl MocapMailbox {
+    const EMPTY: Self = Self {
+        sample: MocapSample::ZERO,
+        fresh: false,
+    };
+}
+
 #[derive(Clone, Copy)]
 pub struct ImuSample {
     pub acc_x: f32,
@@ -129,6 +150,71 @@ impl ImuSample {
     };
 }
 
+#[derive(Clone, Copy)]
+pub struct OdometrySample {
+    pub v: f32,
+    pub omega: f32,
+    pub stamp_us: u64,
+}
+
+impl OdometrySample {
+    pub const ZERO: Self = Self {
+        v: 0.0,
+        omega: 0.0,
+        stamp_us: 0,
+    };
+}
+
+#[derive(Clone, Copy)]
+pub struct TrajectoryOutput {
+    pub stamp_us: u64,
+    pub valid: bool,
+
+    // Estimated/current pose
+    pub x: f32,
+    pub y: f32,
+    pub yaw: f32,
+
+    // Trajectory reference
+    pub x_des: f32,
+    pub y_des: f32,
+    pub yaw_des: f32,
+
+    // Feedforward
+    pub v_ff: f32,
+    pub omega_ff: f32,
+
+    // Tracking error
+    pub x_error: f32,
+    pub y_error: f32,
+    pub yaw_error: f32,
+}
+
+impl TrajectoryOutput {
+    pub const ZERO: Self = Self {
+        stamp_us: 0,
+        valid: false,
+
+        x: 0.0,
+        y: 0.0,
+        yaw: 0.0,
+
+        // Trajectory reference
+        x_des: 0.0,
+        y_des: 0.0,
+        yaw_des: 0.0,
+
+        // Feedforward
+        v_ff: 0.0,
+        omega_ff: 0.0,
+
+        // Tracking error
+        x_error: 0.0,
+        y_error: 0.0,
+        yaw_error: 0.0,
+    };
+}
+
 static TELEOP_COMMAND: BlockingMutex<
     CriticalSectionRawMutex,
     RefCell<TeleopCommand>,
@@ -136,11 +222,18 @@ static TELEOP_COMMAND: BlockingMutex<
     RefCell::new(TeleopCommand::ZERO)
 );
 
+static TRAJ_COMMAND: BlockingMutex<
+    CriticalSectionRawMutex,
+    RefCell<ControlReference>,
+> = BlockingMutex::new(
+    RefCell::new(ControlReference::ZERO)
+);
+
 static MOCAP_SAMPLE: BlockingMutex<
     CriticalSectionRawMutex,
-    RefCell<MocapSample>,
+    RefCell<MocapMailbox>,
 > = BlockingMutex::new(
-    RefCell::new(MocapSample::ZERO)
+    RefCell::new(MocapMailbox::EMPTY)
 );
 
 static IMU_SAMPLE: BlockingMutex<
@@ -148,6 +241,20 @@ static IMU_SAMPLE: BlockingMutex<
     RefCell<ImuSample>,
 > = BlockingMutex::new(
     RefCell::new(ImuSample::ZERO)
+);
+
+static ODOMETRY_SAMPLE: BlockingMutex<
+    CriticalSectionRawMutex,
+    RefCell<OdometrySample>,
+> = BlockingMutex::new(
+    RefCell::new(OdometrySample::ZERO)
+);
+
+static TRAJECTORY_OUTPUT: BlockingMutex<
+    CriticalSectionRawMutex,
+    RefCell<TrajectoryOutput>,
+> = BlockingMutex::new(
+    RefCell::new(TrajectoryOutput::ZERO)
 );
 
 /* ================= Mailbox access ================= */
@@ -168,20 +275,52 @@ pub fn clear_teleop_command() {
     publish_teleop_command(TeleopCommand::ZERO);
 }
 
+pub fn publish_traj_command(command: ControlReference) {
+    TRAJ_COMMAND.lock(|slot| {
+        *slot.borrow_mut() = command;
+    });
+}
+
+pub fn latest_traj_command() -> ControlReference {
+    TRAJ_COMMAND.lock(|slot| {
+        *slot.borrow()
+    })
+}
+
+pub fn clear_traj_command() {
+    publish_traj_command(ControlReference::ZERO);
+}
+
 pub fn publish_mocap_sample(sample: MocapSample) {
     MOCAP_SAMPLE.lock(|slot| {
-        *slot.borrow_mut() = sample;
+        let mut mailbox = slot.borrow_mut();
+        mailbox.sample = sample;
+        mailbox.fresh = true;
     });
 }
 
 pub fn latest_mocap_sample() -> MocapSample {
     MOCAP_SAMPLE.lock(|slot| {
-        *slot.borrow()
+        slot.borrow().sample
+    })
+}
+
+pub fn take_fresh_mocap_sample() -> Option<MocapSample> {
+    MOCAP_SAMPLE.lock(|slot| {
+        let mut mailbox = slot.borrow_mut();
+        if mailbox.fresh {
+            mailbox.fresh = false;
+            Some(mailbox.sample)
+        } else {
+            None
+        }
     })
 }
 
 pub fn clear_mocap_sample() {
-    publish_mocap_sample(MocapSample::ZERO);
+    MOCAP_SAMPLE.lock(|slot| {
+        *slot.borrow_mut() = MocapMailbox::EMPTY;
+    });
 }
 
 pub fn publish_imu_sample(sample: ImuSample) {
@@ -198,6 +337,36 @@ pub fn latest_imu_sample() -> ImuSample {
 
 pub fn clear_imu_sample() {
     publish_imu_sample(ImuSample::ZERO);
+}
+
+/// Published by the Core 0 wheel controller for trajectory-state estimation.
+pub fn publish_odometry_sample(sample: OdometrySample) {
+    ODOMETRY_SAMPLE.lock(|slot| {
+        *slot.borrow_mut() = sample;
+    });
+}
+
+pub fn latest_odometry_sample() -> OdometrySample {
+    ODOMETRY_SAMPLE.lock(|slot| {
+        *slot.borrow()
+    })
+}
+
+/// Published by the Core 0 trajectory task and consumed by the motor/logging loop.
+pub fn publish_trajectory_output(output: TrajectoryOutput) {
+    TRAJECTORY_OUTPUT.lock(|slot| {
+        *slot.borrow_mut() = output;
+    });
+}
+
+pub fn latest_trajectory_output() -> TrajectoryOutput {
+    TRAJECTORY_OUTPUT.lock(|slot| {
+        *slot.borrow()
+    })
+}
+
+pub fn clear_trajectory_output() {
+    publish_trajectory_output(TrajectoryOutput::ZERO);
 }
 
 /* ================= Reliable command channels ================= */
@@ -325,10 +494,15 @@ static TRAJECTORY_RUNNING: AtomicBool = AtomicBool::new(false);
 
 pub fn set_trajectory_running(running: bool) {
     TRAJECTORY_RUNNING.store(running, Ordering::Release);
+    TRAJECTORY_STATE_CHANGED.signal(());
 }
 
 pub fn trajectory_running() -> bool {
     TRAJECTORY_RUNNING.load(Ordering::Acquire)
+}
+
+pub async fn wait_trajectory_state_changed() {
+    TRAJECTORY_STATE_CHANGED.wait().await;
 }
 
 
@@ -341,6 +515,8 @@ pub fn trajectory_running() -> bool {
 /// forced to zero.
 pub fn clear_mode_inputs() {
     clear_teleop_command();
+    clear_traj_command();
     clear_mocap_sample();
+    clear_trajectory_output();
     set_trajectory_running(false);
 }

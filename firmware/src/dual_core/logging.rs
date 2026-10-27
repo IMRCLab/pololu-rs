@@ -51,6 +51,9 @@ pub const LOG_VALID_IMU: u32 = 1 << 7;
 /// Timing fields contain valid data.
 pub const LOG_VALID_TIMING: u32 = 1 << 8;
 
+/// Raw mocap fields contain a recent sample.
+pub const LOG_VALID_MOCAP: u32 = 1 << 9;
+
 /* ================= Unified schema ================= */
 
 #[derive(Clone, Copy)]
@@ -104,6 +107,11 @@ pub struct UnifiedLogFrame {
     pub y_error: f32,
     pub yaw_error: f32,
 
+    // Mocap
+    pub x_raw: f32,
+    pub y_raw: f32,
+    pub yaw_raw: f32,
+
     // IMU
     pub acc_x: f32,
     pub acc_y: f32,
@@ -151,6 +159,10 @@ impl UnifiedLogFrame {
         x_error: 0.0,
         y_error: 0.0,
         yaw_error: 0.0,
+
+        x_raw: 0.0,
+        y_raw: 0.0,
+        yaw_raw: 0.0,
 
         acc_x: 0.0,
         acc_y: 0.0,
@@ -222,6 +234,10 @@ impl UnifiedLogFrame {
             self.x_error,
             self.y_error,
             self.yaw_error,
+
+            self.x_raw,
+            self.y_raw,
+            self.yaw_raw,
 
             self.acc_x,
             self.acc_y,
