@@ -66,9 +66,9 @@ const MAX_DIRS: usize = 4;
 const MAX_FILES: usize = 4;
 const MAX_VOLUMES: usize = 1;
 
-/// Robot configuration files are currently much smaller than this.
-const CONFIG_SCRATCH_SIZE: usize = 4096;
-const TRAJECTORY_SCRATCH_SIZE: usize = 24 * 1024;
+/// Robot configuration files are currently ~500 bytes
+const CONFIG_SCRATCH_SIZE: usize = 1024;
+const TRAJECTORY_SCRATCH_SIZE: usize = 48 * 1024;
 
 pub type SdDir = Directory<
     'static,
@@ -177,10 +177,11 @@ pub fn load_trajectory_with_dir(
             if count == 0 {
                 break;
             }
-
+            
             if total + count > scratch.len() {
                 return Err("trajectory exceeds scratch buffer");
             }
+            defmt::info!("Read {} bytes from trajectory file", total);
 
             scratch[total..total + count]
                 .copy_from_slice(&chunk[..count]);
@@ -189,7 +190,7 @@ pub fn load_trajectory_with_dir(
 
         total
     };
-    Trajectory::from_json(&scratch[..total])
+    crate::dual_core::trajectory_reading::from_json(&scratch[..total])
 }
 
 /* ================= Buffered logger ================= */
@@ -486,26 +487,26 @@ pub fn init_sd_card(
     defmt::info!("Entering load_trajectory_with_dir");
     
     let traj_scratch =
-    TRAJECTORY_SCRATCH.init_with(|| [0; TRAJECTORY_SCRATCH_SIZE]);
+    TRAJECTORY_SCRATCH.init_with(|| [0u8; TRAJECTORY_SCRATCH_SIZE]);
     
-    let trajectory = None;
-    // let trajectory = match load_trajectory_with_dir(root_directory, traj_scratch) {
-    //     Ok(trajectory) => {
-    //         defmt::info!(
-    //             "Core 1 loaded onboard trajectory: states={}, actions={}",
-    //             trajectory.states.len(),
-    //             trajectory.actions.len(),
-    //         );
-    //         Some(trajectory)
-    //     }
-    //     Err(error) => {
-    //         defmt::warn!(
-    //             "Core 1 could not load onboard trajectory: {}",
-    //             error,
-    //         );
-    //         None
-    //     }
-    // };
+    // let trajectory = None;
+    let trajectory = match load_trajectory_with_dir(root_directory, traj_scratch) {
+        Ok(trajectory) => {
+            defmt::info!(
+                "Core 1 loaded onboard trajectory: states={}, actions={}",
+                trajectory.states.len(),
+                trajectory.actions.len(),
+            );
+            Some(trajectory)
+        }
+        Err(error) => {
+            defmt::warn!(
+                "Core 1 could not load onboard trajectory: {}",
+                error,
+            );
+            None
+        }
+    };
 
     defmt::info!(
         "Core 1 SD card initialized"

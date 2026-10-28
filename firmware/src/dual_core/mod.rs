@@ -10,3 +10,4 @@ pub mod messages;
 pub mod metrics;
 pub mod orchestrator;
 pub mod shared_state;
+pub mod trajectory_reading;

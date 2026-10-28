@@ -40,8 +40,8 @@ use pololu3pi2040_rs::{
     },
     trajectory_reading::Trajectory,
 };
-
-static CORE1_STACK: StaticCell<Stack<65536>> = StaticCell::new();
+const STACK_SIZE: usize = 64 * 1024;
+static CORE1_STACK: StaticCell<Stack<STACK_SIZE>> = StaticCell::new();
 static CORE1_EXECUTOR: StaticCell<Executor> = StaticCell::new();
 
 static CONFIG_CHANNEL:
