@@ -5,6 +5,7 @@
 //! Core 1 logging task.
 
 mod config;
+mod trajectory_reading;
 
 use embassy_rp::{
     Peri,
@@ -47,6 +48,7 @@ use static_cell::StaticCell;
 pub use config::RobotConfig;
 
 use config::load_robot_config_with_dir;
+
 use crate::trajectory_reading::Trajectory;
 
 /* ================= Filesystem types ================= */
@@ -190,7 +192,7 @@ pub fn load_trajectory_with_dir(
 
         total
     };
-    crate::dual_core::trajectory_reading::from_json(&scratch[..total])
+    trajectory_reading::from_json(&scratch[..total])
 }
 
 /* ================= Buffered logger ================= */

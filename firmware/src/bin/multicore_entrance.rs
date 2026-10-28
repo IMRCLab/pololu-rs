@@ -12,7 +12,6 @@ use embassy_sync::{
     blocking_mutex::raw::CriticalSectionRawMutex,
     channel::Channel,
 };
-use serde::de;
 use static_cell::StaticCell;
 
 use pololu3pi2040_rs::{

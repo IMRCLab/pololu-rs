@@ -1,23 +1,13 @@
 use crate::dual_core::core0::teleop::{ControlReference, WheelTarget};
 use crate::dual_core::messages::RuntimeMode;
-use crate::dual_core::logging::{
-    LOG_VALID_POSE, LOG_VALID_SETPOINT, LOG_VALID_TRACKING_ERROR, LOG_VALID_WHEEL_TARGET,
-    LogFramePublisher, UnifiedLogFrame,
-};
 use crate::dual_core::shared_state::{
     TrajectoryOutput, active_mode, latest_odometry_sample, publish_traj_command, publish_trajectory_output, set_trajectory_running, take_fresh_mocap_sample, trajectory_running, wait_trajectory_state_changed,
 };
 use crate::math::SO2;
-use crate::orchestrator_signal::{STOP_TRAJ_OUTER_SIG, TRAJ_PAUSE_SIG, TRAJ_RESUME_SIG, STOP_ALL};
 use embassy_futures::select::{Either, select};
 use embassy_time::{Duration, Instant, Ticker};
-use portable_atomic::Ordering;
 
-use crate::led::led_set;
 use crate::read_robot_config_from_sd::RobotConfig;
-use crate::robotstate::{
-    TRAJECTORY_CONTROL_EVENT, WHEEL_CMD_CH, WheelCmd,
-};
 use crate::robotstate;
 
 use super::setpoint::{trajectory, SetpointFinder};
